@@ -1,0 +1,128 @@
+package routes
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/yourorg/querybase/internal/api/handlers"
+	"github.com/yourorg/querybase/internal/api/middleware"
+	"github.com/yourorg/querybase/internal/auth"
+)
+
+// SetupRoutes configures all API routes
+func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHandler *handlers.QueryHandler, approvalHandler *handlers.ApprovalHandler, dataSourceHandler *handlers.DataSourceHandler, groupHandler *handlers.GroupHandler, jwtManager *auth.JWTManager) {
+	api := router.Group("/api/v1")
+	{
+		// Public routes
+		auth := api.Group("/auth")
+		{
+			auth.POST("/login", authHandler.Login)
+		}
+
+		// Protected routes
+		protected := api.Group("")
+		protected.Use(middleware.AuthMiddleware(jwtManager))
+		{
+			// User routes
+			auth := protected.Group("/auth")
+			{
+				auth.GET("/me", authHandler.GetMe)
+				auth.POST("/change-password", authHandler.ChangePassword)
+			}
+
+			// Admin routes
+			admin := protected.Group("")
+			admin.Use(middleware.RequireAdmin())
+			{
+				auth.POST("/users", authHandler.CreateUser)
+				auth.GET("/users", authHandler.ListUsers)
+				auth.GET("/users/:id", authHandler.GetUser)
+				auth.PUT("/users/:id", authHandler.UpdateUser)
+				auth.DELETE("/users/:id", authHandler.DeleteUser)
+
+				// Group routes
+				groups := admin.Group("/groups")
+				{
+					groups.POST("", groupHandler.CreateGroup)
+					groups.GET("", groupHandler.ListGroups)
+					groups.GET("/:id", groupHandler.GetGroup)
+					groups.PUT("/:id", groupHandler.UpdateGroup)
+					groups.DELETE("/:id", groupHandler.DeleteGroup)
+					groups.POST("/:id/users", groupHandler.AddUserToGroup)
+					groups.DELETE("/:id/users", groupHandler.RemoveUserFromGroup)
+					groups.GET("/:id/users", groupHandler.ListGroupUsers)
+				}
+			}
+
+			// Query routes
+			queries := protected.Group("/queries")
+			{
+				queries.POST("", queryHandler.ExecuteQuery)
+				queries.POST("/save", queryHandler.SaveQuery)
+				queries.GET("", queryHandler.ListQueries)
+				queries.GET("/:id", queryHandler.GetQuery)
+				queries.DELETE("/:id", queryHandler.DeleteQuery)
+
+				// Query history routes
+				queries.GET("/history", queryHandler.ListQueryHistory)
+
+				// Query analysis routes
+				queries.POST("/explain", queryHandler.ExplainQuery)
+				queries.POST("/dry-run", queryHandler.DryRunDelete)
+			}
+
+			// Approval routes
+			approvals := protected.Group("/approvals")
+			{
+				approvals.GET("", approvalHandler.ListApprovals)
+				approvals.GET("/:id", approvalHandler.GetApproval)
+				approvals.POST("/:id/review", approvalHandler.ReviewApproval)
+				approvals.POST("/:id/transaction-start", approvalHandler.StartTransaction)
+			}
+
+			// Transaction routes
+			transactions := protected.Group("/transactions")
+			{
+				transactions.POST("/:id/commit", approvalHandler.CommitTransaction)
+				transactions.POST("/:id/rollback", approvalHandler.RollbackTransaction)
+				transactions.GET("/:id", approvalHandler.GetTransactionStatus)
+			}
+
+			// Query validation route
+			protected.POST("/queries/validate", approvalHandler.ValidateQuery)
+
+			// Data source routes
+			datasources := protected.Group("/datasources")
+			{
+				datasources.GET("", dataSourceHandler.ListDataSources)
+				datasources.GET("/:id", dataSourceHandler.GetDataSource)
+				datasources.GET("/:id/permissions", dataSourceHandler.GetPermissions)
+				datasources.POST("/:id/test", dataSourceHandler.TestConnection)
+				datasources.GET("/:id/approvers", approvalHandler.GetEligibleApprovers)
+			}
+
+			// Admin only data source routes
+			admin = protected.Group("")
+			admin.Use(middleware.RequireAdmin())
+			{
+				adminDatasources := admin.Group("/datasources")
+				{
+					adminDatasources.POST("", dataSourceHandler.CreateDataSource)
+					adminDatasources.PUT("/:id", dataSourceHandler.UpdateDataSource)
+					adminDatasources.DELETE("/:id", dataSourceHandler.DeleteDataSource)
+					adminDatasources.PUT("/:id/permissions", dataSourceHandler.SetPermissions)
+				}
+			}
+
+			// // Data source routes (to be implemented)
+			// datasources := protected.Group("/datasources")
+			// {
+			//     datasources.GET("", datasourceHandler.ListDataSources)
+			//     datasources.POST("", datasourceHandler.CreateDataSource)
+			//     datasources.GET("/:id", datasourceHandler.GetDataSource)
+			//     datasources.PUT("/:id", datasourceHandler.UpdateDataSource)
+			//     datasources.DELETE("/:id", datasourceHandler.DeleteDataSource)
+			//     datasources.POST("/:id/test", datasourceHandler.TestConnection)
+			//     datasources.PUT("/:id/permissions", datasourceHandler.SetPermissions)
+			// }
+		}
+	}
+}

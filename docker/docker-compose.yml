@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: querybase-postgres
+    environment:
+      POSTGRES_USER: querybase
+      POSTGRES_PASSWORD: querybase
+      POSTGRES_DB: querybase
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U querybase"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - querybase-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: querybase-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - querybase-network
+
+  # API Server (when Go is available)
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.api
+  #   container_name: querybase-api
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_HOST: postgres
+  #     DATABASE_PORT: 5432
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #   networks:
+  #     - querybase-network
+  #   volumes:
+  #     - ./config:/app/config
+
+  # Background Worker (when Go is available)
+  # worker:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.worker
+  #   container_name: querybase-worker
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_HOST: postgres
+  #     DATABASE_PORT: 5432
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #   networks:
+  #     - querybase-network
+  #   volumes:
+  #     - ./config:/app/config
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  querybase-network:
+    driver: bridge

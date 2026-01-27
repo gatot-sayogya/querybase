@@ -1,0 +1,24 @@
+server:
+  port: 8080
+  mode: debug  # debug, release
+  read_timeout: 30s
+  write_timeout: 30s
+
+database:
+  host: localhost
+  port: 5432
+  user: querybase
+  password: querybase
+  name: querybase
+  sslmode: disable
+
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+
+jwt:
+  secret: change-this-secret-in-production
+  expire_hours: 24h
+  issuer: querybase
