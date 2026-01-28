@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
-    await page.goto('/');
+    await page.goto('/login');
     await page.waitForLoadState('networkidle');
     await page.fill('input[name="username"]', 'admin');
     await page.fill('input[name="password"]', 'admin123');
@@ -32,7 +32,8 @@ test.describe('Dashboard', () => {
 
   test('should display user info in navigation', async ({ page }) => {
     await page.waitForTimeout(1000);
-    await expect(page.locator('text=admin')).toBeVisible();
+    // Use more specific selector - look for the <strong> tag with admin username
+    await expect(page.locator('strong:has-text("admin")')).toBeVisible();
   });
 
   test('should logout successfully', async ({ page }) => {

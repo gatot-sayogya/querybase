@@ -53,6 +53,7 @@ export interface CreateDataSourceRequest {
 export interface Query {
   id: string;
   data_source_id: string;
+  data_source_name?: string;
   query_text: string;
   name?: string;
   description?: string;
@@ -100,14 +101,17 @@ export interface PaginatedResults {
 // Approval Types
 export interface ApprovalRequest {
   id: string;
-  query_id: string;
+  query_id?: string;
   requester_id: string;
   status: 'pending' | 'approved' | 'rejected';
-  operation_type: string;
+  operation_type: string | null;
   query_text: string;
   data_source_id: string;
+  data_source_name?: string;
+  requester_name?: string;
   created_at: string;
   updated_at: string;
+  reviews?: any[];
 }
 
 export interface ApprovalReview {
@@ -157,4 +161,48 @@ export interface HealthStatus {
   last_error?: string;
   last_checked: string;
   message: string;
+}
+
+// Schema Types
+export interface DatabaseSchema {
+  data_source_id: string;
+  data_source_name: string;
+  database_type: string;
+  database_name: string;
+  tables: TableInfo[];
+  schemas?: string[];
+}
+
+export interface TableInfo {
+  table_name: string;
+  schema: string;
+  columns: SchemaColumnInfo[];
+  indexes?: IndexInfo[];
+}
+
+export interface SchemaColumnInfo {
+  column_name: string;
+  data_type: string;
+  is_nullable: boolean;
+  column_default?: string;
+  is_primary_key: boolean;
+  is_foreign_key: boolean;
+}
+
+export interface IndexInfo {
+  index_name: string;
+  columns: string[];
+  is_unique: boolean;
+  is_primary: boolean;
+}
+
+// WebSocket Types
+export interface WebSocketMessage {
+  type: 'connected' | 'schema' | 'schema_update' | 'subscribed' | 'error';
+  payload?: any;
+}
+
+export interface SchemaUpdatePayload {
+  data_source_id: string;
+  schema: DatabaseSchema;
 }

@@ -232,16 +232,17 @@ func (h *ApprovalHandler) formatApprovalResponse(approval models.ApprovalRequest
 	}
 
 	return gin.H{
-		"id":              approval.ID.String(),
-		"data_source_id":  approval.DataSourceID.String(),
+		"id":               approval.ID.String(),
+		"operation_type":   string(approval.OperationType),
+		"data_source_id":   approval.DataSourceID.String(),
 		"data_source_name": approval.DataSource.Name,
-		"query_text":      approval.QueryText,
-		"requested_by":    approval.RequestedBy.String(),
-		"requester_name":  approval.RequestedByUser.FullName,
-		"status":          string(approval.Status),
-		"created_at":      approval.CreatedAt,
-		"updated_at":      approval.UpdatedAt,
-		"reviews":         reviews,
+		"query_text":       approval.QueryText,
+		"requested_by":     approval.RequestedBy.String(),
+		"requester_name":   approval.RequestedByUser.FullName,
+		"status":           string(approval.Status),
+		"created_at":       approval.CreatedAt,
+		"updated_at":       approval.UpdatedAt,
+		"reviews":          reviews,
 	}
 }
 

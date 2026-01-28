@@ -8,7 +8,7 @@ import (
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHandler *handlers.QueryHandler, approvalHandler *handlers.ApprovalHandler, dataSourceHandler *handlers.DataSourceHandler, groupHandler *handlers.GroupHandler, jwtManager *auth.JWTManager) {
+func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHandler *handlers.QueryHandler, approvalHandler *handlers.ApprovalHandler, dataSourceHandler *handlers.DataSourceHandler, groupHandler *handlers.GroupHandler, schemaHandler *handlers.SchemaHandler, webSocketHandler *handlers.WebSocketHandler, jwtManager *auth.JWTManager) {
 	api := router.Group("/api/v1")
 	{
 		// Public routes
@@ -98,6 +98,15 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 			// Query validation route
 			protected.POST("/queries/validate", approvalHandler.ValidateQuery)
 
+			// Schema routes
+			schemas := protected.Group("/datasources")
+			{
+				schemas.GET("/:id/schema", schemaHandler.GetDatabaseSchema)
+				schemas.GET("/:id/tables", schemaHandler.GetTables)
+				schemas.GET("/:id/table", schemaHandler.GetTableDetails)
+				schemas.GET("/:id/search", schemaHandler.SearchTables)
+			}
+
 			// Data source routes
 			datasources := protected.Group("/datasources")
 			{
@@ -135,4 +144,7 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 			// }
 		}
 	}
+
+	// WebSocket endpoint (no auth required for simplicity, can be added later)
+	router.GET("/ws", webSocketHandler.HandleWebSocket)
 }

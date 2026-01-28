@@ -16,6 +16,7 @@
     "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@monaco-editor/react": "^4.6.0",
     "@tanstack/react-query": "^5.62.7",
     "axios": "^1.7.9",

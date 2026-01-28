@@ -447,6 +447,7 @@ func (h *QueryHandler) ListQueryHistory(c *gin.Context) {
 			"query_id":         entry.QueryID,
 			"user_id":          entry.UserID.String(),
 			"data_source_id":   entry.DataSourceID.String(),
+			"data_source_name": entry.DataSource.Name,
 			"query_text":       entry.QueryText,
 			"operation_type":   string(entry.OperationType),
 			"status":           string(entry.Status),

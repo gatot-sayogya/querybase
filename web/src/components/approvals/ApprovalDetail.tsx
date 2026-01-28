@@ -55,7 +55,10 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
     }
   };
 
-  const getOperationBadgeColor = (operationType: string) => {
+  const getOperationBadgeColor = (operationType: string | null | undefined) => {
+    if (!operationType) {
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+    }
     switch (operationType.toUpperCase()) {
       case 'SELECT':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
@@ -153,7 +156,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
                 approval.operation_type
               )}`}
             >
-              {approval.operation_type.toUpperCase()}
+              {approval.operation_type ? approval.operation_type.toUpperCase() : 'UNKNOWN'}
             </span>
             <span
               className={`px-3 py-1 text-sm font-medium rounded ${getStatusBadgeColor(

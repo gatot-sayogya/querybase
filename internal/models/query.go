@@ -107,6 +107,7 @@ type QueryHistory struct {
 	ExecutionTimeMs *int         `json:"execution_time_ms"`
 	ErrorMessage   string        `json:"error_message"`
 	ExecutedAt     time.Time     `gorm:"default:CURRENT_TIMESTAMP" json:"executed_at"`
+	DataSource     DataSource    `gorm:"foreignKey:DataSourceID" json:"data_source,omitempty"`
 }
 
 // TableName specifies the table name for QueryHistory

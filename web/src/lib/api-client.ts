@@ -14,6 +14,8 @@ import type {
   ChangePasswordRequest,
   HealthStatus,
   CreateDataSourceRequest,
+  DatabaseSchema,
+  TableInfo,
 } from '@/types';
 
 class ApiClient {
@@ -143,8 +145,8 @@ class ApiClient {
 
   // Data Sources
   async getDataSources(): Promise<DataSource[]> {
-    const response = await this.client.get<DataSource[]>('/api/v1/datasources');
-    return response.data;
+    const response = await this.client.get<{ data_sources: DataSource[] }>('/api/v1/datasources');
+    return response.data.data_sources;
   }
 
   async getDataSource(id: string): Promise<DataSource> {
@@ -206,10 +208,13 @@ class ApiClient {
   }
 
   async getQueryHistory(page = 1, limit = 20): Promise<{ queries: Query[]; total: number }> {
-    const response = await this.client.get<{ queries: Query[]; total: number }>(
+    const response = await this.client.get<{ history: Query[]; limit: number; page: number; total: number }>(
       `/api/v1/queries/history?page=${page}&limit=${limit}`
     );
-    return response.data;
+    return {
+      queries: response.data.history,
+      total: response.data.total || response.data.history.length,
+    };
   }
 
   async saveQuery(data: ExecuteQueryRequest): Promise<Query> {
@@ -236,10 +241,10 @@ class ApiClient {
     if (params?.status) queryParams.append('status', params.status);
     if (params?.page) queryParams.append('page', params.page.toString());
 
-    const response = await this.client.get<ApprovalRequest[]>(
+    const response = await this.client.get<{ approvals: ApprovalRequest[] }>(
       `/api/v1/approvals?${queryParams.toString()}`
     );
-    return response.data;
+    return response.data.approvals;
   }
 
   async getApproval(id: string): Promise<ApprovalRequest> {
@@ -253,8 +258,8 @@ class ApiClient {
 
   // Groups
   async getGroups(): Promise<Group[]> {
-    const response = await this.client.get<Group[]>('/api/v1/groups');
-    return response.data;
+    const response = await this.client.get<{ groups: Group[] }>('/api/v1/groups');
+    return response.data.groups;
   }
 
   async getGroup(id: string): Promise<Group> {
@@ -282,6 +287,33 @@ class ApiClient {
 
   async removeUserFromGroup(groupId: string, userId: string): Promise<void> {
     await this.client.delete(`/api/v1/groups/${groupId}/users`, { data: { user_id: userId } });
+  }
+
+  // Schema Inspection
+  async getDatabaseSchema(dataSourceId: string): Promise<DatabaseSchema> {
+    const response = await this.client.get<DatabaseSchema>(`/api/v1/datasources/${dataSourceId}/schema`);
+    return response.data;
+  }
+
+  async getTables(dataSourceId: string): Promise<{ tables: TableInfo[]; total: number }> {
+    const response = await this.client.get<{ tables: TableInfo[]; total: number }>(
+      `/api/v1/datasources/${dataSourceId}/tables`
+    );
+    return response.data;
+  }
+
+  async getTableDetails(dataSourceId: string, tableName: string): Promise<TableInfo> {
+    const response = await this.client.get<TableInfo>(
+      `/api/v1/datasources/${dataSourceId}/table?table=${tableName}`
+    );
+    return response.data;
+  }
+
+  async searchTables(dataSourceId: string, searchTerm: string): Promise<{ tables: TableInfo[]; total: number }> {
+    const response = await this.client.get<{ tables: TableInfo[]; total: number }>(
+      `/api/v1/datasources/${dataSourceId}/search?q=${encodeURIComponent(searchTerm)}`
+    );
+    return response.data;
   }
 }
 

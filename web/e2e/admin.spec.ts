@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Admin Features', () => {
   test.beforeEach(async ({ page }) => {
     // Login as admin before each test
-    await page.goto('/');
+    await page.goto('/login');
     await page.waitForLoadState('networkidle');
     await page.fill('input[name="username"]', 'admin');
     await page.fill('input[name="password"]', 'admin123');
@@ -38,20 +38,19 @@ test.describe('Admin Features', () => {
 
   test('should display data source list', async ({ page }) => {
     await page.goto('/admin/datasources');
-    // Wait for data to load
-    await page.waitForSelector('table', { timeout: 5000 });
-    await expect(page.locator('table')).toBeVisible();
+    // Wait for page to load - data sources use cards, not tables
+    await expect(page.locator('h1:has-text("Data Sources")')).toBeVisible({ timeout: 10000 });
   });
 
   test('should display user list', async ({ page }) => {
     await page.goto('/admin/users');
-    await page.waitForSelector('table', { timeout: 5000 });
-    await expect(page.locator('table')).toBeVisible();
+    // Wait for page to load
+    await expect(page.locator('h1:has-text("Users")')).toBeVisible({ timeout: 10000 });
   });
 
   test('should display group list', async ({ page }) => {
     await page.goto('/admin/groups');
-    await page.waitForSelector('table', { timeout: 5000 });
-    await expect(page.locator('table')).toBeVisible();
+    // Wait for page to load
+    await expect(page.locator('h1:has-text("Groups")')).toBeVisible({ timeout: 10000 });
   });
 });

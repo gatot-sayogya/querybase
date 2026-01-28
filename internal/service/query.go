@@ -664,8 +664,9 @@ func (s *QueryService) ListQueryHistory(ctx context.Context, userID string, limi
 	// Get total count
 	query.Count(&total)
 
-	// Get paginated results
-	err := query.Order("executed_at DESC").
+	// Get paginated results with DataSource preloaded
+	err := query.Preload("DataSource").
+		Order("executed_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&history).Error

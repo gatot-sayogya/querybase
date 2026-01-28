@@ -70,6 +70,11 @@ func main() {
 	queryService := service.NewQueryService(db, cfg.JWT.Secret)
 	approvalService := service.NewApprovalService(db, queryService)
 	dataSourceService := service.NewDataSourceService(db, cfg.JWT.Secret)
+	schemaService := service.NewSchemaService(db, cfg.JWT.Secret)
+
+	// Initialize WebSocket hub
+	wsHub := handlers.NewWebSocketHub()
+	go wsHub.Run()
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(db, jwtManager)
@@ -77,6 +82,8 @@ func main() {
 	approvalHandler := handlers.NewApprovalHandler(db, approvalService)
 	dataSourceHandler := handlers.NewDataSourceHandler(db, dataSourceService)
 	groupHandler := handlers.NewGroupHandler(db)
+	schemaHandler := handlers.NewSchemaHandler(db, schemaService)
+	webSocketHandler := handlers.NewWebSocketHandler(wsHub, schemaService)
 
 	// Set Gin mode
 	gin.SetMode(cfg.Server.Mode)
@@ -110,7 +117,7 @@ func main() {
 	})
 
 	// Setup routes
-	routes.SetupRoutes(router, authHandler, queryHandler, approvalHandler, dataSourceHandler, groupHandler, jwtManager)
+	routes.SetupRoutes(router, authHandler, queryHandler, approvalHandler, dataSourceHandler, groupHandler, schemaHandler, webSocketHandler, jwtManager)
 
 	// Start server
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
