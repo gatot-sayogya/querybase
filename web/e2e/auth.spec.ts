@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Authentication', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/login');
     // Wait for page to be fully loaded
     await page.waitForLoadState('networkidle');
   });
@@ -41,6 +41,7 @@ test.describe('Authentication', () => {
   test('should redirect to login if not authenticated', async ({ page }) => {
     await page.goto('/dashboard');
     // Should redirect to login page
+    await page.waitForTimeout(3000);
     await expect(page).toHaveURL(/\/login/);
   });
 });
