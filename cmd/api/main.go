@@ -88,6 +88,12 @@ func main() {
 	router.Use(middleware.ErrorRecoveryMiddleware())
 	router.Use(middleware.LoggingMiddleware())
 
+	// Add CORS middleware
+	// Use development config for now, change to ProdConfig for production
+	corsConfig := middleware.DefaultConfig()
+	// For development, you can also use: middleware.DevelopmentConfig()
+	router.Use(middleware.CORSMiddleware(corsConfig))
+
 	// Health check endpoint (no auth required)
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
