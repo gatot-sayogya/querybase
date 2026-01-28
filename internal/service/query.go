@@ -171,7 +171,7 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 func (s *QueryService) GetPaginatedResults(ctx context.Context, queryID uuid.UUID, page, perPage int, sortColumn, sortDirection string) ([]map[string]interface{}, []string, *PaginationMeta, error) {
 	// Get the query result from database
 	var result models.QueryResult
-	err := s.db.Where("query_id = ?", queryID).Order("stored_at DESC").First(&result).Error
+	err := s.db.Where("query_id = ?", queryID).Order("cached_at DESC").First(&result).Error
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("query result not found: %w", err)
 	}
@@ -334,7 +334,7 @@ func (s *QueryService) toFloat64(v interface{}) (float64, bool) {
 func (s *QueryService) ExportQuery(ctx context.Context, queryID uuid.UUID, format string) ([]byte, string, error) {
 	// Get the query result from database
 	var result models.QueryResult
-	err := s.db.Where("query_id = ?", queryID).Order("stored_at DESC").First(&result).Error
+	err := s.db.Where("query_id = ?", queryID).Order("cached_at DESC").First(&result).Error
 	if err != nil {
 		return nil, "", fmt.Errorf("query result not found: %w", err)
 	}

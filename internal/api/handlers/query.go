@@ -201,7 +201,7 @@ func (h *QueryHandler) GetQuery(c *gin.Context) {
 
 	// Get latest result
 	var result models.QueryResult
-	h.db.Where("query_id = ?", queryID).Order("stored_at DESC").First(&result)
+	h.db.Where("query_id = ?", queryID).Order("cached_at DESC").First(&result)
 
 	var data []map[string]interface{}
 	if result.Data != "" {

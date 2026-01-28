@@ -84,7 +84,7 @@ type QueryResult struct {
 	ColumnNames string    `gorm:"type:jsonb;not null" json:"column_names"` // JSON string of []string
 	ColumnTypes string    `gorm:"type:jsonb;not null" json:"column_types"` // JSON string of []string
 	RowCount    int       `gorm:"not null" json:"row_count"`
-	StoredAt    time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"stored_at"`
+	StoredAt    time.Time `gorm:"column:cached_at;default:CURRENT_TIMESTAMP" json:"cached_at"`
 	SizeBytes   int       `json:"size_bytes"`
 	Query       Query     `gorm:"foreignKey:QueryID" json:"query,omitempty"`
 }

@@ -1,0 +1,69 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: ./web
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        working-directory: ./web
+        run: npx playwright install --with-deps chromium
+
+      - name: Start services
+        run: |
+          cd docker
+          docker-compose up -d
+          echo "Waiting for services to be ready..."
+          sleep 15
+
+      - name: Run database migrations
+        run: make migrate-up
+
+      - name: Build API
+        run: make build-api
+
+      - name: Start API server
+        run: |
+          ./bin/api-linux-amd64 > /tmp/api.log 2>&1 &
+          echo "Waiting for API to be ready..."
+          sleep 5
+          curl --retry 5 --retry-delay 2 --retry-max-time 30 http://localhost:8080/health
+
+      - name: Run E2E tests
+        working-directory: ./web
+        run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: api-logs
+          path: /tmp/api.log
+
+      - name: Stop services
+        if: always()
+        run: cd docker && docker-compose down
