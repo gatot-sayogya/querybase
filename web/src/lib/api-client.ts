@@ -101,6 +101,46 @@ class ApiClient {
     await this.client.post('/api/v1/auth/change-password', data);
   }
 
+  // User Management (Admin Only)
+  async getUsers(): Promise<User[]> {
+    const response = await this.client.get<User[]>('/api/v1/auth/users');
+    return response.data;
+  }
+
+  async getUser(id: string): Promise<User> {
+    const response = await this.client.get<User>(`/api/v1/auth/users/${id}`);
+    return response.data;
+  }
+
+  async createUser(data: {
+    email: string;
+    username: string;
+    password: string;
+    full_name: string;
+    role: 'admin' | 'user' | 'viewer';
+  }): Promise<User> {
+    const response = await this.client.post<User>('/api/v1/auth/users', data);
+    return response.data;
+  }
+
+  async updateUser(
+    id: string,
+    data: {
+      email?: string;
+      username?: string;
+      full_name?: string;
+      role?: 'admin' | 'user' | 'viewer';
+      is_active?: boolean;
+    }
+  ): Promise<User> {
+    const response = await this.client.put<User>(`/api/v1/auth/users/${id}`, data);
+    return response.data;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await this.client.delete(`/api/v1/auth/users/${id}`);
+  }
+
   // Data Sources
   async getDataSources(): Promise<DataSource[]> {
     const response = await this.client.get<DataSource[]>('/api/v1/datasources');
