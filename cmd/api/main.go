@@ -94,6 +94,13 @@ func main() {
 	// For development, you can also use: middleware.DevelopmentConfig()
 	router.Use(middleware.CORSMiddleware(corsConfig))
 
+	// Add rate limiting middleware
+	// Uses default config: 60 requests/minute, burst of 10
+	// Skips health check and login endpoints
+	// For production, you may want to use stricter limits
+	rateLimitConfig := middleware.DefaultRateLimitConfig()
+	router.Use(middleware.RateLimiterMiddleware(rateLimitConfig))
+
 	// Health check endpoint (no auth required)
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
