@@ -14,10 +14,11 @@ import (
 
 // setupTestDB creates an in-memory SQLite database for testing
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 
 	// Auto-migrate all models
+	// Note: SQLite doesn't support uuid_generate_v4() default, so we'll set IDs explicitly in tests
 	err = db.AutoMigrate(
 		&models.User{},
 		&models.Group{},
