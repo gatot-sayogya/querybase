@@ -167,6 +167,264 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 	return queryResult, nil
 }
 
+// GetPaginatedResults retrieves paginated results for a query
+func (s *QueryService) GetPaginatedResults(ctx context.Context, queryID uuid.UUID, page, perPage int, sortColumn, sortDirection string) ([]map[string]interface{}, []string, *PaginationMeta, error) {
+	// Get the query result from database
+	var result models.QueryResult
+	err := s.db.Where("query_id = ?", queryID).Order("stored_at DESC").First(&result).Error
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("query result not found: %w", err)
+	}
+
+	// Parse the data from JSONB
+	var allRows []map[string]interface{}
+	if err := json.Unmarshal([]byte(result.Data), &allRows); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to parse result data: %w", err)
+	}
+
+	// Parse column names
+	var columnNames []string
+	if err := json.Unmarshal([]byte(result.ColumnNames), &columnNames); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to parse column names: %w", err)
+	}
+
+	// Sort if requested
+	if sortColumn != "" {
+		allRows = s.sortRows(allRows, sortColumn, sortDirection)
+	}
+
+	// Calculate pagination
+	totalRows := len(allRows)
+	totalPages := (totalRows + perPage - 1) / perPage
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	// Ensure page is within bounds
+	if page < 1 {
+		page = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	// Calculate offset and limit
+	offset := (page - 1) * perPage
+	end := offset + perPage
+	if end > totalRows {
+		end = totalRows
+	}
+
+	// Get paginated slice
+	paginatedRows := allRows[offset:end]
+
+	// Build pagination metadata
+	metadata := &PaginationMeta{
+		Page:       page,
+		PerPage:    perPage,
+		TotalPages: totalPages,
+		TotalRows:  totalRows,
+		HasNext:    page < totalPages,
+		HasPrev:    page > 1,
+	}
+
+	return paginatedRows, columnNames, metadata, nil
+}
+
+// PaginationMeta represents pagination metadata
+type PaginationMeta struct {
+	Page       int `json:"page"`
+	PerPage    int `json:"per_page"`
+	TotalPages int `json:"total_pages"`
+	TotalRows  int `json:"total_rows"`
+	HasNext    bool `json:"has_next"`
+	HasPrev    bool `json:"has_prev"`
+}
+
+// sortRows sorts rows by the specified column
+func (s *QueryService) sortRows(rows []map[string]interface{}, column, direction string) []map[string]interface{} {
+	// Create a copy to avoid mutating the original
+	sorted := make([]map[string]interface{}, len(rows))
+	copy(sorted, rows)
+
+	// Simple bubble sort for small datasets (can be optimized with quicksort for larger datasets)
+	n := len(sorted)
+	for i := 0; i < n-1; i++ {
+		for j := 0; j < n-i-1; j++ {
+			val1, ok1 := sorted[j][column]
+			val2, ok2 := sorted[j+1][column]
+
+			// If column doesn't exist in either row, skip comparison
+			if !ok1 || !ok2 {
+				continue
+			}
+
+			// Compare values
+			cmp := s.compareValues(val1, val2)
+			if (direction == "desc" && cmp < 0) || (direction != "desc" && cmp > 0) {
+				sorted[j], sorted[j+1] = sorted[j+1], sorted[j]
+			}
+		}
+	}
+
+	return sorted
+}
+
+// compareValues compares two interface{} values for sorting
+func (s *QueryService) compareValues(a, b interface{}) int {
+	// Handle nil values
+	if a == nil && b == nil {
+		return 0
+	}
+	if a == nil {
+		return -1
+	}
+	if b == nil {
+		return 1
+	}
+
+	// Try to compare as numbers
+	if aFloat, ok := s.toFloat64(a); ok {
+		if bFloat, ok := s.toFloat64(b); ok {
+			if aFloat < bFloat {
+				return -1
+			} else if aFloat > bFloat {
+				return 1
+			}
+			return 0
+		}
+	}
+
+	// Compare as strings
+	aStr := fmt.Sprintf("%v", a)
+	bStr := fmt.Sprintf("%v", b)
+	if aStr < bStr {
+		return -1
+	} else if aStr > bStr {
+		return 1
+	}
+	return 0
+}
+
+// toFloat64 attempts to convert a value to float64
+func (s *QueryService) toFloat64(v interface{}) (float64, bool) {
+	switch val := v.(type) {
+	case int:
+		return float64(val), true
+	case int32:
+		return float64(val), true
+	case int64:
+		return float64(val), true
+	case float32:
+		return float64(val), true
+	case float64:
+		return val, true
+	case string:
+		// Try to parse string as float
+		var f float64
+		_, err := fmt.Sscanf(val, "%f", &f)
+		if err == nil {
+			return f, true
+		}
+	}
+	return 0, false
+}
+
+// ExportQuery exports query results in the specified format (CSV or JSON)
+func (s *QueryService) ExportQuery(ctx context.Context, queryID uuid.UUID, format string) ([]byte, string, error) {
+	// Get the query result from database
+	var result models.QueryResult
+	err := s.db.Where("query_id = ?", queryID).Order("stored_at DESC").First(&result).Error
+	if err != nil {
+		return nil, "", fmt.Errorf("query result not found: %w", err)
+	}
+
+	// Parse the data from JSONB
+	var rows []map[string]interface{}
+	if err := json.Unmarshal([]byte(result.Data), &rows); err != nil {
+		return nil, "", fmt.Errorf("failed to parse result data: %w", err)
+	}
+
+	// Parse column names
+	var columnNames []string
+	if err := json.Unmarshal([]byte(result.ColumnNames), &columnNames); err != nil {
+		return nil, "", fmt.Errorf("failed to parse column names: %w", err)
+	}
+
+	// Export based on format
+	switch format {
+	case "csv":
+		csvData, err := s.exportToCSV(rows, columnNames)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to export to CSV: %w", err)
+		}
+		return csvData, "text/csv", nil
+	case "json":
+		jsonData, err := s.exportToJSON(rows, columnNames)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to export to JSON: %w", err)
+		}
+		return jsonData, "application/json", nil
+	default:
+		return nil, "", fmt.Errorf("unsupported export format: %s", format)
+	}
+}
+
+// exportToCSV converts query results to CSV format
+func (s *QueryService) exportToCSV(rows []map[string]interface{}, columns []string) ([]byte, error) {
+	var csv strings.Builder
+
+	// Write header row
+	for i, col := range columns {
+		if i > 0 {
+			csv.WriteString(",")
+		}
+		// Escape quotes and wrap in quotes
+		escapedCol := strings.ReplaceAll(col, "\"", "\"\"")
+		csv.WriteString("\"")
+		csv.WriteString(escapedCol)
+		csv.WriteString("\"")
+	}
+	csv.WriteString("\n")
+
+	// Write data rows
+	for _, row := range rows {
+		for i, col := range columns {
+			if i > 0 {
+				csv.WriteString(",")
+			}
+			// Get value for this column
+			val := row[col]
+			var strVal string
+			if val == nil {
+				strVal = ""
+			} else {
+				strVal = fmt.Sprintf("%v", val)
+			}
+			// Escape quotes and wrap in quotes
+			escapedVal := strings.ReplaceAll(strVal, "\"", "\"\"")
+			csv.WriteString("\"")
+			csv.WriteString(escapedVal)
+			csv.WriteString("\"")
+		}
+		csv.WriteString("\n")
+	}
+
+	return []byte(csv.String()), nil
+}
+
+// exportToJSON converts query results to JSON format
+func (s *QueryService) exportToJSON(rows []map[string]interface{}, columns []string) ([]byte, error) {
+	// Create a structured JSON output
+	output := map[string]interface{}{
+		"columns":  columns,
+		"row_count": len(rows),
+		"data":     rows,
+	}
+
+	return json.MarshalIndent(output, "", "  ")
+}
+
 // SaveQuery saves a new query
 func (s *QueryService) SaveQuery(ctx context.Context, query *models.Query) error {
 	return s.db.Create(query).Error

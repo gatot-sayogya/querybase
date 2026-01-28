@@ -55,3 +55,22 @@ type SetDataSourcePermissionsRequest struct {
 	CanWrite   bool   `json:"can_write"`
 	CanApprove bool   `json:"can_approve"`
 }
+
+// HealthStatus represents the health status of a data source
+type HealthStatus string
+
+const (
+	HealthStatusHealthy   HealthStatus = "healthy"
+	HealthStatusDegraded  HealthStatus = "degraded"
+	HealthStatusUnhealthy HealthStatus = "unhealthy"
+)
+
+// DataSourceHealthResponse represents a health check response
+type DataSourceHealthResponse struct {
+	DataSourceID string        `json:"data_source_id"`
+	Status       HealthStatus  `json:"status"`
+	LatencyMs    int64         `json:"latency_ms"`
+	LastError    string        `json:"last_error,omitempty"`
+	LastChecked  string        `json:"last_checked"`
+	Message      string        `json:"message"`
+}

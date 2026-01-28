@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -538,4 +539,136 @@ func (h *QueryHandler) DryRunDelete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+// GetQueryResults retrieves paginated query results
+func (h *QueryHandler) GetQueryResults(c *gin.Context) {
+	queryID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	// Verify query exists and user has access
+	var query models.Query
+	if err := h.db.First(&query, "id = ?", queryID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Query not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch query"})
+		}
+		return
+	}
+
+	// Check permission
+	var user models.User
+	if err := h.db.First(&user, "id = ?", userID).Error; err == nil {
+		if user.Role != models.RoleAdmin && query.UserID.String() != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			return
+		}
+	}
+
+	// Parse pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "100"))
+	sortColumn := c.Query("sort_column")
+	sortDirection := c.DefaultQuery("sort_direction", "asc")
+
+	// Validate pagination parameters
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 10 || perPage > 1000 {
+		perPage = 100
+	}
+	if sortDirection != "asc" && sortDirection != "desc" {
+		sortDirection = "asc"
+	}
+
+	// Get paginated results
+	ctx := c.Request.Context()
+	queryUUID, err := uuid.Parse(queryID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query ID"})
+		return
+	}
+
+	rows, columnNames, metadata, err := h.queryService.GetPaginatedResults(ctx, queryUUID, page, perPage, sortColumn, sortDirection)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Build column info
+	columns := make([]dto.ColumnInfo, len(columnNames))
+	for i, col := range columnNames {
+		columns[i] = dto.ColumnInfo{Name: col, Type: "unknown"}
+	}
+
+	c.JSON(http.StatusOK, dto.PaginatedResultDTO{
+		QueryID:       queryID,
+		RowCount:      len(rows),
+		Columns:       columns,
+		Data:          rows,
+		Metadata: dto.PaginationMeta{
+			Page:       metadata.Page,
+			PerPage:    metadata.PerPage,
+			TotalPages: metadata.TotalPages,
+			TotalRows:  metadata.TotalRows,
+			HasNext:    metadata.HasNext,
+			HasPrev:    metadata.HasPrev,
+		},
+		SortColumn:    sortColumn,
+		SortDirection: sortDirection,
+	})
+}
+
+// ExportQuery exports query results in CSV or JSON format
+func (h *QueryHandler) ExportQuery(c *gin.Context) {
+	var req dto.ExportQueryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := c.GetString("user_id")
+
+	// Verify query exists and user has access
+	var query models.Query
+	if err := h.db.First(&query, "id = ?", req.QueryID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Query not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch query"})
+		}
+		return
+	}
+
+	// Check permission
+	var user models.User
+	if err := h.db.First(&user, "id = ?", userID).Error; err == nil {
+		if user.Role != models.RoleAdmin && query.UserID.String() != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			return
+		}
+	}
+
+	// Parse query ID as UUID
+	queryUUID, err := uuid.Parse(req.QueryID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query ID"})
+		return
+	}
+
+	// Export the query results
+	ctx := c.Request.Context()
+	data, contentType, err := h.queryService.ExportQuery(ctx, queryUUID, string(req.Format))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Set headers for file download
+	filename := fmt.Sprintf("query_%s.%s", req.QueryID, req.Format)
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	c.Data(http.StatusOK, contentType, data)
 }

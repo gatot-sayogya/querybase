@@ -466,6 +466,115 @@ func (h *ApprovalHandler) GetTransactionStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// AddComment adds a comment to an approval request
+func (h *ApprovalHandler) AddComment(c *gin.Context) {
+	approvalID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	var req dto.ApprovalCommentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Verify approval exists
+	var approval models.ApprovalRequest
+	if err := h.db.First(&approval, "id = ?", approvalID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Approval not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch approval"})
+		}
+		return
+	}
+
+	// Add comment
+	comment, err := h.approvalService.AddComment(c, approvalID, userID, req.Comment)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, dto.ApprovalCommentResponse{
+		ID:                comment.ID.String(),
+		ApprovalRequestID: comment.ApprovalRequestID.String(),
+		UserID:            comment.UserID.String(),
+		Username:          comment.User.Username,
+		FullName:          comment.User.FullName,
+		Comment:           comment.Comment,
+		CreatedAt:         comment.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:         comment.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	})
+}
+
+// GetComments retrieves comments for an approval request
+func (h *ApprovalHandler) GetComments(c *gin.Context) {
+	approvalID := c.Param("id")
+
+	// Parse pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "50"))
+	if perPage > 100 {
+		perPage = 100
+	}
+
+	// Get comments
+	comments, total, err := h.approvalService.GetComments(c, approvalID, page, perPage)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Format response
+	response := make([]dto.ApprovalCommentResponse, len(comments))
+	for i, comment := range comments {
+		response[i] = dto.ApprovalCommentResponse{
+			ID:                comment.ID.String(),
+			ApprovalRequestID: comment.ApprovalRequestID.String(),
+			UserID:            comment.UserID.String(),
+			Username:          comment.User.Username,
+			FullName:          comment.User.FullName,
+			Comment:           comment.Comment,
+			CreatedAt:         comment.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:         comment.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		}
+	}
+
+	c.JSON(http.StatusOK, dto.ApprovalCommentsListResponse{
+		Comments: response,
+		Total:    total,
+		Page:     page,
+		PerPage:  perPage,
+	})
+}
+
+// DeleteComment deletes a comment
+func (h *ApprovalHandler) DeleteComment(c *gin.Context) {
+	commentID := c.Param("comment_id")
+	userID := c.GetString("user_id")
+
+	// Check if user is admin
+	var user models.User
+	isAdmin := false
+	if err := h.db.First(&user, "id = ?", userID).Error; err == nil {
+		isAdmin = user.Role == models.RoleAdmin
+	}
+
+	// Delete comment
+	if err := h.approvalService.DeleteComment(c, commentID, userID, isAdmin); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Comment not found"})
+		} else if err.Error() == "insufficient permissions to delete this comment" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Comment deleted successfully"})
+}
+
 // convertToColumnInfo converts string column names to ColumnInfo slice
 func convertToColumnInfo(columns []string) []dto.ColumnInfo {
 	result := make([]dto.ColumnInfo, len(columns))

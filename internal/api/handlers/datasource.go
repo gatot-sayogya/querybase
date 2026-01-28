@@ -4,8 +4,10 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/yourorg/querybase/internal/api/dto"
 	"github.com/yourorg/querybase/internal/models"
 	"github.com/yourorg/querybase/internal/service"
 	"gorm.io/gorm"
@@ -302,4 +304,66 @@ func (h *DataSourceHandler) GetPermissions(c *gin.Context) {
 		"permissions": response,
 		"count":       len(response),
 	})
+}
+
+// CheckHealth performs a health check on a data source
+func (h *DataSourceHandler) CheckHealth(c *gin.Context) {
+	dataSourceID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	// Verify data source exists
+	var dataSource models.DataSource
+	if err := h.db.First(&dataSource, "id = ?", dataSourceID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data source not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data source"})
+		}
+		return
+	}
+
+	// Check if user has permission to access this data source
+	if !h.checkReadPermission(userID, dataSourceID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions to access this data source"})
+		return
+	}
+
+	// Perform health check
+	result, err := h.dataSourceService.CheckHealth(c, dataSourceID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.DataSourceHealthResponse{
+		DataSourceID: dataSourceID,
+		Status:       result.Status,
+		LatencyMs:    result.LatencyMs,
+		LastError:    result.Error,
+		LastChecked:  time.Now().Format("2006-01-02T15:04:05Z07:00"),
+		Message:      result.Message,
+	})
+}
+
+// checkReadPermission checks if user has read permission on data source
+func (h *DataSourceHandler) checkReadPermission(userID, dataSourceID string) bool {
+	var user models.User
+	if err := h.db.Preload("Groups").First(&user, "id = ?", userID).Error; err != nil {
+		return false
+	}
+
+	// Admin has all permissions
+	if user.Role == models.RoleAdmin {
+		return true
+	}
+
+	// Check group permissions
+	var count int64
+	h.db.Table("data_source_permissions").
+		Joins("JOIN user_groups ON user_groups.group_id = data_source_permissions.group_id").
+		Where("user_groups.user_id = ? AND data_source_permissions.data_source_id = ?", userID, dataSourceID).
+		Where("data_source_permissions.can_read = ?", true).
+		Count(&count)
+
+	return count > 0
 }

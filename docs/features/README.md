@@ -15,6 +15,18 @@ Comprehensive implementation documentation for:
 - Testing strategies
 - Usage examples
 
+### 2. [Encrypted Frontend-Backend Communication](ENCRYPTED_COMMUNICATION.md) ✨ PLANNED
+**Secure Communication with Validation**
+
+Planned feature for:
+- End-to-end encryption between frontend and backend
+- Request validation middleware
+- HMAC-based integrity checking
+- Replay attack prevention
+- Key management
+
+**Status:** TODO - Planned for Frontend Development Phase
+
 **What's Included:**
 - Feature overview and use cases
 - API reference

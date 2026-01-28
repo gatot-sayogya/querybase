@@ -18,9 +18,10 @@ Complete flow from user submission to query execution, including authentication,
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  Middleware Chain                                    │  │
 │  │  1. CORS Middleware (TODO)                           │  │
-│  │  2. Logging Middleware (TODO)                        │  │
-│  │  3. Auth Middleware (JWT Validation) ✅              │  │
-│  │  4. RBAC Middleware (Role Checks) ✅                 │  │
+│  │  2. Logging Middleware (✅ Implemented)              │  │
+│  │  3. Error Recovery Middleware (✅ Implemented)        │  │
+│  │  4. Auth Middleware (JWT Validation) ✅              │  │
+│  │  5. RBAC Middleware (Role Checks) ✅                 │  │
 │  └──────────────────────────────────────────────────────┘  │
 └────────┬────────────────────────────────────────────────────┘
          │
@@ -488,6 +489,276 @@ Use Cases:
 
 ---
 
+## Additional Features (Backend Polish)
+
+### Feature 3: Query Results Pagination ✨ NEW
+
+```
+GET /api/v1/queries/:id/results?page=1&per_page=100&sort_column=id&sort_direction=asc
+
+Flow:
+1. User requests paginated results for a query
+2. Validate query ownership (admin or query owner)
+3. Fetch QueryResult from database
+4. Parse JSONB data into memory
+5. Sort results if sort_column specified
+   - Numeric sort for int/float columns
+   - String sort for text columns
+   - Nil values sorted first
+6. Paginate with offset/limit
+7. Return paginated response:
+   {
+     "query_id": "uuid",
+     "row_count": 100,
+     "columns": [...],
+     "data": [...],  // Subset of rows
+     "metadata": {
+       "page": 1,
+       "per_page": 100,
+       "total_pages": 10,
+       "total_rows": 1000,
+       "has_next": true,
+       "has_prev": false
+     },
+     "sort_column": "id",
+     "sort_direction": "asc"
+   }
+
+Benefits:
+- Faster response times for large result sets
+- Reduced bandwidth usage
+- Better UI performance
+- Configurable page size (10-1000 rows)
+
+Implementation:
+- Server-side sorting with bubble sort algorithm
+- Client-side friendly metadata (has_next, has_prev)
+- Column-aware sorting (numeric vs string)
+- Nil-safe sorting (nil values first)
+```
+
+### Feature 4: Query Export API ✨ NEW
+
+```
+POST /api/v1/queries/export
+
+Body:
+{
+  "query_id": "uuid",
+  "format": "csv"  // or "json"
+}
+
+Flow:
+1. User requests export in specific format
+2. Validate query ownership
+3. Fetch QueryResult from database
+4. Parse JSONB data
+5. Export based on format:
+
+   CSV Format:
+   - Proper RFC 4180 formatting
+   - Headers: column names
+   - Rows: data values
+   - Special character escaping:
+     - Quotes doubled: " → ""
+     - Values wrapped in quotes
+     - Nil values as empty strings
+   - Content-Type: text/csv
+   - Content-Disposition: attachment; filename="query_uuid.csv"
+
+   JSON Format:
+   - Structured output with metadata
+   - Includes columns, row_count, data array
+   - Pretty-printed (2-space indent)
+   - Content-Type: application/json
+   - Content-Disposition: attachment; filename="query_uuid.json"
+
+Example CSV Output:
+"id","name","email"
+"1","Alice","alice@example.com"
+"2","Bob","bob@example.com"
+
+Example JSON Output:
+{
+  "columns": ["id", "name", "email"],
+  "row_count": 2,
+  "data": [
+    {"id": 1, "name": "Alice", "email": "alice@example.com"},
+    {"id": 2, "name": "Bob", "email": "bob@example.com"}
+  ]
+}
+
+Use Cases:
+- Data export for analysis in Excel/Google Sheets
+- Backup of query results
+- Share results with non-technical users
+- Integration with external tools
+```
+
+### Feature 5: Approval Comments System ✨ NEW
+
+```
+POST /api/v1/approvals/:id/comments
+GET  /api/v1/approvals/:id/comments
+DELETE /api/v1/approvals/:id/comments/:comment_id
+
+Body (Create):
+{
+  "comment": "Please review this carefully before approving"
+}
+
+Response (List):
+{
+  "comments": [
+    {
+      "id": "uuid",
+      "approval_request_id": "uuid",
+      "user_id": "uuid",
+      "username": "jdoe",
+      "full_name": "John Doe",
+      "comment": "Please review this...",
+      "created_at": "2025-01-28T12:00:00Z",
+      "updated_at": "2025-01-28T12:00:00Z"
+    }
+  ],
+  "total": 5,
+  "page": 1,
+  "per_page": 50
+}
+
+Flow:
+1. User adds comment to approval request
+2. System validates approval exists
+3. Create approval_comment record:
+   - approval_request_id: UUID
+   - user_id: UUID (commenter)
+   - comment: Text (1-5000 chars)
+   - created_at, updated_at: timestamps
+4. Preload user data for response
+5. Pagination support (default 50 per page)
+6. Delete permissions:
+   - Comment author can delete
+   - Admin can delete any comment
+7. Comments ordered chronologically (oldest first)
+
+Use Cases:
+- Collaboration between approvers
+- Clarification on query intent
+- Risk assessment discussion
+- Audit trail of approval decisions
+- Context for future reference
+
+Database Schema:
+- Table: approval_comments
+- Indexes: approval_request_id, user_id, created_at
+- Foreign Keys: approval_requests(id), users(id)
+- Cascading Deletes: approval_requests → comments
+```
+
+### Feature 6: Data Source Health Check API ✨ NEW
+
+```
+GET /api/v1/datasources/:id/health
+
+Response:
+{
+  "data_source_id": "uuid",
+  "status": "healthy",  // "healthy" | "degraded" | "unhealthy"
+  "latency_ms": 45,
+  "last_error": "",
+  "last_checked": "2025-01-28T12:00:00Z",
+  "message": "Data source is healthy"
+}
+
+Flow:
+1. User requests health check for data source
+2. Validate user has read permission
+3. Check if data source is active
+4. Decrypt password (AES-256-GCM)
+5. Measure connection latency:
+   - Start timer
+   - Attempt connection (Ping only)
+   - Stop timer
+6. Determine health status:
+   - Connection failed → "unhealthy"
+   - Latency < 1000ms → "healthy"
+   - Latency >= 1000ms → "degraded"
+7. Return health response
+
+Health Status Criteria:
+- healthy: Connection successful, latency < 1 second
+- degraded: Connection successful, latency >= 1 second
+- unhealthy: Connection failed or data source inactive
+
+Use Cases:
+- Monitor data source availability
+- Alert on connection issues
+- Performance monitoring (latency tracking)
+- Pre-flight checks before query execution
+- Dashboard health indicators
+
+Implementation:
+- Test connection via Ping() (no query execution)
+- Latency measured in milliseconds
+- Last checked timestamp for freshness
+- Detailed error messages for debugging
+```
+
+### Feature 7: Error Handling Improvements ✨ NEW
+
+```
+Custom Error Types:
+- AppError struct with HTTP status code
+- Standardized error responses
+- Context-aware error messages
+- Error wrapping for root cause analysis
+
+Error Response Format:
+{
+  "error": "User-friendly message",
+  "details": "Technical details (optional)",
+  "code": 400  // HTTP status code
+}
+
+Common Error Types:
+- BadRequest (400): Invalid input, validation failed
+- Unauthorized (401): Invalid/expired token
+- Forbidden (403): Insufficient permissions
+- NotFound (404): Resource not found
+- Conflict (409): Duplicate resource, state conflict
+- InternalError (500): Server error
+- ServiceUnavailable (503): Service down
+
+Helper Functions:
+- SendError(c, err) - Send AppError as JSON
+- SendBadRequest(c, message) - Send 400 error
+- SendUnauthorized(c, message) - Send 401 error
+- SendForbidden(c, message) - Send 403 error
+- SendNotFound(c, message) - Send 404 error
+- SendInternalError(c, message) - Send 500 error
+
+Validation Helpers:
+- ValidateUUID(id) - Check UUID format
+- ValidateEmail(email) - Check email format
+- ValidateUsername(username) - 3-30 chars, alphanumeric
+- ValidatePassword(password) - Min 8 chars
+- ValidateRequired(field, value) - Not empty check
+- ValidateMaxLength(field, value, max) - Max length check
+- ValidatePort(port) - 1-65535 range
+- ValidateSQL(sql) - Basic SQL safety checks
+
+Middleware:
+- ErrorRecoveryMiddleware: Catch panics, return 500
+- LoggingMiddleware: Log all requests with context
+  - Timestamp, method, path, user_id, status
+  - Duration (for performance monitoring)
+  - Client IP (for security)
+  - Slow request alerts (> 1 second)
+  - Error logging with stack traces
+```
+
+---
+
 ## Database Interactions
 
 ### QueryBase PostgreSQL Database
@@ -657,11 +928,25 @@ Database Optimization:
 ## Monitoring & Observability
 
 ```
-Logging (TODO):
-- Request logging middleware
-- Slow query logging
-- Error tracking
+Logging (✅ Implemented):
+- Request logging middleware → internal/api/middleware/logging.go
+  - Logs timestamp, method, path, user_id, status, duration, client_ip
+  - Logs errors with full context
+  - Logs slow requests (> 1 second)
+  - Format: [timestamp] method path user_id status duration client_ip
+- Error recovery middleware → internal/api/middleware/logging.go
+  - Recovers from panics gracefully
+  - Returns 500 Internal Server Error on panic
+  - Logs panic details for debugging
+- Error tracking → internal/errors/errors.go
+  - Custom AppError types with HTTP status codes
+  - Standardized error responses
+  - Context-aware error messages
 - Audit trail
+  - query_history: All query executions
+  - approval_requests: All write operations
+  - approval_reviews: All approval decisions
+  - approval_comments: All discussion threads
 
 Metrics (TODO):
 - Query execution time
@@ -705,7 +990,7 @@ The complete QueryBase flow involves:
    - EXPLAIN for performance analysis
    - Dry run for safe DELETE preview
 
-**Key Features:**
+**Core Features (Original):**
 - ✅ Secure authentication and authorization
 - ✅ SQL injection prevention
 - ✅ Approval workflow for write operations
@@ -714,3 +999,32 @@ The complete QueryBase flow involves:
 - ✅ Multi-database support (PostgreSQL, MySQL)
 - ✅ EXPLAIN for query optimization
 - ✅ Dry run for safe DELETE operations
+
+**New Features (Backend Polish - 2025-01-28):**
+- ✅ Query results pagination with sorting
+- ✅ Query export (CSV/JSON formats)
+- ✅ Approval comments system for collaboration
+- ✅ Data source health check API
+- ✅ Improved error handling with custom error types
+- ✅ Request logging middleware with slow request tracking
+- ✅ Panic recovery middleware
+- ✅ Input validation helpers
+- ✅ Standardized API response helpers
+
+**Integration Testing:**
+- ✅ Comprehensive integration test script (scripts/integration-test.sh)
+- Tests all flows from authentication to query execution
+- Tests approval workflow with comments
+- Tests transaction preview/commit/rollback
+- Tests export functionality
+- Tests health check API
+- Tests permission system
+
+**Total API Endpoints: 41** (including 7 new endpoints)
+- Authentication: 3 endpoints
+- User Management: 6 endpoints
+- Group Management: 7 endpoints
+- Queries: 10 endpoints (including pagination, export, history, explain, dry-run)
+- Approvals: 7 endpoints (including comments, transaction operations)
+- Transactions: 3 endpoints
+- Data Sources: 5 endpoints (including health check)

@@ -475,21 +475,45 @@ Environment variables override YAML values.
 
 ### 📋 TODO (Prioritized)
 
-**High Priority:**
-- [x] Query history pagination API ✅ COMPLETED
-- [x] SQL validation before submission ✅ COMPLETED
-- [x] Transaction-based approval workflow ✅ COMPLETED
-- [ ] Performance benchmarks for query execution
+**Current Focus: Core Workflow + Dashboard UI** 🎯
+
+**Backend Polish (3 weeks):**
+- See [Core Workflow Plan](docs/CORE_WORKFLOW_PLAN.md) for details
+- Query results pagination (Week 1)
+- Query export (CSV/JSON) (Week 1)
+- Approval comments (Week 2)
+- Data source health checks (Week 2)
+
+**Frontend Development (6-8 weeks):** ✨ HIGH PRIORITY
+- See [Dashboard UI - Current Workflow](docs/DASHBOARD_UI_CURRENT_WORKFLOW.md) for details
+- Phase 1-2: Foundation (auth, layout, API client)
+- Phase 3-4: SQL Editor & Query Results
+- Phase 5: Approval Dashboard
+- Phase 6: Admin Features (data sources, users, groups)
+- Phase 7-8: Polish & Optimization
+- Uses existing backend (no new APIs needed)
+
+**Completed ✅:**
+- Query history pagination API
+- SQL validation before submission
+- Transaction-based approval workflow
 
 **Medium Priority:**
-- [ ] CORS middleware
-- [ ] Request logging middleware
-- [ ] Rate limiting middleware
+- CORS middleware
+- Request logging middleware
+- Rate limiting middleware
+- Encrypted frontend-backend communication
+
+**Future Features (Deferred):**
+- Schema Introspection API (autocomplete, schema browser)
+- Folder System (query organization)
+- Tag System (query tags)
+- WebSocket Support (real-time updates)
 
 **Low Priority:**
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] Frontend (Next.js + Tailwind)
+- Performance benchmarks
+- Unit tests
+- Integration tests
 
 ## Key Files
 

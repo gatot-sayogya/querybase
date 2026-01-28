@@ -62,3 +62,47 @@ type DryRunRequest struct {
 	QueryText    string `json:"query_text" binding:"required"`
 }
 
+// PaginationMeta represents pagination metadata
+type PaginationMeta struct {
+	Page       int `json:"page"`
+	PerPage    int `json:"per_page"`
+	TotalPages int `json:"total_pages"`
+	TotalRows  int `json:"total_rows"`
+	HasNext    bool `json:"has_next"`
+	HasPrev    bool `json:"has_prev"`
+}
+
+// PaginatedResultDTO represents paginated query results
+type PaginatedResultDTO struct {
+	QueryID      string                 `json:"query_id"`
+	RowCount     int                    `json:"row_count"`
+	Columns      []ColumnInfo           `json:"columns"`
+	Data         []map[string]interface{} `json:"data"`
+	Metadata     PaginationMeta         `json:"metadata"`
+	SortColumn   string                 `json:"sort_column,omitempty"`
+	SortDirection string                `json:"sort_direction,omitempty"`
+}
+
+// ExportFormat represents the export format type
+type ExportFormat string
+
+const (
+	ExportFormatCSV  ExportFormat = "csv"
+	ExportFormatJSON ExportFormat = "json"
+)
+
+// ExportQueryRequest represents a query export request
+type ExportQueryRequest struct {
+	QueryID string       `json:"query_id" binding:"required"`
+	Format  ExportFormat `json:"format" binding:"required,oneof=csv json"`
+}
+
+// ExportQueryResponse represents a query export response
+type ExportQueryResponse struct {
+	QueryID    string `json:"query_id"`
+	Format     string `json:"format"`
+	RowCount   int    `json:"row_count"`
+	FileSize   int64  `json:"file_size"`
+	DownloadURL string `json:"download_url"`
+}
+

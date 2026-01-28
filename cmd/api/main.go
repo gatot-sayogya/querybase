@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/yourorg/querybase/internal/api/handlers"
+	"github.com/yourorg/querybase/internal/api/middleware"
 	"github.com/yourorg/querybase/internal/api/routes"
 	"github.com/yourorg/querybase/internal/auth"
 	"github.com/yourorg/querybase/internal/config"
@@ -80,10 +81,14 @@ func main() {
 	// Set Gin mode
 	gin.SetMode(cfg.Server.Mode)
 
-	// Create router
-	router := gin.Default()
+	// Create router without default middleware
+	router := gin.New()
 
-	// Health check endpoint
+	// Add custom middleware
+	router.Use(middleware.ErrorRecoveryMiddleware())
+	router.Use(middleware.LoggingMiddleware())
+
+	// Health check endpoint (no auth required)
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status": "ok",

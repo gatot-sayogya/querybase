@@ -59,6 +59,7 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 				queries.POST("/save", queryHandler.SaveQuery)
 				queries.GET("", queryHandler.ListQueries)
 				queries.GET("/:id", queryHandler.GetQuery)
+				queries.GET("/:id/results", queryHandler.GetQueryResults)
 				queries.DELETE("/:id", queryHandler.DeleteQuery)
 
 				// Query history routes
@@ -67,6 +68,9 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 				// Query analysis routes
 				queries.POST("/explain", queryHandler.ExplainQuery)
 				queries.POST("/dry-run", queryHandler.DryRunDelete)
+
+				// Query export routes
+				queries.POST("/export", queryHandler.ExportQuery)
 			}
 
 			// Approval routes
@@ -76,6 +80,11 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 				approvals.GET("/:id", approvalHandler.GetApproval)
 				approvals.POST("/:id/review", approvalHandler.ReviewApproval)
 				approvals.POST("/:id/transaction-start", approvalHandler.StartTransaction)
+
+				// Comment routes
+				approvals.POST("/:id/comments", approvalHandler.AddComment)
+				approvals.GET("/:id/comments", approvalHandler.GetComments)
+				approvals.DELETE("/:id/comments/:comment_id", approvalHandler.DeleteComment)
 			}
 
 			// Transaction routes
@@ -96,6 +105,7 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 				datasources.GET("/:id", dataSourceHandler.GetDataSource)
 				datasources.GET("/:id/permissions", dataSourceHandler.GetPermissions)
 				datasources.POST("/:id/test", dataSourceHandler.TestConnection)
+				datasources.GET("/:id/health", dataSourceHandler.CheckHealth)
 				datasources.GET("/:id/approvers", approvalHandler.GetEligibleApprovers)
 			}
 

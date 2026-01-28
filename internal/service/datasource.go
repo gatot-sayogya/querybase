@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/yourorg/querybase/internal/api/dto"
 	"github.com/yourorg/querybase/internal/models"
 	gormpostgres "gorm.io/driver/postgres"
 	gormmysql "gorm.io/driver/mysql"
@@ -326,6 +328,76 @@ func (s *DataSourceService) testMySQLConnection(dataSource *models.DataSource, p
 	defer sqlDB.Close()
 
 	return sqlDB.Ping()
+}
+
+// HealthCheckResult represents the result of a health check
+type HealthCheckResult struct {
+	Status    dto.HealthStatus
+	LatencyMs int64
+	Error     string
+	Message   string
+}
+
+// CheckHealth performs a health check on a data source
+func (s *DataSourceService) CheckHealth(ctx context.Context, dataSourceID string) (*HealthCheckResult, error) {
+	// Get data source
+	var dataSource models.DataSource
+	if err := s.db.First(&dataSource, "id = ?", dataSourceID).Error; err != nil {
+		return nil, fmt.Errorf("data source not found: %w", err)
+	}
+
+	// Check if data source is active
+	if !dataSource.IsActive {
+		return &HealthCheckResult{
+			Status:  dto.HealthStatusUnhealthy,
+			Message: "Data source is inactive",
+		}, nil
+	}
+
+	// Decrypt password
+	password, err := s.decryptPassword(dataSource.EncryptedPassword)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt password: %w", err)
+	}
+
+	// Measure connection latency
+	start := time.Now()
+
+	var connectionErr error
+	switch dataSource.Type {
+	case models.DataSourceTypePostgreSQL:
+		connectionErr = s.testPostgreSQLConnection(&dataSource, password)
+	case models.DataSourceTypeMySQL:
+		connectionErr = s.testMySQLConnection(&dataSource, password)
+	default:
+		return nil, fmt.Errorf("unsupported data source type: %s", dataSource.Type)
+	}
+
+	latency := time.Since(start).Milliseconds()
+
+	// Determine health status based on connection result
+	if connectionErr != nil {
+		return &HealthCheckResult{
+			Status:    dto.HealthStatusUnhealthy,
+			LatencyMs: latency,
+			Error:     connectionErr.Error(),
+			Message:   "Failed to connect to data source",
+		}, nil
+	}
+
+	// Determine health based on latency
+	status := dto.HealthStatusHealthy
+	message := "Data source is healthy"
+	if latency > 1000 {
+		status = dto.HealthStatusDegraded
+		message = "Data source is responding slowly"
+	}
+
+	return &HealthCheckResult{
+		Status:    status,
+		LatencyMs: latency,
+		Message:   message,
+	}, nil
 }
 
 // CreateDataSourceInput represents input for creating a data source

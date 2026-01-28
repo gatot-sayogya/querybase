@@ -691,3 +691,311 @@ func TestDryRunDelete_NonDeleteQuery(t *testing.T) {
 	}
 }
 
+// TestSortRows tests the sorting functionality
+func TestSortRows(t *testing.T) {
+	queryService := &QueryService{}
+
+	tests := []struct {
+		name           string
+		rows           []map[string]interface{}
+		sortColumn     string
+		sortDirection  string
+		expectedFirst  interface{}
+		expectedLast   interface{}
+	}{
+		{
+			name: "Sort by int column ascending",
+			rows: []map[string]interface{}{
+				{"id": 3, "name": "Charlie"},
+				{"id": 1, "name": "Alice"},
+				{"id": 2, "name": "Bob"},
+			},
+			sortColumn:     "id",
+			sortDirection:  "asc",
+			expectedFirst:  1,
+			expectedLast:   3,
+		},
+		{
+			name: "Sort by int column descending",
+			rows: []map[string]interface{}{
+				{"id": 1, "name": "Alice"},
+				{"id": 3, "name": "Charlie"},
+				{"id": 2, "name": "Bob"},
+			},
+			sortColumn:     "id",
+			sortDirection:  "desc",
+			expectedFirst:  3,
+			expectedLast:   1,
+		},
+		{
+			name: "Sort by string column ascending",
+			rows: []map[string]interface{}{
+				{"name": "Charlie", "id": 3},
+				{"name": "Alice", "id": 1},
+				{"name": "Bob", "id": 2},
+			},
+			sortColumn:     "name",
+			sortDirection:  "asc",
+			expectedFirst:  "Alice",
+			expectedLast:   "Charlie",
+		},
+		{
+			name: "Sort by string column descending",
+			rows: []map[string]interface{}{
+				{"name": "Alice", "id": 1},
+				{"name": "Charlie", "id": 3},
+				{"name": "Bob", "id": 2},
+			},
+			sortColumn:     "name",
+			sortDirection:  "desc",
+			expectedFirst:  "Charlie",
+			expectedLast:   "Alice",
+		},
+		{
+			name: "Sort with nil values",
+			rows: []map[string]interface{}{
+				{"id": nil, "name": "Unknown"},
+				{"id": 2, "name": "Bob"},
+				{"id": 1, "name": "Alice"},
+			},
+			sortColumn:     "id",
+			sortDirection:  "asc",
+			expectedFirst:  nil,
+			expectedLast:   2,
+		},
+		{
+			name: "Sort by float column",
+			rows: []map[string]interface{}{
+				{"price": 19.99, "name": "Item A"},
+				{"price": 9.99, "name": "Item B"},
+				{"price": 29.99, "name": "Item C"},
+			},
+			sortColumn:     "price",
+			sortDirection:  "asc",
+			expectedFirst:  9.99,
+			expectedLast:   29.99,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := queryService.sortRows(tt.rows, tt.sortColumn, tt.sortDirection)
+
+			if len(result) != len(tt.rows) {
+				t.Errorf("sortRows() returned %d rows, want %d", len(result), len(tt.rows))
+				return
+			}
+
+			firstValue := result[0][tt.sortColumn]
+			lastValue := result[len(result)-1][tt.sortColumn]
+
+			// For nil values, we need special comparison
+			if tt.expectedFirst == nil {
+				if firstValue != nil {
+					t.Errorf("sortRows() first value = %v, want nil", firstValue)
+				}
+			} else {
+				if firstValue != tt.expectedFirst {
+					t.Errorf("sortRows() first value = %v, want %v", firstValue, tt.expectedFirst)
+				}
+			}
+
+			if tt.expectedLast == nil {
+				if lastValue != nil {
+					t.Errorf("sortRows() last value = %v, want nil", lastValue)
+				}
+			} else {
+				if lastValue != tt.expectedLast {
+					t.Errorf("sortRows() last value = %v, want %v", lastValue, tt.expectedLast)
+				}
+			}
+		})
+	}
+}
+
+// TestCompareValues tests the value comparison function
+func TestCompareValues(t *testing.T) {
+	queryService := &QueryService{}
+
+	tests := []struct {
+		name     string
+		a        interface{}
+		b        interface{}
+		expected int // -1 if a < b, 0 if a == b, 1 if a > b
+	}{
+		{"int less", 1, 2, -1},
+		{"int equal", 2, 2, 0},
+		{"int greater", 3, 2, 1},
+		{"float less", 1.5, 2.5, -1},
+		{"float equal", 2.5, 2.5, 0},
+		{"float greater", 3.5, 2.5, 1},
+		{"string less", "Alice", "Bob", -1},
+		{"string equal", "Bob", "Bob", 0},
+		{"string greater", "Charlie", "Bob", 1},
+		{"nil first", nil, 1, -1},
+		{"nil second", 1, nil, 1},
+		{"nil both", nil, nil, 0},
+		{"mixed int and float", 2, 2.0, 0},
+		{"string number less", "10", "2", 1}, // String comparison: "10" > "2" lexicographically
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := queryService.compareValues(tt.a, tt.b)
+			if result != tt.expected {
+				t.Errorf("compareValues(%v, %v) = %d, want %d", tt.a, tt.b, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestToFloat64 tests the float64 conversion function
+func TestToFloat64(t *testing.T) {
+	queryService := &QueryService{}
+
+	tests := []struct {
+		name     string
+		value    interface{}
+		expected float64
+		ok       bool
+	}{
+		{"int", 42, 42.0, true},
+		{"int32", int32(32), 32.0, true},
+		{"int64", int64(64), 64.0, true},
+		{"float32", float32(3.0), 3.0, true}, // Use exact value to avoid precision issues
+		{"float64", 2.718, 2.718, true},
+		{"numeric string", "123.45", 123.45, true},
+		{"non-numeric string", "hello", 0, false},
+		{"nil", nil, 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, ok := queryService.toFloat64(tt.value)
+			if ok != tt.ok {
+				t.Errorf("toFloat64(%v) ok = %v, want %v", tt.value, ok, tt.ok)
+				return
+			}
+			if ok && result != tt.expected {
+				t.Errorf("toFloat64(%v) = %f, want %f", tt.value, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestExportToCSV tests the CSV export functionality
+func TestExportToCSV(t *testing.T) {
+	queryService := &QueryService{}
+
+	tests := []struct {
+		name     string
+		rows     []map[string]interface{}
+		columns  []string
+		expected []string // Strings that should be present in the output
+	}{
+		{
+			name: "Simple CSV export",
+			rows: []map[string]interface{}{
+				{"id": 1, "name": "Alice", "age": 30},
+				{"id": 2, "name": "Bob", "age": 25},
+			},
+			columns:  []string{"id", "name", "age"},
+			expected: []string{"\"id\",\"name\",\"age\"", "\"1\",\"Alice\",\"30\"", "\"2\",\"Bob\",\"25\""},
+		},
+		{
+			name: "CSV with special characters",
+			rows: []map[string]interface{}{
+				{"name": "John \"The Boss\"", "quote": "He said \"Hello\""},
+			},
+			columns:  []string{"name", "quote"},
+			expected: []string{"\"name\",\"quote\"", "\"John \"\"The Boss\"\"\"", "\"He said \"\"Hello\"\"\""},
+		},
+		{
+			name: "CSV with nil values",
+			rows: []map[string]interface{}{
+				{"id": 1, "name": nil, "email": "test@example.com"},
+			},
+			columns:  []string{"id", "name", "email"},
+			expected: []string{"\"id\",\"name\",\"email\"", "\"1\",\"\",\"test@example.com\""},
+		},
+		{
+			name:    "Empty result set",
+			rows:    []map[string]interface{}{},
+			columns: []string{"id", "name"},
+			expected: []string{"\"id\",\"name\""}, // Only header row
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := queryService.exportToCSV(tt.rows, tt.columns)
+			if err != nil {
+				t.Errorf("exportToCSV() unexpected error: %v", err)
+				return
+			}
+
+			resultStr := string(result)
+
+			for _, expected := range tt.expected {
+				if !strings.Contains(resultStr, expected) {
+					t.Errorf("exportToCSV() output does not contain expected string %q\nGot:\n%s", expected, resultStr)
+				}
+			}
+		})
+	}
+}
+
+// TestExportToJSON tests the JSON export functionality
+func TestExportToJSON(t *testing.T) {
+	queryService := &QueryService{}
+
+	tests := []struct {
+		name     string
+		rows     []map[string]interface{}
+		columns  []string
+		expected []string // Strings that should be present in the output
+	}{
+		{
+			name: "Simple JSON export",
+			rows: []map[string]interface{}{
+				{"id": 1, "name": "Alice"},
+				{"id": 2, "name": "Bob"},
+			},
+			columns:  []string{"id", "name"},
+			expected: []string{"\"columns\"", "\"row_count\"", "\"data\"", "\"id\"", "\"name\""},
+		},
+		{
+			name: "JSON with various data types",
+			rows: []map[string]interface{}{
+				{"id": 1, "name": "Test", "score": 95.5, "active": true},
+			},
+			columns:  []string{"id", "name", "score", "active"},
+			expected: []string{"\"score\": 95.5", "\"active\": true"},
+		},
+		{
+			name:     "Empty result set",
+			rows:     []map[string]interface{}{},
+			columns:  []string{"id"},
+			expected: []string{"\"row_count\": 0", "\"data\": []"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := queryService.exportToJSON(tt.rows, tt.columns)
+			if err != nil {
+				t.Errorf("exportToJSON() unexpected error: %v", err)
+				return
+			}
+
+			resultStr := string(result)
+
+			for _, expected := range tt.expected {
+				if !strings.Contains(resultStr, expected) {
+					t.Errorf("exportToJSON() output does not contain expected string %q\nGot:\n%s", expected, resultStr)
+				}
+			}
+		})
+	}
+}
+

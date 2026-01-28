@@ -344,6 +344,94 @@ func (s *ApprovalService) GetActiveTransaction(ctx context.Context, approvalID s
 	return &transaction, nil
 }
 
+// AddComment adds a comment to an approval request
+func (s *ApprovalService) AddComment(ctx context.Context, approvalID, userID, comment string) (*models.ApprovalComment, error) {
+	// Verify approval request exists
+	var approval models.ApprovalRequest
+	if err := s.db.First(&approval, "id = ?", approvalID).Error; err != nil {
+		return nil, fmt.Errorf("approval request not found: %w", err)
+	}
+
+	// Parse UUIDs
+	approvalUUID, err := uuid.Parse(approvalID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid approval ID: %w", err)
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	// Create comment
+	approvalComment := &models.ApprovalComment{
+		ID:                uuid.New(),
+		ApprovalRequestID: approvalUUID,
+		UserID:            userUUID,
+		Comment:           comment,
+	}
+
+	if err := s.db.Create(approvalComment).Error; err != nil {
+		return nil, fmt.Errorf("failed to create comment: %w", err)
+	}
+
+	// Preload user data for response
+	s.db.Preload("User").First(approvalComment, approvalComment.ID)
+
+	return approvalComment, nil
+}
+
+// GetComments retrieves comments for an approval request with pagination
+func (s *ApprovalService) GetComments(ctx context.Context, approvalID string, page, perPage int) ([]models.ApprovalComment, int64, error) {
+	var comments []models.ApprovalComment
+	var total int64
+
+	// Get total count
+	if err := s.db.Model(&models.ApprovalComment{}).Where("approval_request_id = ?", approvalID).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count comments: %w", err)
+	}
+
+	// Get paginated results with user data
+	offset := (page - 1) * perPage
+	err := s.db.Where("approval_request_id = ?", approvalID).
+		Preload("User").
+		Order("created_at ASC").
+		Limit(perPage).
+		Offset(offset).
+		Find(&comments).Error
+
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to fetch comments: %w", err)
+	}
+
+	return comments, total, nil
+}
+
+// DeleteComment deletes a comment (only by the author or admin)
+func (s *ApprovalService) DeleteComment(ctx context.Context, commentID, userID string, isAdmin bool) error {
+	var comment models.ApprovalComment
+	if err := s.db.First(&comment, "id = ?", commentID).Error; err != nil {
+		return fmt.Errorf("comment not found: %w", err)
+	}
+
+	// Check permission: admin or comment author
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	if !isAdmin && comment.UserID != userUUID {
+		return fmt.Errorf("insufficient permissions to delete this comment")
+	}
+
+	// Delete comment
+	if err := s.db.Delete(&comment).Error; err != nil {
+		return fmt.Errorf("failed to delete comment: %w", err)
+	}
+
+	return nil
+}
+
 // ApprovalRequest represents the input to create an approval request
 type ApprovalRequest struct {
 	DataSourceID uuid.UUID

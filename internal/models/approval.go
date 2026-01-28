@@ -102,3 +102,22 @@ type QueryTransaction struct {
 func (QueryTransaction) TableName() string {
 	return "query_transactions"
 }
+
+// ApprovalComment represents a comment on an approval request
+type ApprovalComment struct {
+	ID                uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ApprovalRequestID uuid.UUID `gorm:"type:uuid;not null;column:approval_request_id" json:"approval_request_id"`
+	UserID            uuid.UUID `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
+	Comment           string    `gorm:"type:text;not null" json:"comment"`
+	CreatedAt         time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt         time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"updated_at"`
+
+	// Foreign key relationships
+	ApprovalRequest ApprovalRequest `gorm:"foreignKey:ApprovalRequestID;references:ID" json:"-"`
+	User            User            `gorm:"foreignKey:UserID" json:"-"`
+}
+
+// TableName specifies the table name for ApprovalComment
+func (ApprovalComment) TableName() string {
+	return "approval_comments"
+}

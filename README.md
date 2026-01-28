@@ -58,13 +58,35 @@ A database explorer system with query execution, approval workflows, and group-b
 - Query history pagination API
 
 ### 🚧 TODO (Remaining 2%)
+
+**Current Focus: Core Workflow + Dashboard UI** 🎯
+**Backend Polish:** See [Core Workflow Plan](docs/CORE_WORKFLOW_PLAN.md)
+- Query results pagination
+- Query export (CSV/JSON)
+- Approval comments
+- Data source health checks
+
+**Frontend Development:** See [Dashboard UI - Current Workflow](docs/DASHBOARD_UI_CURRENT_WORKFLOW.md) ✨ HIGH PRIORITY
+- Phase 1-2: Foundation (auth, layout)
+- Phase 3-4: SQL Editor & Results
+- Phase 5: Approval Dashboard
+- Phase 6: Admin Features
+- Phase 7-8: Polish & Optimization
+
+**Future Features (Backend):**
+- Schema Introspection API
+- Folder System
+- Tag System
+- WebSocket Support
+
+**Infrastructure:**
 - Performance benchmarks
 - CORS middleware
 - Request logging middleware
 - Rate limiting middleware
+- Encrypted frontend-backend communication
 - Unit tests
 - Integration tests
-- Frontend (Next.js + Tailwind)
 
 ## Quick Start
 
