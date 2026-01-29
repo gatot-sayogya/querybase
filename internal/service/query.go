@@ -81,6 +81,18 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 		return nil, fmt.Errorf("failed to get columns: %w", err)
 	}
 
+	// Get column types from the result set
+	columnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get column types: %w", err)
+	}
+
+	// Extract database type names from column types
+	typeNames := make([]string, len(columns))
+	for i, ct := range columnTypes {
+		typeNames[i] = ct.DatabaseTypeName()
+	}
+
 	var results []map[string]interface{}
 	for rows.Next() {
 		// Create a slice of interface{} to hold each column value
@@ -123,9 +135,8 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 		return nil, fmt.Errorf("failed to serialize column names: %w", err)
 	}
 
-	// Note: ColumnTypes is set to empty strings as we don't have type information without additional schema query
-	columnTypes := make([]string, len(columns))
-	columnTypesJSON, err := json.Marshal(columnTypes)
+	// Use actual column types from database result
+	columnTypesJSON, err := json.Marshal(typeNames)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize column types: %w", err)
 	}
