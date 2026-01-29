@@ -1,7 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronDownIcon, ChevronRightIcon, TableCellsIcon, EyeIcon, CodeBracketIcon } from '@heroicons/react/24/outline';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  TableCellsIcon,
+  EyeIcon,
+  CodeBracketIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 import { useSchemaStore } from '@/stores/schema-store';
 import { useAuthStore } from '@/stores/auth-store';
 import type { TableInfo, SchemaColumnInfo, ViewInfo, FunctionInfo } from '@/types';
@@ -17,6 +25,7 @@ export default function SchemaBrowser({ onTableSelect }: SchemaBrowserProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tables']));
+  const [showSearchModal, setShowSearchModal] = useState(false);
 
   const {
     schemas,
@@ -35,10 +44,17 @@ export default function SchemaBrowser({ onTableSelect }: SchemaBrowserProps) {
 
   const currentSchema = selectedDataSource ? schemas.get(selectedDataSource) : null;
 
-  // Separate tables from views if table_type is available
-  const tables = currentSchema?.tables.filter(t => !t.table_type || t.table_type === 'table') || [];
-  const views = currentSchema?.views || currentSchema?.tables.filter(t => t.table_type === 'view') || [];
-  const functions = currentSchema?.functions || [];
+  // Separate tables from views if table_type is available, SORT A-Z by default
+  const tables = [...(currentSchema?.tables.filter(t => !t.table_type || t.table_type === 'table') || [])]
+    .sort((a, b) => a.table_name.localeCompare(b.table_name));
+  const views = [...(currentSchema?.views || currentSchema?.tables.filter(t => t.table_type === 'view') || [])]
+    .sort((a, b) => {
+      const nameA = (a as ViewInfo).view_name || (a as TableInfo).table_name || '';
+      const nameB = (b as ViewInfo).view_name || (b as TableInfo).table_name || '';
+      return nameA.localeCompare(nameB);
+    });
+  const functions = [...(currentSchema?.functions || [])]
+    .sort((a, b) => a.function_name.localeCompare(b.function_name));
 
   // Filter items based on search
   const filteredTables = tables.filter((table) =>
@@ -136,8 +152,8 @@ export default function SchemaBrowser({ onTableSelect }: SchemaBrowserProps) {
         <>
           {/* Schema Info & Controls */}
           <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-            <div className="flex items-center justify-between mb-2">
-              <div>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
                 <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
                   {currentSchema.data_source_name}
                 </p>
@@ -146,6 +162,13 @@ export default function SchemaBrowser({ onTableSelect }: SchemaBrowserProps) {
                 </p>
               </div>
               <div className="flex gap-1">
+                <button
+                  onClick={() => setShowSearchModal(true)}
+                  className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                  title="Search tables, views, functions"
+                >
+                  <MagnifyingGlassIcon className="h-4 w-4" />
+                </button>
                 <button
                   onClick={expandAll}
                   className="px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
@@ -163,15 +186,149 @@ export default function SchemaBrowser({ onTableSelect }: SchemaBrowserProps) {
               </div>
             </div>
 
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="Search tables, views, functions..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            {/* Active Search Filter Indicator */}
+            {searchTerm && (
+              <div className="mt-2 flex items-center gap-2 text-xs bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                <span className="text-blue-700 dark:text-blue-300">
+                  Filter: <strong>{searchTerm}</strong>
+                </span>
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                >
+                  <XMarkIcon className="h-3 w-3" />
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Search Modal */}
+          {showSearchModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Search Database Objects
+                    </h3>
+                    <button
+                      onClick={() => setShowSearchModal(false)}
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    >
+                      <XMarkIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="relative">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search tables, views, functions..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                  </div>
+                  {searchTerm && (
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                        Found {filteredTables.length + filteredViews.length + filteredFunctions.length} results
+                      </p>
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {filteredTables.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Tables</p>
+                            {filteredTables.slice(0, 5).map((table) => (
+                              <button
+                                key={table.table_name}
+                                onClick={() => {
+                                  toggleItem(table.table_name);
+                                  setShowSearchModal(false);
+                                }}
+                                className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                              >
+                                📋 {table.table_name}
+                              </button>
+                            ))}
+                            {filteredTables.length > 5 && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 px-3">
+                                ...and {filteredTables.length - 5} more tables
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {filteredViews.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Views</p>
+                            {filteredViews.slice(0, 5).map((view) => {
+                              const viewName = (view as ViewInfo).view_name || (view as TableInfo).table_name || '';
+                              return (
+                                <button
+                                  key={viewName}
+                                  onClick={() => {
+                                    toggleItem(viewName);
+                                    setShowSearchModal(false);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                >
+                                  👁️ {viewName}
+                                </button>
+                              );
+                            })}
+                            {filteredViews.length > 5 && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 px-3">
+                                ...and {filteredViews.length - 5} more views
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {filteredFunctions.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Functions</p>
+                            {filteredFunctions.slice(0, 5).map((func) => (
+                              <button
+                                key={func.function_name}
+                                onClick={() => {
+                                  toggleItem(func.function_name);
+                                  setShowSearchModal(false);
+                                }}
+                                className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                              >
+                                ⚙️ {func.function_name}
+                              </button>
+                            ))}
+                            {filteredFunctions.length > 5 && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 px-3">
+                                ...and {filteredFunctions.length - 5} more functions
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                    >
+                      Clear Filter
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowSearchModal(false)}
+                    className="px-3 py-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
