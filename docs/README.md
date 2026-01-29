@@ -1,98 +1,165 @@
 # QueryBase Documentation
 
+**Last Updated:** January 29, 2026
+
 Comprehensive documentation for QueryBase - A database explorer with approval workflow.
 
-## Quick Start
+## Quick Navigation
 
-- **[README](../README.md)** - Project overview and quick start
-- **[Getting Started](getting-started/)** - Setup and installation guide
+### 👥 For Users
+- **[Getting Started](getting-started/)** - Setup and installation
+- **[User Guide](user-guide/)** - How to use QueryBase features
 
-## User Guides 📖
+### 👨‍💻 For Developers
+- **[Development Guide](development/)** - Local development setup
+- **[Architecture](architecture/)** - System architecture and design
+- **[API Reference](api/)** - API endpoints and usage
 
-- **[Query Features Guide](guides/query-features.md)** - EXPLAIN and Dry Run features
-- **[Quick Reference](guides/quick-reference.md)** - Quick reference for daily use
-
-## Architecture 🏗️
-
-- **[Architecture Overview](architecture/README.md)** - System architecture introduction
-- **[Flow Diagrams](architecture/flow.md)** - Visual flow diagrams
-- **[Technical Flow](architecture/detailed-flow.md)** - Detailed technical flow documentation
-
-## Development 💻
-
-- **[Development Overview](development/README.md)** - Development guide introduction
-- **[Testing Guide](development/testing.md)** - Testing strategies and guidelines
-- **[Integration Tests](testing/integration-tests.md)** - End-to-end API testing guide ✨
-- **[Build Guide](development/build.md)** - Build instructions for all platforms
-- **[Session Summary](development/session-summary.md)** - Development history and status
-
-## Planning 📋
-
-- **[Planning Overview](planning/README.md)** - Planning documents introduction
-- **[Core Workflow Plan](planning/CORE_WORKFLOW_PLAN.md)** - ✅ Backend polish (completed)
-- **[Dashboard UI - Current](planning/DASHBOARD_UI_CURRENT_WORKFLOW.md)** - 🚧 Frontend implementation (6-8 weeks) ✨ HIGH PRIORITY
-- **[Implementation Plan](planning/IMPLEMENTATION_TESTING_PLAN.md)** - Complete implementation roadmap
-
-**See [Planning](planning/) for all planning documents →**
-
-## Features ✨
-
-- **[Features Overview](features/README.md)** - Features documentation
-- **[EXPLAIN & Dry Run](features/explain-dryrun.md)** - Feature implementation details
-- **[Encrypted Communication](features/ENCRYPTED_COMMUNICATION.md)** - End-to-end encryption planning
-
-## Project Documentation
-
-- **[CLAUDE.md](../CLAUDE.md)** - Complete project guide for AI assistants
+### 🎯 Project Status
+- **[Implementation Status](planning/IMPLEMENTATION_STATUS.md)** - Current progress
+- **[Planning](planning/)** - Roadmap and implementation plans
 
 ---
 
 ## Documentation Index
 
-### By Audience
+### Getting Started 🚀
 
-#### 👥 For Users
-- [README](../README.md) - Overview and quick start
-- [Getting Started](getting-started/) - Setup guide
-- [Query Features Guide](guides/query-features.md) - How to use EXPLAIN and Dry Run
-- [Quick Reference](guides/quick-reference.md) - Quick lookup guide
+- **[Installation Guide](getting-started/README.md)**
+  - Prerequisites
+  - 5-minute quick start
+  - Docker setup
+  - Configuration
 
-#### 👨‍💻 For Developers
-- [Architecture Overview](architecture/) - System architecture and flow
-- [Testing Guide](development/testing.md) - How to test the system
-- [Integration Tests](testing/integration-tests.md) - End-to-end testing
-- [Build Guide](development/build.md) - Multi-platform build instructions
-- [CLAUDE.md](../CLAUDE.md) - Complete API reference
+### User Guide 📖
 
-#### 🎯 For Planning
-- [Planning Overview](planning/) - All planning documents
-- [Dashboard UI - Current](planning/DASHBOARD_UI_CURRENT_WORKFLOW.md) - Active frontend work ✨ HIGH PRIORITY
-- [Implementation Plan](planning/IMPLEMENTATION_TESTING_PLAN.md) - Full roadmap
+- **[Query Features](user-guide/query-features.md)**
+  - SQL editor with autocomplete
+  - Query execution (SELECT, INSERT, UPDATE, DELETE)
+  - EXPLAIN and Dry Run features
+  - Query history and export
 
-#### 🤝 For Contributors
-- [CLAUDE.md](../CLAUDE.md) - Complete project context
-- [Session Summary](development/session-summary.md) - Development history
+- **[Approval Workflow](user-guide/approval-workflow.md)**
+  - How write operations work
+  - Reviewing and approving queries
+  - Transaction management
 
-### By Topic
+- **[Schema Browser](user-guide/schema-browser.md)**
+  - Exploring database schemas
+  - Viewing tables and columns
+  - Schema synchronization
 
-#### Query Execution
-- [Flow Diagrams](architecture/flow.md) - How queries are executed
-- [Technical Flow](architecture/detailed-flow.md) - Detailed step-by-step flow
-- [Query Features](guides/query-features.md) - EXPLAIN and Dry Run features
+- **[Admin Panel](user-guide/admin-panel.md)**
+  - Managing users and groups
+  - Data source configuration
+  - Permission management
 
-#### Development
-- [Testing](development/testing.md) - Unit tests, integration tests, coverage
-- [Building](development/build.md) - Multi-platform build guide
-- [Integration Tests](testing/integration-tests.md) - End-to-end API testing
+### Development 💻
 
-#### API & Endpoints
-- See [CLAUDE.md](../CLAUDE.md) for complete API reference (all 41 endpoints)
+- **[Development Overview](development/README.md)**
+  - Development workflow
+  - Project structure
+  - Code organization
+
+- **[Local Development Setup](development/setup.md)**
+  - Setting up your development environment
+  - Running servers (API, Worker, Frontend)
+  - Hot reload and debugging
+
+- **[Backend Development](development/backend.md)**
+  - Go project structure
+  - Adding new API endpoints
+  - Database migrations
+  - Testing
+
+- **[Frontend Development](development/frontend.md)**
+  - Next.js project structure
+  - Adding new pages
+  - State management with Zustand
+  - Component development
+
+- **[Testing Guide](development/testing.md)**
+  - Unit tests (backend)
+  - Unit tests (frontend)
+  - Integration tests
+  - E2E tests with Playwright
+
+- **[Build Guide](development/build.md)**
+  - Building for production
+  - Multi-architecture builds
+  - Deployment
+
+- **[Session Summary](development/session-summary.md)**
+  - Development history
+  - Recent changes
+
+### Architecture 🏗️
+
+- **[Architecture Overview](architecture/README.md)**
+  - System design
+  - Technology stack
+  - Key architectural decisions
+
+- **[Flow Diagrams](architecture/flow.md)**
+  - Query execution flow
+  - Approval workflow
+  - Authentication flow
+  - Visual diagrams
+
+- **[Technical Flow](architecture/detailed-flow.md)**
+  - Detailed step-by-step flows
+  - Security layers
+  - Performance considerations
+
+### API Reference 🔌
+
+- **[API Overview](api/README.md)**
+  - Authentication
+  - Response formats
+  - Error handling
+
+- **[Endpoints](api/endpoints.md)**
+  - All 41 API endpoints
+  - Request/response examples
+  - Permission requirements
+
+- **[CORS Setup](api/CORS_SETUP.md)**
+  - Configuring CORS
+  - Allowed origins
+  - Environment variables
+
+### Planning 📋
+
+- **[Planning Overview](planning/README.md)**
+  - Planning documents
+  - Implementation priorities
+
+- **[Implementation Status](planning/IMPLEMENTATION_STATUS.md)**
+  - Current progress (✅ Backend & Frontend Complete!)
+  - Completed features
+  - Next steps
+
+- **[Historical Plans](planning/)**
+  - CORE_WORKFLOW_PLAN.md - Backend completion plan
+  - DASHBOARD_UI_CURRENT_WORKFLOW.md - Frontend implementation
+  - IMPLEMENTATION_TESTING_PLAN.md - Testing roadmap
+
+### Features ✨
+
+- **[Features Overview](features/README.md)** - Feature documentation
+- **[EXPLAIN & Dry Run](features/explain-dryrun.md)** - Query analysis features
+- **[Encrypted Communication](features/ENCRYPTED_COMMUNICATION.md)** - Security documentation
+
+### Project Documentation
+
+- **[CLAUDE.md](../CLAUDE.md)** - Complete project guide for AI assistants
+- **[Main README](../README.md)** - Project overview
 
 ---
 
-## Project Status
+## Project Status Summary
 
-### Backend: ✅ 95% Complete
+### Backend: ✅ Complete (~95%)
 
 **Completed Features:**
 - ✅ All infrastructure (database, models, auth, config)
@@ -103,25 +170,30 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 - ✅ Google Chat notifications
 - ✅ User & Group Management
 - ✅ EXPLAIN and Dry Run features
-- ✅ **Query results pagination with sorting** ✨
-- ✅ **Query export (CSV/JSON)** ✨
-- ✅ **Approval comments system** ✨
-- ✅ **Data source health check API** ✨
-- ✅ **Error handling improvements** (custom errors, validation, logging) ✨
-- ✅ **Request logging & panic recovery middleware** ✨
+- ✅ Query results pagination with sorting
+- ✅ Query export (CSV/JSON)
+- ✅ Approval comments system
+- ✅ Data source health check API
+- ✅ Error handling improvements
+- ✅ Request logging & panic recovery middleware
 
 **API Endpoints:** 41 endpoints implemented
 
-### Frontend: 🚧 To Be Implemented
+### Frontend: ✅ Complete (~90%)
 
-**Planned Features:**
-- Next.js + Tailwind CSS
-- SQL editor with Monaco
-- Query results display with pagination
-- Approval dashboard
-- Data source management UI
+**Completed Features:**
+- ✅ Next.js 15+ with App Router
+- ✅ SQL editor with Monaco Editor
+- ✅ Intelligent autocomplete (tables/columns)
+- ✅ Query results viewer (pagination, sorting)
+- ✅ Approval dashboard
+- ✅ Admin panel (users, groups, data sources)
+- ✅ Schema browser with polling
+- ✅ Permission-based UI filtering
+- ✅ Authentication and authorization
+- ✅ Query history and export
 
-**Next Step:** See [Dashboard UI - Current Workflow](planning/DASHBOARD_UI_CURRENT_WORKFLOW.md) ✨
+**Next Step:** Polish and optimization
 
 ### Testing: ✅ 90/90 Tests Passing (100%)
 
@@ -130,26 +202,44 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 - Query Service tests: 21/21 PASS
 - Models tests: 21/21 PASS
 
-**Integration Tests:** 37 test cases ready (see [scripts/integration-test.sh](../scripts/integration-test.sh))
+**Integration Tests:** 37 test cases ready
 
 ---
 
 ## Quick Links
 
 - **[GitHub Repository](https://github.com/yourorg/querybase)**
-- **[API Documentation](../CLAUDE.md)** - Complete API reference
-- **[Integration Tests](testing/integration-tests.md)** - How to run end-to-end tests
-- **[Planning Overview](planning/)** - Roadmap and implementation plans
+- **[Main README](../README.md)** - Project overview
+- **[CLAUDE.md](../CLAUDE.md)** - Complete development guide
+
+---
+
+## Technology Stack
+
+### Backend
+- **Language:** Go 1.21+
+- **Framework:** Gin (HTTP router)
+- **Database:** PostgreSQL 15 (primary)
+- **Queue:** Redis 7 (Asynq)
+- **Auth:** JWT (golang-jwt/jwt)
+
+### Frontend
+- **Framework:** Next.js 15+ (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **Editor:** Monaco Editor
+- **State:** Zustand
 
 ---
 
 ## Next Steps
 
-1. ✅ **Backend improvements complete!** (All core workflow features implemented)
-2. ✅ **Integration tests ready** (37 test cases covering all API flows)
-3. ⏳ **CORS and rate limiting middleware** (Optional - for production hardening)
-4. 🎯 **Frontend development** (see [Dashboard UI - Current Workflow](planning/DASHBOARD_UI_CURRENT_WORKFLOW.md)) ✨ **HIGH PRIORITY**
+1. ✅ **Backend complete!** (All core features implemented)
+2. ✅ **Frontend complete!** (All UI components implemented)
+3. ⏳ **Polish and optimization** (Performance, UX improvements)
+4. ⏳ **Comprehensive testing** (Integration tests, E2E tests)
+5. ⏳ **Production deployment** (Infrastructure, monitoring)
 
 ---
 
-**Last Updated:** January 28, 2025
+**Looking for something specific?** Use the search in your IDE or check the index above.

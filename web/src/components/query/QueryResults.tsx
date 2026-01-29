@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import type { QueryResult, ColumnInfo } from '@/types';
 import { formatDate } from '@/lib/utils';
+import { TableSkeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { QueryError } from '@/components/ui/Alert';
 
 interface QueryResultsProps {
   queryId: string;
@@ -22,10 +25,9 @@ export default function QueryResults({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Executing query...</p>
+      <div className="flex items-center justify-center py-12">
+        <div className="w-full max-w-4xl">
+          <TableSkeleton rows={8} columns={results?.columns.length || 5} />
         </div>
       </div>
     );
@@ -33,36 +35,23 @@ export default function QueryResults({
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <h3 className="text-lg font-semibold text-red-800 dark:text-red-400 mb-2">
-          Query Failed
-        </h3>
-        <p className="text-red-600 dark:text-red-400 whitespace-pre-wrap">{error}</p>
-      </div>
+      <QueryError
+        error={error}
+        onRetry={() => {
+          // Parent component should handle retry by re-executing the query
+          window.location.reload();
+        }}
+      />
     );
   }
 
   if (!results || results.data.length === 0) {
     return (
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center">
-        <svg
-          className="mx-auto h-12 w-12 text-gray-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
-        </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No results</h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          The query returned 0 rows.
-        </p>
-      </div>
+      <EmptyState
+        illustration="no-results"
+        title="No results found"
+        description="Your query executed successfully but returned 0 rows. Try adjusting your query or filters."
+      />
     );
   }
 

@@ -7,6 +7,8 @@ import { apiClient } from '@/lib/api-client';
 import SQLEditor from './SQLEditor';
 import DataSourceSchemaSelector from './DataSourceSchemaSelector';
 import QueryResults from './QueryResults';
+import Button from '@/components/ui/Button';
+import { QueryError } from '@/components/ui/Alert';
 import type { QueryResult } from '@/types';
 
 export default function QueryExecutor() {
@@ -352,20 +354,21 @@ export default function QueryExecutor() {
                   SQL Query
                 </label>
                 <div className="flex space-x-2">
-                  <button
+                  <Button
                     onClick={handleSaveQuery}
-                    disabled={loading || !queryText.trim()}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!queryText.trim()}
+                    variant="secondary"
                   >
                     Save Query
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={handleExecuteQuery}
-                    disabled={loading || !queryText.trim()}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!queryText.trim()}
+                    loading={loading}
+                    variant="primary"
                   >
                     {loading ? 'Executing...' : 'Run Query'}
-                  </button>
+                  </Button>
                 </div>
               </div>
               <SQLEditor
@@ -382,31 +385,13 @@ export default function QueryExecutor() {
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg
-                className="h-5 w-5 text-red-400"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 dark:text-red-400">
-                Error
-              </h3>
-              <p className="mt-1 text-sm text-red-700 dark:text-red-300 whitespace-pre-wrap">
-                {error}
-              </p>
-            </div>
-          </div>
-        </div>
+        <QueryError
+          error={error}
+          onRetry={() => {
+            setError(null);
+            handleExecuteQuery();
+          }}
+        />
       )}
 
       {/* Results */}
@@ -422,18 +407,18 @@ export default function QueryExecutor() {
               </p>
             </div>
             <div className="flex space-x-2">
-              <button
+              <Button
                 onClick={handleExportCSV}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                variant="secondary"
               >
                 Export CSV
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleExportJSON}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                variant="secondary"
               >
                 Export JSON
-              </button>
+              </Button>
             </div>
           </div>
           <QueryResults
