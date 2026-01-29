@@ -1,4 +1,4 @@
-package service
+package tests
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/yourorg/querybase/internal/models"
+	"github.com/yourorg/querybase/internal/service"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -27,7 +28,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&models.Query{},
 		&models.QueryResult{},
 		&models.QueryHistory{},
-		&models.ApprovalRequest{},
+		&models.service.ApprovalRequest{},
 		&models.ApprovalReview{},
 		&models.QueryTransaction{},
 		&models.NotificationConfig{},
@@ -79,8 +80,8 @@ func TestApprovalService_CreateApprovalRequest(t *testing.T) {
 	}
 
 	db := setupTestDB(t)
-	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	queryService := &service.QueryService{}
+	approvalService := service.NewApprovalService(db, queryService)
 
 	user := createTestUser(t, db, models.RoleUser)
 	dataSource := createTestDataSource(t, db)
@@ -93,7 +94,7 @@ func TestApprovalService_CreateApprovalRequest(t *testing.T) {
 	}{
 		{
 			name: "Valid approval request",
-			request: &ApprovalRequest{
+			request: &service.ApprovalRequest{
 				DataSourceID: dataSource.ID,
 				QuerySQL:     "INSERT INTO users (name) VALUES ('Test')",
 				RequestedBy:  user.ID.String(),
@@ -102,7 +103,7 @@ func TestApprovalService_CreateApprovalRequest(t *testing.T) {
 		},
 		{
 			name: "Invalid requested_by UUID",
-			request: &ApprovalRequest{
+			request: &service.ApprovalRequest{
 				DataSourceID: dataSource.ID,
 				QuerySQL:     "INSERT INTO users (name) VALUES ('Test')",
 				RequestedBy:  "invalid-uuid",
@@ -112,7 +113,7 @@ func TestApprovalService_CreateApprovalRequest(t *testing.T) {
 		},
 		{
 			name: "Empty query",
-			request: &ApprovalRequest{
+			request: &service.ApprovalRequest{
 				DataSourceID: dataSource.ID,
 				QuerySQL:     "",
 				RequestedBy:  user.ID.String(),
@@ -150,14 +151,14 @@ func TestApprovalService_GetApproval(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	queryService := &service.QueryService{}
+	approvalService := service.NewApprovalService(db, queryService)
 
 	user := createTestUser(t, db, models.RoleUser)
 	dataSource := createTestDataSource(t, db)
 
 	// Create approval request
-	approval := &models.ApprovalRequest{
+	approval := &models.service.ApprovalRequest{
 		ID:           uuid.New(),
 		DataSourceID: dataSource.ID,
 		QueryText:    "UPDATE users SET name = 'Test'",
@@ -212,14 +213,14 @@ func TestApprovalService_ListApprovals(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	queryService := &service.QueryService{}
+	approvalService := service.NewApprovalService(db, queryService)
 
 	user := createTestUser(t, db, models.RoleUser)
 	dataSource := createTestDataSource(t, db)
 
 	// Create multiple approval requests
-	approvals := []*models.ApprovalRequest{
+	approvals := []*models.service.ApprovalRequest{
 		{
 			ID:           uuid.New(),
 			DataSourceID: dataSource.ID,
@@ -322,15 +323,15 @@ func TestApprovalService_ReviewApproval(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	queryService := &service.QueryService{}
+	approvalService := service.NewApprovalService(db, queryService)
 
 	user := createTestUser(t, db, models.RoleUser)
 	reviewer := createTestUser(t, db, models.RoleAdmin)
 	dataSource := createTestDataSource(t, db)
 
 	// Create approval request
-	approval := &models.ApprovalRequest{
+	approval := &models.service.ApprovalRequest{
 		ID:           uuid.New(),
 		DataSourceID: dataSource.ID,
 		QueryText:    "UPDATE users SET name = 'Test'",
@@ -390,7 +391,7 @@ func TestApprovalService_ReviewApproval(t *testing.T) {
 			// For multiple reviews on same approval, we need different approval instances
 			if tt.name == "Valid rejection" {
 				// Create new approval for this test
-				newApproval := &models.ApprovalRequest{
+				newApproval := &models.service.ApprovalRequest{
 					ID:           uuid.New(),
 					DataSourceID: dataSource.ID,
 					QueryText:    "DELETE FROM users",
@@ -433,8 +434,8 @@ func TestApprovalService_GetEligibleApprovers(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	queryService := &service.QueryService{}
+	approvalService := service.NewApprovalService(db, queryService)
 
 	// Create users and data source
 	user2 := createTestUser(t, db, models.RoleAdmin)
@@ -487,14 +488,14 @@ func TestApprovalService_StartTransaction(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	queryService := &service.QueryService{}
+	approvalService := service.NewApprovalService(db, queryService)
 
 	user := createTestUser(t, db, models.RoleUser)
 	dataSource := createTestDataSource(t, db)
 
 	// Create approval request
-	approval := &models.ApprovalRequest{
+	approval := &models.service.ApprovalRequest{
 		ID:           uuid.New(),
 		DataSourceID: dataSource.ID,
 		QueryText:    "INSERT INTO users (name) VALUES ('Test')",
@@ -551,15 +552,15 @@ func TestApprovalService_UpdateApprovalStatus(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	queryService := &service.QueryService{}
+	approvalService := service.NewApprovalService(db, queryService)
 
 	user := createTestUser(t, db, models.RoleUser)
 	reviewer := createTestUser(t, db, models.RoleAdmin)
 	dataSource := createTestDataSource(t, db)
 
 	t.Run("Approval on approve decision", func(t *testing.T) {
-		approval := &models.ApprovalRequest{
+		approval := &models.service.ApprovalRequest{
 			ID:           uuid.New(),
 			DataSourceID: dataSource.ID,
 			QueryText:    "INSERT INTO users VALUES (1)",
@@ -588,7 +589,7 @@ func TestApprovalService_UpdateApprovalStatus(t *testing.T) {
 	})
 
 	t.Run("Rejection on reject decision", func(t *testing.T) {
-		approval := &models.ApprovalRequest{
+		approval := &models.service.ApprovalRequest{
 			ID:           uuid.New(),
 			DataSourceID: dataSource.ID,
 			QueryText:    "DELETE FROM users",
@@ -623,14 +624,14 @@ func TestApprovalService_DuplicateReview(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	queryService := &service.QueryService{}
+	approvalService := service.NewApprovalService(db, queryService)
 
 	user := createTestUser(t, db, models.RoleUser)
 	reviewer := createTestUser(t, db, models.RoleAdmin)
 	dataSource := createTestDataSource(t, db)
 
-	approval := &models.ApprovalRequest{
+	approval := &models.service.ApprovalRequest{
 		ID:           uuid.New(),
 		DataSourceID: dataSource.ID,
 		QueryText:    "UPDATE users SET name = 'Test'",
@@ -670,15 +671,15 @@ func TestApprovalService_ReviewNonPendingApproval(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	queryService := &service.QueryService{}
+	approvalService := service.NewApprovalService(db, queryService)
 
 	user := createTestUser(t, db, models.RoleUser)
 	reviewer := createTestUser(t, db, models.RoleAdmin)
 	dataSource := createTestDataSource(t, db)
 
 	// Create already approved approval
-	approval := &models.ApprovalRequest{
+	approval := &models.service.ApprovalRequest{
 		ID:           uuid.New(),
 		DataSourceID: dataSource.ID,
 		QueryText:    "INSERT INTO users VALUES (1)",
