@@ -110,9 +110,18 @@ func (h *QueryHandler) ExecuteQuery(c *gin.Context) {
 	var columnNames []string
 	json.Unmarshal([]byte(result.ColumnNames), &columnNames)
 
+	// Parse column types from JSON string
+	var columnTypes []string
+	json.Unmarshal([]byte(result.ColumnTypes), &columnTypes)
+
+	// Build column info with names and types
 	columns := make([]dto.ColumnInfo, len(columnNames))
 	for i, col := range columnNames {
-		columns[i] = dto.ColumnInfo{Name: col, Type: "unknown"}
+		colType := "unknown"
+		if i < len(columnTypes) && columnTypes[i] != "" {
+			colType = columnTypes[i]
+		}
+		columns[i] = dto.ColumnInfo{Name: col, Type: colType}
 	}
 
 	c.JSON(http.StatusOK, dto.ExecuteQueryResponse{
@@ -592,16 +601,31 @@ func (h *QueryHandler) GetQueryResults(c *gin.Context) {
 		return
 	}
 
+	// Get query result from database to fetch column types
+	var queryResult models.QueryResult
+	if err := h.db.Where("query_id = ?", queryID).First(&queryResult).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Query result not found"})
+		return
+	}
+
+	// Parse column types from database
+	var columnTypes []string
+	json.Unmarshal([]byte(queryResult.ColumnTypes), &columnTypes)
+
 	rows, columnNames, metadata, err := h.queryService.GetPaginatedResults(ctx, queryUUID, page, perPage, sortColumn, sortDirection)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Build column info
+	// Build column info with names and types
 	columns := make([]dto.ColumnInfo, len(columnNames))
 	for i, col := range columnNames {
-		columns[i] = dto.ColumnInfo{Name: col, Type: "unknown"}
+		colType := "unknown"
+		if i < len(columnTypes) && columnTypes[i] != "" {
+			colType = columnTypes[i]
+		}
+		columns[i] = dto.ColumnInfo{Name: col, Type: colType}
 	}
 
 	c.JSON(http.StatusOK, dto.PaginatedResultDTO{
