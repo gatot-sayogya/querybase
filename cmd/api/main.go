@@ -96,10 +96,9 @@ func main() {
 	router.Use(middleware.LoggingMiddleware())
 
 	// Add CORS middleware
-	// Use development config for now, change to ProdConfig for production
-	corsConfig := middleware.DefaultConfig()
-	// For development, you can also use: middleware.DevelopmentConfig()
-	router.Use(middleware.CORSMiddleware(corsConfig))
+	// CORS configuration is now loaded from config.yaml and environment variables
+	// Set CORS_ALLOWED_ORIGINS in .env or config.yaml to control allowed origins
+	router.Use(middleware.CORSMiddlewareFromConfig(cfg.CORS))
 
 	// Add rate limiting middleware
 	// Uses default config: 60 requests/minute, burst of 10

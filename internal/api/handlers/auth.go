@@ -34,7 +34,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	var user models.User
-	if err := h.db.Where("username = ? OR email = ?", req.Username, req.Username).First(&user).Error; err != nil {
+	if err := h.db.Preload("Groups").Where("username = ? OR email = ?", req.Username, req.Username).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -55,6 +55,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Extract group IDs
+	groupIDs := make([]string, len(user.Groups))
+	for i, group := range user.Groups {
+		groupIDs[i] = group.ID.String()
+	}
+
 	c.JSON(http.StatusOK, dto.LoginResponse{
 		Token: token,
 		User: dto.UserResponse{
@@ -63,6 +69,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			Username: user.Username,
 			FullName: user.FullName,
 			Role:     string(user.Role),
+			Groups:   groupIDs,
 		},
 	})
 }
@@ -72,9 +79,15 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 	userID := c.GetString("user_id")
 
 	var user models.User
-	if err := h.db.Where("id = ?", userID).First(&user).Error; err != nil {
+	if err := h.db.Preload("Groups").Where("id = ?", userID).First(&user).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
+	}
+
+	// Extract group IDs
+	groupIDs := make([]string, len(user.Groups))
+	for i, group := range user.Groups {
+		groupIDs[i] = group.ID.String()
 	}
 
 	c.JSON(http.StatusOK, dto.UserResponse{
@@ -83,6 +96,7 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 		Username: user.Username,
 		FullName: user.FullName,
 		Role:     string(user.Role),
+		Groups:   groupIDs,
 	})
 }
 

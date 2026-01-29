@@ -13,6 +13,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
+	CORS     CORSConfig     `mapstructure:"cors"`
 }
 
 // ServerConfig represents the server configuration
@@ -49,6 +50,19 @@ type JWTConfig struct {
 	Issuer      string        `mapstructure:"issuer"`
 }
 
+// CORSConfig represents the CORS configuration
+type CORSConfig struct {
+	// AllowedOrigins is a comma-separated list of origins allowed to make requests
+	// Example: "http://localhost:3000,https://app.example.com"
+	AllowedOrigins string `mapstructure:"allowed_origins"`
+
+	// AllowCredentials indicates whether the request can include user credentials
+	AllowCredentials bool `mapstructure:"allow_credentials"`
+
+	// MaxAge indicates how long (in seconds) the results of a preflight request can be cached
+	MaxAge int `mapstructure:"max_age"`
+}
+
 // Load loads the configuration from file and environment variables
 func Load(path string) (*Config, error) {
 	viper.SetConfigFile(path)
@@ -64,6 +78,9 @@ func Load(path string) (*Config, error) {
 	viper.SetDefault("redis.db", 0)
 	viper.SetDefault("jwt.expire_hours", 24*time.Hour)
 	viper.SetDefault("jwt.issuer", "querybase")
+	viper.SetDefault("cors.allowed_origins", "http://localhost:3000,http://localhost:3001")
+	viper.SetDefault("cors.allow_credentials", true)
+	viper.SetDefault("cors.max_age", 86400) // 24 hours
 
 	// Allow environment variables to override config
 	viper.AutomaticEnv()
@@ -104,4 +121,84 @@ func (c *DatabaseConfig) GetDatabaseDSN() string {
 // GetRedisAddr returns the Redis address
 func (c *RedisConfig) GetRedisAddr() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+// GetAllowedOrigins parses the comma-separated origins into a slice
+func (c *CORSConfig) GetAllowedOrigins() []string {
+	if c.AllowedOrigins == "" {
+		return []string{"http://localhost:3000"}
+	}
+
+	// Parse comma-separated values
+	origins := []string{}
+	for _, origin := range splitAndTrim(c.AllowedOrigins, ",") {
+		if origin != "" {
+			origins = append(origins, origin)
+		}
+	}
+
+	// Fallback to defaults if no valid origins
+	if len(origins) == 0 {
+		return []string{"http://localhost:3000"}
+	}
+
+	return origins
+}
+
+// splitAndTrim splits a string by separator and trims whitespace from each part
+func splitAndTrim(s, sep string) []string {
+	if s == "" {
+		return []string{}
+	}
+
+	parts := []string{}
+	for _, part := range splitString(s, sep) {
+		trimmed := trimSpace(part)
+		if trimmed != "" {
+			parts = append(parts, trimmed)
+		}
+	}
+	return parts
+}
+
+// splitString splits a string by separator (simple implementation)
+func splitString(s, sep string) []string {
+	if s == "" {
+		return []string{}
+	}
+	if sep == "" {
+		return []string{s}
+	}
+
+	result := []string{}
+	current := ""
+	for i := 0; i < len(s); i++ {
+		if i+len(sep) <= len(s) && s[i:i+len(sep)] == sep {
+			result = append(result, current)
+			current = ""
+			i += len(sep) - 1
+		} else {
+			current += string(s[i])
+		}
+	}
+	result = append(result, current)
+	return result
+}
+
+// trimSpace removes leading and trailing whitespace
+func trimSpace(s string) string {
+	start := 0
+	end := len(s)
+
+	// Trim leading whitespace
+	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n' || s[start] == '\r') {
+		start++
+	}
+
+	// Trim trailing whitespace
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n' || s[end-1] == '\r') {
+		end--
+	}
+
+	return s[start:end]
 }

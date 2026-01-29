@@ -1,9 +1,8 @@
 'use client';
 
 import Editor, { Monaco } from '@monaco-editor/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSchemaStore } from '@/stores/schema-store';
-import type { editor } from 'monaco-editor';
 
 interface SQLEditorProps {
   value: string;
@@ -23,16 +22,17 @@ export default function SQLEditor({
   dataSourceId,
 }: SQLEditorProps) {
   const [editorHeight] = useState(height);
-  const { getTableNames, getAllColumns } = useSchemaStore();
+  const [monaco, setMonaco] = useState<Monaco | null>(null);
+  const completionProviderRef = useRef<any>(null);
+  const { getTableNames, getAllColumns, schemas } = useSchemaStore();
 
-  const handleEditorWillMount = (monaco: Monaco) => {
-    // Register custom SQL language features if needed
-    monaco.languages.registerCompletionItemProvider('sql', {
-      provideCompletionItems: async (
-        model: editor.ITextModel,
-        position: editor.Position
-      ) => {
-        const suggestions: monaco.languages.CompletionItem[] = [];
+  const createCompletionProvider = (monacoInstance: any, currentDataSourceId: string) => {
+    const languages = monacoInstance.languages;
+    const CompletionItemKind = languages.CompletionItemKind;
+
+    return languages.registerCompletionItemProvider('sql', {
+      provideCompletionItems: async (model: any, position: any) => {
+        const suggestions: any[] = [];
 
         // Get text before cursor for context
         const textUntilPosition = model.getValueInRange({
@@ -43,7 +43,13 @@ export default function SQLEditor({
         });
 
         const words = textUntilPosition.split(/\s+/);
-        const lastWord = words[words.length - 1].toUpperCase();
+        let lastWord = words[words.length - 1] || '';
+
+        // Remove trailing special characters (semicolon, comma, parentheses, etc.)
+        lastWord = lastWord.replace(/[;,\(\)\[\]\{\}]*$/, '').toUpperCase();
+
+        // Handle empty last word (suggest all keywords)
+        const shouldShowAll = !lastWord || lastWord === '';
 
         // SQL Keywords
         const keywords = [
@@ -57,10 +63,10 @@ export default function SQLEditor({
 
         // Always suggest SQL keywords
         keywords.forEach((keyword) => {
-          if (keyword.startsWith(lastWord)) {
+          if (shouldShowAll || keyword.startsWith(lastWord)) {
             suggestions.push({
               label: keyword,
-              kind: monaco.languages.CompletionItemKind.Keyword,
+              kind: CompletionItemKind.Keyword,
               insertText: keyword,
               detail: 'SQL Keyword',
               sortText: `0_${keyword}`,
@@ -68,10 +74,16 @@ export default function SQLEditor({
           }
         });
 
-        // Add schema-based suggestions if data source is selected
-        if (dataSourceId) {
-          const tableNames = getTableNames(dataSourceId);
-          const allColumns = getAllColumns(dataSourceId);
+        // Add schema-based suggestions if data source is selected and schema is loaded
+        if (currentDataSourceId && schemas.has(currentDataSourceId)) {
+          const tableNames = getTableNames(currentDataSourceId);
+          const allColumns = getAllColumns(currentDataSourceId);
+
+          console.log('Autocomplete:', {
+            dataSourceId: currentDataSourceId,
+            tableNames,
+            columnCount: allColumns.size,
+          });
 
           // Detect if we're after FROM, JOIN, or INTO (suggest tables)
           const previousWords = words.slice(Math.max(0, words.length - 5)).join(' ');
@@ -84,10 +96,10 @@ export default function SQLEditor({
           if (suggestTables) {
             // Suggest table names
             tableNames.forEach((tableName) => {
-              if (tableName.toUpperCase().startsWith(lastWord)) {
+              if (shouldShowAll || tableName.toUpperCase().startsWith(lastWord)) {
                 suggestions.push({
                   label: tableName,
-                  kind: monaco.languages.CompletionItemKind.Class,
+                  kind: CompletionItemKind.Class,
                   insertText: tableName,
                   detail: 'Table',
                   sortText: `1_${tableName}`,
@@ -97,10 +109,11 @@ export default function SQLEditor({
           } else {
             // Suggest columns and tables
             tableNames.forEach((tableName) => {
-              if (tableName.toUpperCase().startsWith(lastWord)) {
+              // Add table name
+              if (shouldShowAll || tableName.toUpperCase().startsWith(lastWord)) {
                 suggestions.push({
                   label: tableName,
-                  kind: monaco.languages.CompletionItemKind.Class,
+                  kind: CompletionItemKind.Class,
                   insertText: tableName,
                   detail: 'Table',
                   sortText: `1_${tableName}`,
@@ -109,17 +122,34 @@ export default function SQLEditor({
 
               // Add columns for this table
               const columns = allColumns.get(tableName);
-              if (columns) {
-                columns.forEach((column) => {
+              if (columns && columns.length > 0) {
+                columns.forEach((column: any) => {
+                  // Add column with table prefix
                   const columnLabel = `${tableName}.${column.column_name}`;
-                  if (columnLabel.toUpperCase().startsWith(lastWord) || column.column_name.toUpperCase().startsWith(lastWord)) {
+                  if (
+                    shouldShowAll ||
+                    columnLabel.toUpperCase().startsWith(lastWord) ||
+                    column.column_name.toUpperCase().startsWith(lastWord)
+                  ) {
                     suggestions.push({
                       label: columnLabel,
-                      kind: monaco.languages.CompletionItemKind.Field,
+                      kind: CompletionItemKind.Field,
                       insertText: columnLabel,
                       detail: `${column.data_type}${column.is_nullable ? '' : ' NOT NULL'}`,
                       documentation: `Column: ${column.column_name}\nType: ${column.data_type}\n${column.is_primary_key ? 'Primary Key\n' : ''}${column.is_foreign_key ? 'Foreign Key' : ''}`,
                       sortText: `2_${tableName}_${column.column_name}`,
+                    });
+                  }
+
+                  // Also add column name alone for WHERE clauses etc
+                  if (shouldShowAll || column.column_name.toUpperCase().startsWith(lastWord)) {
+                    suggestions.push({
+                      label: column.column_name,
+                      kind: CompletionItemKind.Field,
+                      insertText: column.column_name,
+                      detail: `${column.data_type} (from ${tableName})`,
+                      documentation: `Column: ${column.column_name}\nTable: ${tableName}\nType: ${column.data_type}`,
+                      sortText: `3_${column.column_name}`,
                     });
                   }
                 });
@@ -131,9 +161,13 @@ export default function SQLEditor({
         return { suggestions };
       },
     });
+  };
+
+  const handleEditorWillMount = (monacoInstance: Monaco) => {
+    setMonaco(monacoInstance);
 
     // Register signature help for functions
-    monaco.languages.registerSignatureHelpProvider('sql', {
+    monacoInstance.languages.registerSignatureHelpProvider('sql', {
       signatureHelpTriggerCharacters: ['(', ','],
       provideSignatureHelp: async () => {
         return {
@@ -193,6 +227,27 @@ export default function SQLEditor({
       },
     });
   };
+
+  // Update completion provider when dataSourceId changes
+  useEffect(() => {
+    if (!monaco || !dataSourceId) return;
+
+    console.log('Updating autocomplete for data source:', dataSourceId);
+
+    // Dispose old provider if exists
+    if (completionProviderRef.current) {
+      completionProviderRef.current.dispose();
+    }
+
+    // Create new provider with current dataSourceId
+    completionProviderRef.current = createCompletionProvider(monaco, dataSourceId);
+
+    return () => {
+      if (completionProviderRef.current) {
+        completionProviderRef.current.dispose();
+      }
+    };
+  }, [monaco, dataSourceId, schemas]);
 
   const handleEditorChange = (value: string | undefined) => {
     onChange(value || '');

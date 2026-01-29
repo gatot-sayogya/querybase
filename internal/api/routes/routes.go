@@ -102,6 +102,7 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 			schemas := protected.Group("/datasources")
 			{
 				schemas.GET("/:id/schema", schemaHandler.GetDatabaseSchema)
+				schemas.POST("/:id/sync", schemaHandler.SyncSchema)
 				schemas.GET("/:id/tables", schemaHandler.GetTables)
 				schemas.GET("/:id/table", schemaHandler.GetTableDetails)
 				schemas.GET("/:id/search", schemaHandler.SearchTables)

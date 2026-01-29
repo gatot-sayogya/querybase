@@ -1,17 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronRightIcon, TableCellsIcon, EyeIcon, CodeBracketIcon } from '@heroicons/react/24/outline';
 import { useSchemaStore } from '@/stores/schema-store';
 import { useAuthStore } from '@/stores/auth-store';
-import type { TableInfo, SchemaColumnInfo } from '@/types';
+import type { TableInfo, SchemaColumnInfo, ViewInfo, FunctionInfo } from '@/types';
 import DataSourceSelector from './DataSourceSelector';
 
-export default function SchemaBrowser() {
+interface SchemaBrowserProps {
+  onTableSelect?: (tableName: string) => void;
+}
+
+export default function SchemaBrowser({ onTableSelect }: SchemaBrowserProps) {
   const { isAuthenticated } = useAuthStore();
   const [selectedDataSource, setSelectedDataSource] = useState<string | null>(null);
-  const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tables']));
 
   const {
     schemas,
@@ -19,8 +24,6 @@ export default function SchemaBrowser() {
     isLoading,
     error,
     setCurrentDataSource,
-    getTableNames,
-    searchTables,
   } = useSchemaStore();
 
   useEffect(() => {
@@ -31,17 +34,43 @@ export default function SchemaBrowser() {
   }, [selectedDataSource, isAuthenticated]);
 
   const currentSchema = selectedDataSource ? schemas.get(selectedDataSource) : null;
-  const filteredTables = currentSchema?.tables.filter((table) =>
-    table.table_name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
 
-  const toggleTable = (tableName: string) => {
-    setExpandedTables((prev) => {
+  // Separate tables from views if table_type is available
+  const tables = currentSchema?.tables.filter(t => !t.table_type || t.table_type === 'table') || [];
+  const views = currentSchema?.views || currentSchema?.tables.filter(t => t.table_type === 'view') || [];
+  const functions = currentSchema?.functions || [];
+
+  // Filter items based on search
+  const filteredTables = tables.filter((table) =>
+    table.table_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const filteredViews = views.filter((view) => {
+    const viewName = (view as ViewInfo).view_name || (view as TableInfo).table_name || '';
+    return viewName.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+  const filteredFunctions = functions.filter((func) =>
+    func.function_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const toggleItem = (itemName: string) => {
+    setExpandedItems((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(tableName)) {
-        newSet.delete(tableName);
+      if (newSet.has(itemName)) {
+        newSet.delete(itemName);
       } else {
-        newSet.add(tableName);
+        newSet.add(itemName);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(section)) {
+        newSet.delete(section);
+      } else {
+        newSet.add(section);
       }
       return newSet;
     });
@@ -49,12 +78,19 @@ export default function SchemaBrowser() {
 
   const expandAll = () => {
     if (currentSchema) {
-      setExpandedTables(new Set(currentSchema.tables.map((t) => t.table_name)));
+      const allItems = [
+        ...tables.map(t => t.table_name),
+        ...views.map(v => (v as ViewInfo).view_name || (v as TableInfo).table_name || ''),
+        ...functions.map(f => f.function_name)
+      ].filter(Boolean);
+      setExpandedItems(new Set(allItems));
+      setExpandedSections(new Set(['tables', 'views', 'functions']));
     }
   };
 
   const collapseAll = () => {
-    setExpandedTables(new Set());
+    setExpandedItems(new Set());
+    setExpandedSections(new Set(['tables']));
   };
 
   if (!isAuthenticated) {
@@ -62,14 +98,13 @@ export default function SchemaBrowser() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-800">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Database Schema</h3>
         <DataSourceSelector
-          value={selectedDataSource}
+          value={selectedDataSource || ''}
           onChange={setSelectedDataSource}
-          className="w-full"
         />
       </div>
 
@@ -107,7 +142,7 @@ export default function SchemaBrowser() {
                   {currentSchema.data_source_name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {currentSchema.database_type} • {currentSchema.tables.length} tables
+                  {currentSchema.database_type} • {tables.length} tables, {views.length} views, {functions.length} functions
                 </p>
               </div>
               <div className="flex gap-1">
@@ -131,29 +166,84 @@ export default function SchemaBrowser() {
             {/* Search */}
             <input
               type="text"
-              placeholder="Search tables..."
+              placeholder="Search tables, views, functions..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          {/* Tables List */}
+          {/* Content */}
           <div className="flex-1 overflow-y-auto">
-            {filteredTables.length === 0 ? (
-              <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                {searchTerm ? 'No tables found' : 'No tables available'}
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {/* Tables Section */}
+            {filteredTables.length > 0 && (
+              <SchemaSection
+                title="Tables"
+                icon={<TableCellsIcon className="h-4 w-4" />}
+                count={filteredTables.length}
+                isExpanded={expandedSections.has('tables')}
+                onToggle={() => toggleSection('tables')}
+              >
                 {filteredTables.map((table) => (
                   <TableItem
                     key={table.table_name}
                     table={table}
-                    isExpanded={expandedTables.has(table.table_name)}
-                    onToggle={() => toggleTable(table.table_name)}
+                    isExpanded={expandedItems.has(table.table_name)}
+                    onToggle={() => toggleItem(table.table_name)}
+                    onSelectTable={onTableSelect}
                   />
                 ))}
+              </SchemaSection>
+            )}
+
+            {/* Views Section */}
+            {filteredViews.length > 0 && (
+              <SchemaSection
+                title="Views"
+                icon={<EyeIcon className="h-4 w-4" />}
+                count={filteredViews.length}
+                isExpanded={expandedSections.has('views')}
+                onToggle={() => toggleSection('views')}
+              >
+                {filteredViews.map((view) => {
+                  const viewName = (view as ViewInfo).view_name || (view as TableInfo).table_name || '';
+                  return (
+                    <ViewItem
+                      key={viewName}
+                      view={view}
+                      isExpanded={expandedItems.has(viewName)}
+                      onToggle={() => toggleItem(viewName)}
+                      onSelectTable={onTableSelect}
+                    />
+                  );
+                })}
+              </SchemaSection>
+            )}
+
+            {/* Functions Section */}
+            {filteredFunctions.length > 0 && (
+              <SchemaSection
+                title="Functions"
+                icon={<CodeBracketIcon className="h-4 w-4" />}
+                count={filteredFunctions.length}
+                isExpanded={expandedSections.has('functions')}
+                onToggle={() => toggleSection('functions')}
+              >
+                {filteredFunctions.map((func) => (
+                  <FunctionItem
+                    key={func.function_name}
+                    function={func}
+                    isExpanded={expandedItems.has(func.function_name)}
+                    onToggle={() => toggleItem(func.function_name)}
+                  />
+                ))}
+              </SchemaSection>
+            )}
+
+            {/* No Results */}
+            {filteredTables.length === 0 && filteredViews.length === 0 && filteredFunctions.length === 0 && searchTerm && (
+              <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                No results found for &quot;{searchTerm}&quot;
               </div>
             )}
           </div>
@@ -163,20 +253,67 @@ export default function SchemaBrowser() {
   );
 }
 
+// Schema Section Component
+interface SchemaSectionProps {
+  title: string;
+  icon: React.ReactNode;
+  count: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+function SchemaSection({ title, icon, count, isExpanded, onToggle, children }: SchemaSectionProps) {
+  return (
+    <div className="border-b border-gray-200 dark:border-gray-700">
+      <button
+        onClick={onToggle}
+        className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50"
+      >
+        <div className="flex items-center gap-2">
+          {isExpanded ? (
+            <ChevronDownIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+          ) : (
+            <ChevronRightIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+          )}
+          <div className="text-gray-600 dark:text-gray-300">{icon}</div>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+            {title}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            ({count})
+          </span>
+        </div>
+      </button>
+      {isExpanded && <div className="divide-y divide-gray-200 dark:divide-gray-700">{children}</div>}
+    </div>
+  );
+}
+
+// Table Item Component (existing)
 interface TableItemProps {
   table: TableInfo;
   isExpanded: boolean;
   onToggle: () => void;
+  onSelectTable?: (tableName: string) => void;
 }
 
-function TableItem({ table, isExpanded, onToggle }: TableItemProps) {
+function TableItem({ table, isExpanded, onToggle, onSelectTable }: TableItemProps) {
   const primaryKeyCount = table.columns.filter((c) => c.is_primary_key).length;
+
+  const handleClick = () => {
+    onToggle();
+    if (onSelectTable) {
+      onSelectTable(table.table_name);
+    }
+  };
 
   return (
     <div className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
       <button
-        onClick={onToggle}
-        className="w-full px-4 py-2 flex items-center justify-between text-left"
+        onClick={handleClick}
+        className="w-full px-6 py-2 flex items-center justify-between text-left"
+        title="Click to view table data (LIMIT 100)"
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {isExpanded ? (
@@ -202,7 +339,7 @@ function TableItem({ table, isExpanded, onToggle }: TableItemProps) {
       </button>
 
       {isExpanded && (
-        <div className="px-4 pb-2 pl-10">
+        <div className="px-6 pb-2 pl-14">
           <div className="space-y-1">
             {table.columns.map((column) => (
               <ColumnItem key={column.column_name} column={column} />
@@ -214,6 +351,124 @@ function TableItem({ table, isExpanded, onToggle }: TableItemProps) {
   );
 }
 
+// View Item Component
+interface ViewItemProps {
+  view: ViewInfo | TableInfo;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onSelectTable?: (tableName: string) => void;
+}
+
+function ViewItem({ view, isExpanded, onToggle, onSelectTable }: ViewItemProps) {
+  const viewName = (view as ViewInfo).view_name || (view as TableInfo).table_name;
+  const columns = (view as ViewInfo).columns || (view as TableInfo).columns;
+
+  const handleClick = () => {
+    onToggle();
+    if (onSelectTable) {
+      onSelectTable(viewName);
+    }
+  };
+
+  return (
+    <div className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+      <button
+        onClick={handleClick}
+        className="w-full px-6 py-2 flex items-center justify-between text-left"
+        title="Click to view view data (LIMIT 100)"
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {isExpanded ? (
+            <ChevronDownIcon className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          ) : (
+            <ChevronRightIcon className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          )}
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+            {viewName}
+          </span>
+          <span
+            className="px-1.5 py-0.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded"
+            title="View"
+          >
+            VIEW
+          </span>
+        </div>
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          {columns.length} cols
+        </span>
+      </button>
+
+      {isExpanded && columns && (
+        <div className="px-6 pb-2 pl-14">
+          <div className="space-y-1">
+            {columns.map((column) => (
+              <ColumnItem key={column.column_name} column={column} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Function Item Component
+interface FunctionItemProps {
+  function: FunctionInfo;
+  isExpanded: boolean;
+  onToggle: () => void;
+}
+
+function FunctionItem({ function: func, isExpanded, onToggle }: FunctionItemProps) {
+  return (
+    <div className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+      <button
+        onClick={onToggle}
+        className="w-full px-6 py-2 flex items-center justify-between text-left"
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {isExpanded ? (
+            <ChevronDownIcon className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          ) : (
+            <ChevronRightIcon className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          )}
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate font-mono">
+            {func.function_name}
+          </span>
+          <span
+            className={`px-1.5 py-0.5 text-xs rounded ${
+              func.function_type === 'aggregate'
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                : func.function_type === 'window'
+                ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
+                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+            }`}
+          >
+            {func.function_type?.toUpperCase() || 'FUNCTION'}
+          </span>
+        </div>
+      </button>
+
+      {isExpanded && (
+        <div className="px-6 pb-2 pl-14">
+          <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+            {func.return_type && (
+              <div>
+                <span className="font-medium">Returns:</span> {func.return_type}
+              </div>
+            )}
+            {func.parameters && (
+              <div>
+                <span className="font-medium">Parameters:</span> {func.parameters}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Column Item Component (existing)
 interface ColumnItemProps {
   column: SchemaColumnInfo;
 }

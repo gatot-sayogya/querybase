@@ -8,6 +8,7 @@ export interface User {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  groups?: string[]; // List of group IDs the user belongs to
 }
 
 export interface LoginRequest {
@@ -37,6 +38,15 @@ export interface DataSource {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  permissions?: DataSourcePermission[];
+}
+
+export interface DataSourcePermission {
+  group_id: string;
+  group_name: string;
+  can_read: boolean;
+  can_write: boolean;
+  can_approve: boolean;
 }
 
 export interface CreateDataSourceRequest {
@@ -170,14 +180,32 @@ export interface DatabaseSchema {
   database_type: string;
   database_name: string;
   tables: TableInfo[];
+  views?: ViewInfo[];
+  functions?: FunctionInfo[];
   schemas?: string[];
 }
 
 export interface TableInfo {
   table_name: string;
   schema: string;
+  table_type: 'table' | 'view';
   columns: SchemaColumnInfo[];
   indexes?: IndexInfo[];
+}
+
+export interface ViewInfo {
+  view_name: string;
+  schema: string;
+  columns: SchemaColumnInfo[];
+  definition?: string;
+}
+
+export interface FunctionInfo {
+  function_name: string;
+  schema: string;
+  return_type?: string;
+  parameters?: string;
+  function_type: 'scalar' | 'aggregate' | 'window';
 }
 
 export interface SchemaColumnInfo {
@@ -198,9 +226,11 @@ export interface IndexInfo {
 
 // WebSocket Types
 export interface WebSocketMessage {
-  type: 'connected' | 'schema' | 'schema_update' | 'subscribed' | 'error';
+  type: 'connected' | 'schema' | 'schema_update' | 'subscribed' | 'error' | 'get_schema' | 'subscribe_schema';
   payload?: any;
 }
+
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 export interface SchemaUpdatePayload {
   data_source_id: string;

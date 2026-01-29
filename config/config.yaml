@@ -22,3 +22,9 @@ jwt:
   secret: change-this-secret-in-production
   expire_hours: 24h
   issuer: querybase
+
+cors:
+  # Comma-separated list of allowed origins (can be overridden by CORS_ALLOWED_ORIGINS env var)
+  allowed_origins: "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001"
+  allow_credentials: true
+  max_age: 86400  # 24 hours in seconds

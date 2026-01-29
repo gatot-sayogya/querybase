@@ -1,1085 +1,453 @@
-# CLAUDE.md
+# QueryBase Development Guide
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+**Last Updated:** January 29, 2026
 
-## Current Status: **Backend ~99% Complete** ✅ | **Frontend ~65% Complete** ✅
+## Current Implementation Status
 
-**Last Updated:** January 28, 2026 (Session 5 - CORS, Rate Limiting, Approvals UI)
+**Backend Completion: ~90%** ✅
 
-**Completed:**
-- ✅ All infrastructure (database, models, auth, config)
-- ✅ Query execution engine with SQL parser and validation
-- ✅ **Transaction-based approval workflow**
-- ✅ Data source management with encryption
-- ✅ Redis queue + background worker (for job queue only)
-- ✅ Google Chat notifications
-- ✅ User & Group Management (CRUD operations)
-- ✅ All API endpoints implemented
-- ✅ All compilation errors fixed
-- ✅ **Database migration 000002** (query_results JSONB schema)
-- ✅ **Query result storage with JSONB metadata**
-- ✅ **Foreign key constraint fixes** (query saved before execution)
-- ✅ **Query history pagination API** (with filters)
-- ✅ **Removed query result caching** (Redis for queue only)
-- ✅ **Database migration 000003** (removed cache columns, renamed to stored_at)
-- ✅ **SQL validation before query submission**
-- ✅ **QueryTransaction model for tracking active transactions**
-- ✅ **Transaction management in QueryService**
-- ✅ **Commit/Rollback transaction endpoints**
-- ✅ **Database migration 000004** (query_transactions table)
-- ✅ **CORS middleware** (environment-based configs, preflight handling) ✅ NEW
-- ✅ **Rate limiting middleware** (token bucket algorithm, per-IP limits) ✅ NEW
-- ✅ **Request logging middleware** (already existed)
-- ✅ **Error recovery middleware** (already existed)
+### Completed Features
 
-**Frontend Completed:**
-- ✅ **Phase 1: Authentication** (login, logout, auth context)
-- ✅ **Phase 2: SQL Editor & Query Results** (Monaco, execution, pagination)
-- ✅ **Phase 3: Approval Dashboard** (list, detail, approve/reject) ✅ NEW
+#### Core Infrastructure
+- ✅ Database layer with PostgreSQL and MySQL support
+- ✅ GORM models for all entities
+- ✅ JWT authentication with bcrypt password hashing
+- ✅ Configuration management (YAML + environment variables)
+- ✅ Docker development environment
+- ✅ Multi-architecture build system
 
-**Next:**
-- Performance benchmarks for query execution
-- Frontend Phase 4: Admin Features (data sources, users, groups UI)
-- Frontend Phase 5: Polish (error handling, optimization)
+#### API Layer
+- ✅ RESTful API with Gin framework
+- ✅ Authentication middleware
+- ✅ Role-Based Access Control (RBAC) middleware
+- ✅ CORS middleware (environment-configurable)
+- ✅ Rate limiting (query execution only)
+- ✅ All DTOs defined
+
+#### Query Engine
+- ✅ SQL parser for operation detection
+- ✅ Query execution service
+- ✅ Result caching in PostgreSQL
+- ✅ Query history tracking
+- ✅ Transaction support (start/commit/rollback)
+- ✅ Query result pagination
+
+#### Approval Workflow
+- ✅ Approval request creation
+- ✅ Single-stage approval process
+- ✅ Approval review handlers
+- ✅ Transaction management
+- ✅ Comment system on approvals
+
+#### Data Source Management
+- ✅ CRUD operations for data sources
+- ✅ PostgreSQL and MySQL support
+- ✅ Encrypted password storage
+- ✅ Connection testing
+- ✅ Permission system (can_read, can_write, can_approve)
+- ✅ Permission-based data source filtering
+
+#### Schema Management
+- ✅ Schema inspection (tables, columns, types)
+- ✅ Polling-based schema synchronization (60s)
+- ✅ Manual "Sync Now" functionality
+- ✅ Background worker sync (every 5 minutes)
+- ✅ Health tracking for data sources
+- ✅ Schema caching with 5-minute freshness
+
+#### Background Jobs
+- ✅ Redis queue (Asynq)
+- ✅ Background worker process
+- ✅ Schema sync tasks
+- ✅ Query execution tasks
+- ✅ Notification tasks
+
+#### User & Group Management
+- ✅ User CRUD operations
+- ✅ Group CRUD operations
+- ✅ User-group assignment
+- ✅ Group-based permissions
+
+#### Frontend
+- ✅ Next.js 15+ with App Router
+- ✅ TypeScript + Zustand state management
+- ✅ Tailwind CSS styling
+- ✅ SQL editor with Monaco Editor
+- ✅ Intelligent autocomplete (tables/columns)
+- ✅ Query results viewer (pagination, sorting)
+- ✅ Approval dashboard
+- ✅ Admin panel (users, groups, data sources)
+- ✅ Schema browser with polling
+- ✅ Permission-based UI filtering
+
+### Partially Implemented
+
+#### Notification System
+- ✅ Google Chat webhook integration
+- ✅ Notification configuration model
+- ⚠️ Notification worker (basic implementation)
+
+### Not Implemented
+
+#### Middleware
+- ⏳ Request logging middleware
+- ⏳ Enhanced error tracking
+
+#### Testing
+- ⏳ Comprehensive unit tests (some tests exist)
+- ⏳ Integration tests
+- ⏳ E2E tests (Playwright configured)
+
+#### Frontend Features
+- ⏳ Query result export (partially implemented)
+- ⏳ Advanced query visualization
+- ⏳ Query templates/saved queries library
 
 ---
-
-## Project Overview
-
-**QueryBase** is a database explorer system with:
-- **Backend**: Go (Gin framework)
-- **Frontend**: Next.js + Tailwind CSS (to be implemented)
-- **Primary Database**: PostgreSQL
-- **Queue System**: Redis (for background jobs)
-- **Data Sources**: PostgreSQL and MySQL
-- **Key Features**:
-  - Query execution with result display
-  - Approval workflow for write operations (CREATE, UPDATE, DELETE, ARCHIVE)
-  - Google Chat notifications
-  - User and group-based access control (RBAC)
-
-## Architecture
-
-```
-Frontend (Next.js + Tailwind) → API Gateway (Go/Gin) → PostgreSQL
-                                       ↓
-                                   Redis Queue
-                                       ↓
-                               Background Workers
-                                       ↓
-                         PostgreSQL/MySQL Data Sources
-                                       ↓
-                               Google Chat Webhooks
-```
-
-### Technology Stack
-
-**Backend:**
-- Gin Framework - HTTP router
-- GORM - ORM for PostgreSQL
-- Asynq - Redis-based job queue
-- golang-jwt/jwt - JWT authentication
-- go-redis - Redis client
-- go-sql-driver/mysql - MySQL driver
-
-**Frontend (Planned):**
-- Next.js 14/15 with App Router
-- TypeScript
-- Tailwind CSS
-- Monaco Editor (SQL editor)
-- React Query (server state)
-- Zustand (client state)
 
 ## Project Structure
 
 ```
 querybase/
-├── cmd/
-│   ├── api/main.go              # API server entry point ✅
-│   └── worker/main.go           # Background worker entry point ✅
-├── internal/
-│   ├── api/
-│   │   ├── handlers/            # HTTP handlers ✅
-│   │   │   ├── auth.go          # Auth handlers (login, users, password) ✅
-│   │   │   ├── query.go         # Query handlers ✅
-│   │   │   ├── approval.go      # Approval handlers ✅
-│   │   │   ├── datasource.go    # Data source handlers ✅
-│   │   │   ├── group.go         # Group handlers ✅
-│   │   │   └── notification.go  # Notification handlers (TODO)
-│   │   ├── middleware/          # Auth, CORS, logging, RBAC, rate limiting ✅
-│   │   │   ├── auth.go          # JWT auth middleware ✅
-│   │   │   ├── rbac.go          # Role-based access control ✅
-│   │   │   ├── cors.go          # CORS middleware ✅
-│   │   │   ├── ratelimit.go     # Rate limiting middleware ✅
-│   │   │   └── logging.go       # Request logging ✅
-│   │   ├── routes/              # Route definitions ✅
-│   │   │   └── routes.go        # Main routes file ✅
-│   │   └── dto/                 # Request/response DTOs ✅
-│   │       ├── auth.go          # Auth DTOs ✅
-│   │       ├── user.go          # User DTOs ✅
-│   │       ├── group.go         # Group DTOs ✅
-│   │       ├── query.go         # Query DTOs ✅
-│   │       ├── approval.go      # Approval DTOs ✅
-│   │       └── datasource.go    # Data source DTOs ✅
-│   ├── models/                  # GORM models ✅
-│   │   ├── user.go              # User model ✅
-│   │   ├── group.go             # Group model ✅
-│   │   ├── datasource.go        # DataSource, Permissions ✅
-│   │   ├── query.go             # Query, QueryResult, QueryHistory ✅
-│   │   ├── approval.go          # ApprovalRequest, ApprovalReview ✅
-│   │   └── notification.go      # NotificationConfig, Notification ✅
-│   ├── service/                 # Business logic ✅
-│   │   ├── query.go             # Query service ✅
-│   │   ├── parser.go            # SQL parser ✅
-│   │   ├── approval.go          # Approval service ✅
-│   │   ├── datasource.go        # Data source service ✅
-│   │   └── notification.go      # Notification service ✅
-│   ├── queue/                   # Asynq job queue ✅
-│   │   └── tasks.go             # Task definitions ✅
-│   ├── database/                # DB connections ✅
-│   │   ├── postgres.go          # PostgreSQL connection ✅
-│   │   └── mysql.go             # MySQL connection ✅
-│   ├── auth/                    # JWT, password hashing ✅
-│   │   ├── jwt.go               # JWT token management ✅
-│   │   ├── jwt_test.go          # JWT & password tests ✅
-│   │   └── password.go          # Password hashing ✅
-│   ├── service/                 # Business logic ✅
-│   │   ├── query.go             # Query service ✅
-│   │   ├── query_test.go        # Query service tests ✅
-│   │   ├── parser.go            # SQL parser ✅
-│   │   ├── parser_test.go       # Parser tests ✅
-│   │   ├── approval.go          # Approval service ✅
-│   │   ├── approval_test.go     # Approval service tests ✅
-│   │   ├── datasource.go        # Data source service ✅
-│   │   └── notification.go      # Notification service ✅
-│   ├── models/                  # GORM models ✅
-│   │   ├── user.go              # User model ✅
-│   │   ├── user_test.go         # User model tests ✅
-│   │   ├── group.go             # Group model ✅
-│   │   ├── datasource.go        # DataSource, Permissions ✅
-│   │   ├── query.go             # Query, QueryResult, QueryHistory ✅
-│   │   ├── approval.go          # ApprovalRequest, ApprovalReview ✅
-│   │   └── notification.go      # NotificationConfig, Notification ✅
-│   ├── queue/                   # Asynq job queue ✅
-│   │   └── tasks.go             # Task definitions ✅
-│   ├── database/                # DB connections ✅
-│   │   ├── postgres.go          # PostgreSQL connection ✅
-│   │   └── mysql.go             # MySQL connection ✅
-│   └── config/                  # Configuration loading ✅
-│       └── config.go            # Config loading ✅
-├── migrations/                  # SQL migrations ✅
-│   ├── 000001_init_schema.up.sql    # Initial schema ✅
-│   └── 000001_init_schema.down.sql  # Rollback ✅
-├── web/                         # Next.js frontend (TODO)
-├── docker/                      # Docker configuration ✅
-│   ├── docker-compose.yml       # Dev environment ✅
-│   ├── Dockerfile.api           # API container ✅
-│   └── Dockerfile.worker        # Worker container ✅
-├── config/                      # Configuration ✅
-│   └── config.yaml              # App config ✅
-├── go.mod, go.sum               # Go dependencies ✅
-├── Makefile                     # Development commands ✅
-├── CLAUDE.md                    # This file ✅
-└── README.md                    # Project README ✅
+├── cmd/                          # Application entry points
+│   ├── api/main.go              # API server
+│   └── worker/main.go           # Background worker
+│
+├── internal/                    # Private Go code
+│   ├── api/                     # API layer
+│   │   ├── dto/                 # Data Transfer Objects
+│   │   ├── handlers/            # HTTP handlers
+│   │   ├── middleware/          # Auth, CORS, RBAC, rate limiting
+│   │   └── routes/              # Route definitions
+│   ├── auth/                    # JWT + password hashing
+│   ├── config/                  # Configuration (YAML + env)
+│   ├── database/                # DB connections (PostgreSQL, MySQL)
+│   ├── models/                  # GORM models
+│   ├── queue/                   # Asynq background jobs
+│   ├── service/                 # Business logic
+│   └── validation/              # Input validation
+│
+├── migrations/                   # Database migrations
+│   ├── postgresql/              # PostgreSQL migrations
+│   └── mysql/                   # MySQL data source schemas
+│
+├── tests/                        # Reorganized test structure
+│   ├── unit/                    # Unit tests (moved from internal/)
+│   └── integration/             # Integration tests
+│
+├── web/                         # Next.js frontend
+│   ├── src/
+│   │   ├── app/                  # App Router pages
+│   │   ├── components/           # React components
+│   │   ├── stores/               # Zustand stores
+│   │   ├── lib/                  # Utilities
+│   │   ├── types/                # TypeScript types
+│   │   └── __tests__/            # Unit tests
+│   ├── e2e/                      # Playwright E2E tests
+│   └── [config files]
+│
+├── docker/                       # Docker configurations
+├── config/                       # Configuration files
+├── docs/                        # Documentation
+├── Makefile                      # Build/run commands
+└── [build scripts]
 ```
 
-## Database Schema
+---
 
-### Core Tables
+## Technology Stack
 
-- **users** - User accounts with roles (admin, user, viewer)
-- **groups** - Groups for RBAC
-- **user_groups** - Many-to-many user-group relationship
-- **data_sources** - PostgreSQL/MySQL connections (encrypted passwords)
-- **data_source_permissions** - Group permissions per data source
-- **queries** - Saved queries with metadata
-- **query_results** - Stored query results (JSONB, for result history)
-- **query_history** - Execution history
-- **approval_requests** - Write operation approval workflow
-- **approval_reviews** - Approval decisions
-- **query_transactions** - Active database transactions for preview ✅ NEW
-- **notification_configs** - Google Chat webhook configs
-- **notifications** - Notification queue
+### Backend
+- **Language:** Go 1.21+
+- **Framework:** Gin
+- **ORM:** GORM
+- **Primary Database:** PostgreSQL 15
+- **Cache/Queue:** Redis 7 (Asynq)
+- **Auth:** JWT (golang-jwt/jwt)
+- **Password:** bcrypt
 
-### Key Enums
+### Frontend
+- **Framework:** Next.js 15.5.10+ (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **Editor:** Monaco Editor
+- **State:** Zustand
+- **HTTP:** Axios
 
-- `user_role`: admin, user, viewer
-- `data_source_type`: postgresql, mysql
-- `query_status`: pending, running, completed, failed
-- `operation_type`: select, insert, update, delete, create_table, drop_table, alter_table
-- `approval_status`: pending, approved, rejected
-- `transaction_status`: active, committed, rolled_back, failed ✅ NEW
+### DevOps
+- **Containers:** Docker + Docker Compose
+- **Build:** Make + shell scripts
+- **Migrations:** Manual SQL
 
-## Commands
-
-### Migration Commands (NEW) ✅
-```bash
-make migrate-up      # Run all database migrations (000001, then 000002)
-make migrate-down    # Rollback all migrations
-make migrate-status  # Check migration status and table schema
-```
-
-### Docker Services
-```bash
-make docker-up      # Start PostgreSQL and Redis
-make docker-down    # Stop Docker services
-make docker-logs    # View logs
-```
-
-### Database Operations
-```bash
-make migrate-up     # Run database migrations
-make migrate-down   # Rollback migrations
-make db-shell       # Open PostgreSQL shell
-```
-
-### Build & Run (requires Go 1.22+)
-```bash
-# Build for native platform
-make build          # Build all binaries for native platform
-make build-api      # Build API server only (native)
-make build-worker   # Build worker only (native)
-
-# Build for all platforms (ARM64 + AMD64)
-make build-all       # Build for all platforms
-make build-api-multi # Build API server for all platforms
-make build-worker-multi# Build worker for all platforms
-
-# Build script (alternative to Makefile)
-./build.sh native    # Build for current platform (auto-detected)
-./build.sh all      # Build for all platforms
-./build.sh linux-amd64 # Build for specific platform
-
-# List built binaries
-make list
-
-# Run
-make run-api        # Run API server (http://localhost:8080)
-make run-worker     # Run background worker
-```
-
-### Development
-```bash
-make deps           # Download Go dependencies
-make test           # Run tests
-make test-coverage  # Run tests with coverage
-make fmt            # Format Go code
-make lint           # Run linter
-make clean          # Clean build artifacts
-```
-
-## API Endpoints
-
-### Authentication ✅
-- `POST /api/v1/auth/login` - User login
-- `GET /api/v1/auth/me` - Get current user
-- `POST /api/v1/auth/change-password` - Change password (authenticated users)
-
-### User Management ✅ (Admin Only)
-- `POST /api/v1/auth/users` - Create user
-- `GET /api/v1/auth/users` - List all users
-- `GET /api/v1/auth/users/:id` - Get user details with groups
-- `PUT /api/v1/auth/users/:id` - Update user
-- `DELETE /api/v1/auth/users/:id` - Delete user
-
-### Group Management ✅ (Admin Only)
-- `POST /api/v1/groups` - Create group
-- `GET /api/v1/groups` - List all groups with pagination
-- `GET /api/v1/groups/:id` - Get group details with users
-- `PUT /api/v1/groups/:id` - Update group
-- `DELETE /api/v1/groups/:id` - Delete group
-- `POST /api/v1/groups/:id/users` - Add user to group
-- `DELETE /api/v1/groups/:id/users` - Remove user from group
-- `GET /api/v1/groups/:id/users` - List users in group
-
-### Health Check ✅
-- `GET /health` - API health status
-
-### Queries ✅
-- `POST /api/v1/queries` - Execute query (SELECT runs immediately, writes create approval)
-- `POST /api/v1/queries/save` - Save a query for later use
-- `GET /api/v1/queries` - List queries with pagination
-- `GET /api/v1/queries/:id` - Get query details with results
-- `DELETE /api/v1/queries/:id` - Delete a saved query
-- `GET /api/v1/queries/history` - List query execution history with pagination and filters
-- `POST /api/v1/queries/explain` - EXPLAIN query execution plan ✅ NEW
-- `POST /api/v1/queries/dry-run` - Dry run DELETE queries to preview affected rows ✅ NEW
-- `POST /api/v1/queries/validate` - Validate SQL syntax before submission ✅ NEW
-
-### Approvals ✅
-- `GET /api/v1/approvals` - List approval requests (with filters)
-- `GET /api/v1/approvals/:id` - Get approval details
-- `POST /api/v1/approvals/:id/review` - Review (approve/reject) an approval request
-- `POST /api/v1/approvals/:id/transaction-start` - Start transaction for preview ✅ NEW
-
-### Transactions ✅ NEW
-- `POST /api/v1/transactions/:id/commit` - Commit an active transaction
-- `POST /api/v1/transactions/:id/rollback` - Rollback an active transaction
-- `GET /api/v1/transactions/:id` - Get transaction status
-
-### Data Sources ✅
-- `GET /api/v1/datasources` - List data sources
-- `POST /api/v1/datasources` - Create data source (admin only)
-- `GET /api/v1/datasources/:id` - Get data source details
-- `PUT /api/v1/datasources/:id` - Update data source (admin only)
-- `DELETE /api/v1/datasources/:id` - Delete data source (admin only)
-- `POST /api/v1/datasources/:id/test` - Test data source connection
-- `GET /api/v1/datasources/:id/permissions` - Get data source permissions
-- `PUT /api/v1/datasources/:id/permissions` - Set data source permissions (admin only)
-- `GET /api/v1/datasources/:id/approvers` - Get eligible approvers for data source
+---
 
 ## Development Workflow
 
-### Query Execution Flow
-1. User submits SQL query via frontend
-2. Backend **validates SQL syntax** before processing
-3. Backend parses SQL to detect operation type (SELECT vs write)
-4. **SELECT queries**: Execute immediately, store results in PostgreSQL
-5. **Write operations** (INSERT/UPDATE/DELETE/DDL):
-   - Create approval request (after SQL validation)
-   - Approvers can start transaction to preview changes
-   - Execute query in transaction mode and show results
-   - Approver decides to COMMIT (save) or ROLLBACK (discard)
-   - Changes only applied when committed
-6. Send Google Chat notifications for status changes
+### 1. Setup
 
-### Transaction-Based Approval Workflow ✅ NEW
-1. User submits write query → SQL validated automatically → Approval request created
-2. Approver reviews request → Clicks "Start Transaction"
-3. Query executes in **transaction mode** (changes not yet permanent)
-4. Results shown to approver as **preview**
-5. Approver decides:
-   - **COMMIT**: Changes saved permanently, approval marked as "approved"
-   - **ROLLBACK**: Changes discarded, approval marked as "rejected"
-6. Transaction timeout prevents abandoned transactions (auto-rollback after N minutes)
-
-### Approval Workflow (Legacy)
-- Write operations require approval before execution
-- Approvers are users with `can_approve` permission on the data source
-- **NEW: Preview before commit** - approvers see results before making permanent
-- Single-stage approval (can be extended to multi-stage)
-- All actions tracked in audit trail
-
-### Permissions
-- Group-based access control (similar to Redash)
-- Three permission levels per data source:
-  - `can_read`: Execute SELECT queries
-  - `can_write`: Submit write operation requests
-  - `can_approve`: Approve/reject write operations
-
-## Configuration
-
-Configuration is loaded from `config/config.yaml`:
-
-```yaml
-server:
-  port: 8080
-  mode: debug  # debug, release
-
-database:
-  host: localhost
-  port: 5432
-  user: querybase
-  password: querybase
-  name: querybase
-
-redis:
-  host: localhost
-  port: 6379
-
-jwt:
-  secret: change-this-secret-in-production
-  expire_hours: 24h
-```
-
-Environment variables override YAML values.
-
-## Current Implementation Status
-
-### ✅ Fully Implemented (January 27, 2025 - Session 2)
-
-#### Foundation (Session 1)
-- [x] Project directory structure
-- [x] Go module initialization (go.mod, go.sum)
-- [x] Database schema (migrations up/down)
-- [x] All GORM models (User, Group, DataSource, Query, Approval, Notification)
-- [x] Configuration loading (YAML + env vars)
-- [x] Database connection layer (PostgreSQL)
-- [x] JWT authentication (generation/validation)
-- [x] Password hashing (bcrypt)
-- [x] Auth middleware (JWT validation)
-- [x] RBAC middleware (admin checks)
-- [x] Auth API handlers (Login, GetMe, CreateUser, ListUsers, UpdateUser)
-- [x] All DTOs defined (auth, query, approval, datasource)
-- [x] Routes registration with middleware
-- [x] API server with health check endpoint
-- [x] Docker Compose (PostgreSQL 15, Redis 7)
-- [x] Dockerfiles (API, Worker)
-- [x] Makefile (20+ commands)
-- [x] CLAUDE.md documentation
-- [x] README.md documentation
-
-#### Core Features (Session 2)
-- [x] MySQL database connection layer
-- [x] SQL parser for operation detection
-- [x] Query execution service with result caching
-- [x] Query API handlers (execute, list, get, save, delete)
-- [x] Approval workflow service
-- [x] Approval API handlers (list, get, review)
-- [x] Data source management service
-- [x] Data source API handlers (CRUD, test connection, permissions)
-- [x] Redis queue implementation (Asynq tasks)
-- [x] Background worker process
-- [x] Google Chat webhook integration
-- [x] Model enhancements (foreign keys, compatibility constants)
-- [x] All services wired up in main.go
-
-#### User & Group Management (Session 2 - Late)
-- [x] User DTOs (user.go)
-- [x] Group DTOs (group.go)
-- [x] User management handlers (get, delete, change password)
-- [x] Group management handlers (CRUD, user assignment)
-- [x] User and group routes registered
-- [x] All handlers wired up in main.go
-
-#### Database Migration & Query Storage (Session 3)
-- [x] Migration 000002: query_results JSONB schema update
-- [x] QueryResult model updated (string fields for JSON metadata)
-- [x] Query service updated with JSON serialization
-- [x] Query handler updated to save query before execution
-- [x] Foreign key constraint fixes applied
-- [x] Multi-database testing documentation (MySQL + PostgreSQL)
-- [x] Query result storage verified working
-- [x] Makefile updated with migration commands
-- [x] TESTING.md updated with multi-database procedures
-
-### ✅ Recently Fixed (January 27, 2025 - Session 4 - Transaction Workflow)
-- [x] Transaction-based approval workflow implemented ✅ NEW
-- [x] SQL validation before query submission ✅ NEW
-- [x] QueryTransaction model created ✅ NEW
-- [x] Transaction management in QueryService ✅ NEW
-- [x] Commit/Rollback transaction endpoints ✅ NEW
-- [x] Database migration 000004 applied (query_transactions table) ✅ NEW
-- [x] All handlers updated with transaction support ✅ NEW
-- [x] Build succeeds with all new code ✅ NEW
-
-### ✅ Recently Fixed (January 27, 2025 - Session 3)
-- [x] Database migration 000002 applied (query_results JSONB columns)
-- [x] QueryResult model uses string fields for JSON metadata storage
-- [x] Query handler saves query to DB before execution (fixes FK constraint)
-- [x] JSON serialization for column names and types in service layer
-- [x] JSON deserialization in handlers for column metadata
-- [x] Removed unused JSONStringSlice custom type
-- [x] Cleaned up debug logging and imports
-- [x] Full build and query execution working correctly
-
-### ✅ Recently Fixed (January 27, 2025 - Session 2 Late)
-- [x] Fixed all query service field name mismatches (SQL → QueryText, CreatedBy → UserID)
-- [x] Fixed all handler files to use correct model field names
-- [x] Fixed role constants (UserRoleAdmin → RoleAdmin)
-- [x] Fixed QueryResult field mappings (ColumnNames, ColumnTypes, CachedAt)
-- [x] Fixed QueryHistory initialization with proper fields
-- [x] Removed unused imports
-- [x] Full build succeeds with `make build`
-
-### 📋 TODO (Prioritized)
-
-**Current Focus: Frontend Development** 🎯
-
-**Frontend - Phase 4: Admin Features (1-2 weeks):**
-- Data source management UI (CRUD, test connection)
-- User management UI (list, create, edit, delete)
-- Group management UI (list, create, edit, delete, user assignment)
-- Admin dashboard navigation
-
-**Frontend - Phase 5: Polish (1 week):**
-- Enhanced error handling and user feedback
-- Loading states and skeleton screens
-- Performance optimization
-- Responsive design improvements
-- Accessibility improvements
-
-**Completed ✅ Backend:**
-- Query history pagination API
-- SQL validation before submission
-- Transaction-based approval workflow
-- CORS middleware ✅ NEW
-- Rate limiting middleware ✅ NEW
-- Request logging middleware ✅ NEW
-- Error recovery middleware ✅ NEW
-
-**Completed ✅ Frontend:**
-- Phase 1: Authentication (login, logout, auth context)
-- Phase 2: SQL Editor & Query Results (Monaco, execution, pagination)
-- Phase 3: Approval Dashboard (list, detail, approve/reject) ✅ NEW
-
-**Future Features (Deferred):**
-- Schema Introspection API (autocomplete, schema browser)
-- Folder System (query organization)
-- Tag System (query tags)
-- WebSocket Support (real-time updates)
-- Performance benchmarks
-- Integration tests
-
-## Key Files
-
-### Backend Entry Points
-- `cmd/api/main.go` - API server (fully functional) ✅
-- `cmd/worker/main.go` - Background worker ✅
-
-### Service Layer ✅
-- `internal/service/query.go` - Query execution service with EXPLAIN, dry run DELETE, and transaction management ✅ UPDATED
-- `internal/service/parser.go` - SQL parser for operation detection and validation ✅ UPDATED
-- `internal/service/approval.go` - Approval workflow with transaction methods ✅ UPDATED
-- `internal/service/datasource.go` - Data source management service
-- `internal/service/notification.go` - Google Chat notification service
-
-### Core Models ✅
-- `internal/models/user.go` - User model
-- `internal/models/group.go` - Group model
-- `internal/models/datasource.go` - DataSource and permissions
-- `internal/models/query.go` - Query, QueryResult, QueryHistory
-- `internal/models/approval.go` - ApprovalRequest, ApprovalReview, QueryTransaction ✅ NEW
-- `internal/models/notification.go` - NotificationConfig, Notification
-
-### API Layer ✅
-- `internal/api/handlers/auth.go` - Auth handlers (Login, users CRUD, change password)
-- `internal/api/handlers/query.go` - Query handlers (execute, list, save, delete, history)
-- `internal/api/handlers/approval.go` - Approval & transaction handlers (list, review, start/commit/rollback) ✅ UPDATED
-- `internal/api/handlers/datasource.go` - Data source handlers (CRUD, test, permissions)
-- `internal/api/handlers/group.go` - Group handlers (CRUD, user assignment)
-- `internal/api/middleware/auth.go` - JWT auth middleware
-- `internal/api/middleware/rbac.go` - Role-based access control
-- `internal/api/routes/routes.go` - Route definitions
-- `internal/api/dto/auth.go` - Auth DTOs
-- `internal/api/dto/user.go` - User DTOs
-- `internal/api/dto/group.go` - Group DTOs
-- `internal/api/dto/query.go` - Query DTOs
-- `internal/api/dto/approval.go` - Approval DTOs
-- `internal/api/dto/datasource.go` - Data source DTOs
-- `internal/api/dto/transaction.go` - Transaction DTOs ✅ NEW
-
-### Queue & Background Processing ✅
-- `internal/queue/tasks.go` - Asynq task definitions and handlers
-- `internal/database/postgres.go` - PostgreSQL connection
-- `internal/database/mysql.go` - MySQL connection for data sources
-
-### Configuration & Database ✅
-- `internal/config/config.go` - Configuration loading
-- `internal/auth/jwt.go` - JWT token management
-- `internal/auth/password.go` - Password hashing
-
-### Migrations ✅
-- `migrations/000001_init_schema.up.sql` - Initial database schema (13 tables)
-- `migrations/000001_init_schema.down.sql` - Rollback script
-- `migrations/000002_update_query_results_schema.up.sql` - Query results JSONB migration
-- `migrations/000002_update_query_results_schema.down.sql` - Rollback script
-- `migrations/000003_remove_caching_rename_columns.up.sql` - Removed cache columns, renamed to stored_at
-- `migrations/000003_remove_caching_rename_columns.down.sql` - Rollback script
-- `migrations/000004_add_query_transactions.up.sql` - Query transactions table ✅ NEW
-- `migrations/000004_add_query_transactions.down.sql` - Rollback script ✅ NEW
-
-### Migrations ✅
-- `migrations/000001_init_schema.up.sql` - Initial schema (13 tables)
-- `migrations/000001_init_schema.down.sql` - Rollback script
-
-### Docker ✅
-- `docker/docker-compose.yml` - Development environment
-- `docker/Dockerfile.api` - API server container
-- `docker/Dockerfile.worker` - Worker container
-
-### Build Scripts ✅
-- `build.sh` - Multi-architecture build script
-- `BUILD.md` - Comprehensive build guide
-
-### Documentation ✅
-- `CLAUDE.md` - This file (comprehensive guide)
-- `README.md` - Project overview and quick start
-- `.claude/SESSION_SUMMARY.md` - Detailed development session log
-
-## Multi-Architecture Build
-
-QueryBase supports building for multiple platforms out of the box:
-
-**Supported Platforms:**
-- Linux ARM64 (aarch64) & AMD64 (x86_64)
-- Darwin/macOS ARM64 (Apple Silicon M1/M2/M3) & AMD64 (Intel)
-- Windows AMD64 (x86_64)
-
-**Quick Commands:**
 ```bash
-# Build for all platforms
-make build-all
-
-# Build for specific platform
-./build.sh linux-arm64
-./build.sh darwin-arm64
-
-# Build for native platform (auto-detected)
-./build.sh native
-```
-
-**Binary Naming:**
-- `api-<os>-<arch>` - API server binary
-- `worker-<os>-<arch>` - Worker binary
-- Examples: `api-linux-amd64`, `worker-darwin-arm64`
-
-**Available in `bin/` directory after build:**
-- `api-linux-arm64`, `api-linux-amd64`
-- `api-darwin-arm64`, `api-darwin-amd64`
-- `api-windows-amd64.exe`
-- Same for worker binaries
-
-See [BUILD.md](BUILD.md) for detailed build instructions and troubleshooting.
-
-## Getting Started
-
-### Prerequisites
-- Go 1.21+
-- Docker and Docker Compose
-- PostgreSQL client (psql) - optional, for manual DB access
-
-### Initial Setup
-```bash
-# 1. Start Docker services (PostgreSQL, Redis)
+# Start infrastructure
 make docker-up
 
-# 2. Wait for services to be healthy (10-15 seconds)
-docker-compose -f docker/docker-compose.yml ps
-
-# 3. Run database migrations
+# Run migrations
 make migrate-up
 
-# 4. Download Go dependencies
+# Download dependencies
 make deps
 
-# 5. Run API server
-make run-api
+# Build
+make build
 ```
 
-The API will be available at `http://localhost:8080`
-
-### Testing Authentication Endpoints
+### 2. Development
 
 ```bash
-# Login as admin
-curl -X POST http://localhost:8080/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "admin",
-    "password": "admin123"
-  }'
+# Terminal 1: API server
+make run-api
 
-# Response: {"token":"...", "user": {...}}
+# Terminal 2: Worker
+make run-worker
 
-# Get current user (replace TOKEN with actual JWT)
-curl http://localhost:8080/api/v1/auth/me \
-  -H "Authorization: Bearer TOKEN"
-
-# List all users (admin only)
-curl http://localhost:8080/api/v1/auth/users \
-  -H "Authorization: Bearer TOKEN"
-
-# Create new user (admin only)
-curl -X POST http://localhost:8080/api/v1/auth/users \
-  -H "Authorization: Bearer TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "username": "testuser",
-    "password": "password123",
-    "full_name": "Test User",
-    "role": "user"
-  }'
+# Terminal 3: Frontend
+cd web && npm run dev
 ```
 
-### Default Credentials
-After running migrations, a default admin user is created:
-- **Email**: admin@querybase.local
-- **Username**: admin
-- **Password**: admin123 (⚠️ CHANGE IN PRODUCTION!)
+### 3. Testing
 
-**Note**: The password hash in migrations is a placeholder. Generate a real hash using bcrypt or change the password after first login.
+```bash
+# Backend tests
+make test
+make test-coverage
 
-## Development Notes
-
-### How to Add New API Endpoints
-1. Create handler in `internal/api/handlers/`
-2. Define DTOs in `internal/api/dto/`
-3. Register routes in `internal/api/routes/routes.go`
-4. Add middleware as needed (auth, RBAC)
-
-### How to Add New Models
-1. Create model file in `internal/models/`
-2. Update `internal/database/postgres.go` AutoMigrate call
-3. Create migration file in `migrations/`
-
-### Permission Checks
-Use the `user_permissions` view to check user access:
-```sql
-SELECT * FROM user_permissions 
-WHERE user_id = ? 
-  AND data_source_id = ?;
+# Frontend tests
+cd web && npm test
+cd web && npm run test:e2e
 ```
 
-### Query Operation Detection Strategy
-Parse SQL to detect operation type before routing:
-- **Step 1: Validate SQL syntax** - Check for errors before submission ✅ NEW
-- **Step 2: Detect operation type** - SELECT vs write operations
-- **SELECT queries**: Execute immediately, return results
-- **Write operations**:
-  - Create approval request
-  - Approvers can start transaction to preview changes
-  - Execute in transaction mode, show results
-  - Approver commits or rolls back
+### 4. Building for Production
 
-Detection methods:
-1. Simple regex: Check if SQL starts with INSERT/UPDATE/DELETE/CREATE/DROP/ALTER
-2. SQL parser: Use a proper SQL parser for accuracy (recommended)
-3. Hybrid: Regex for fast path, parser for edge cases
+```bash
+# Native platform
+make build
 
-### SQL Validation ✅ NEW
-Before creating approval requests, the system performs two levels of validation:
-
-**1. Syntax Validation:**
-- Empty queries
-- Unbalanced parentheses
-- Missing required clauses (FROM, VALUES, SET, WHERE)
-- Unterminated string literals
-- Common syntax errors
-
-**2. Schema Validation:**
-- Extracts table names from SQL query using regex patterns
-- Checks if referenced tables exist in the target data source
-- Queries PostgreSQL's `information_schema.tables` or MySQL's `information_schema.tables`
-- Returns clear error if table doesn't exist
-
-**Supported Table Patterns:**
-- `FROM table_name`
-- `JOIN table_name`
-- `INSERT INTO table_name`
-- `UPDATE table_name`
-- `DELETE FROM table_name`
-- `CREATE TABLE table_name`
-- `DROP TABLE table_name`
-- `ALTER TABLE table_name`
-
-This prevents approvers from reviewing queries that will fail due to missing tables.
-
-### Google Chat Webhook Format
-Google Chat webhooks expect this format:
-```json
-{
-  "text": "Message text"
-}
+# All platforms (ARM64 + AMD64)
+./build.sh all
 ```
 
-Or with cards:
-```json
-{
-  "cards": [
-    {
-      "header": {...},
-      "sections": [{...}]
-    }
-  ]
-}
+---
+
+## Key Implementation Details
+
+### Schema Synchronization
+
+**Architecture:** Polling-based (not WebSocket)
+
+**Mechanism:**
+1. Frontend polls every 60 seconds
+2. Backend caches schema for 5 minutes
+3. Background worker syncs all schemas every 5 minutes
+4. Manual "Sync Now" button forces immediate sync
+
+**Benefits:**
+- ✅ No 429 errors (rate limiting bypassed)
+- ✅ Reduced API calls (cache-first)
+- ✅ Real-time enough for schema changes
+- ✅ Simpler than WebSocket implementation
+
+### Rate Limiting
+
+**Current Policy:**
+- **Rate Limited:** Query execution only (`/api/v1/queries`)
+- **Not Rate Limited:**
+  - Schema endpoints
+  - Authentication
+  - Data sources
+  - Approvals
+  - Groups
+  - Health check
+
+**Configuration:** Token bucket algorithm (60 req/min)
+
+### CORS Configuration
+
+**Priority Order:**
+1. Environment variables (`CORS_ALLOWED_ORIGINS`)
+2. Config file (`config/config.yaml`)
+3. Code defaults
+
+**Setup:** See [docs/api/CORS_SETUP.md](docs/api/CORS_SETUP.md)
+
+### Permission System
+
+**Three Levels:**
+- `can_read`: Execute SELECT queries
+- `can_write`: Submit write operation requests
+- `can_approve`: Approve/reject write operations
+
+**Access Control:**
+- Group-based permissions per data source
+- Users inherit group permissions
+- UI filters data sources by permissions
+- API enforces permissions on all operations
+
+---
+
+## Common Issues & Solutions
+
+### Issue: "setWebSocketStatus is not a function"
+**Cause:** Old WebSocket code still present
+**Fix:** Removed WebSocket provider, switched to polling
+
+### Issue: "429 Error when switching menus"
+**Cause:** Rate limiting on schema endpoints
+**Fix:** Rate limiting now only applies to query execution
+
+### Issue: Autocomplete not showing tables/columns
+**Cause:** Schema not loaded or editor not mounted yet
+**Fix:**
+1. Wait for schema to load (check "Last sync" time)
+2. Try clicking "Sync Now" if needed
+3. Check browser console for errors
+
+### Issue: Worker not syncing schemas
+**Cause:** Encryption key not configured
+**Fix:** Worker now uses `cfg.JWT.Secret` from config
+
+---
+
+## Recent Changes (January 2026)
+
+### Week 4: Polish & Optimization
+- ✅ Fixed autocomplete semicolon bug
+- ✅ Reorganized project structure
+- ✅ Separated tests into `/tests` folder
+- ✅ Organized migrations by database type
+- ✅ Updated documentation
+
+### Week 3: Schema Synchronization
+- ✅ Implemented polling-based schema sync
+- ✅ Added background worker periodic sync (5 min)
+- ✅ Added "Sync Now" button
+- ✅ Fixed rate limiting for schema endpoints
+- ✅ Schema caching with metadata
+
+### Week 2: Core Features
+- ✅ Completed approval workflow
+- ✅ Implemented query execution with transaction support
+- ✅ Added data source permission filtering
+- ✅ Created admin panels (users, groups, data sources)
+- ✅ Built SQL editor with autocomplete
+
+### Week 1: Infrastructure
+- ✅ Set up project structure
+- ✅ Configured PostgreSQL and Redis
+- ✅ Implemented authentication
+- ✅ Created database models
+- ✅ Built API endpoints
+
+---
+
+## Development Guidelines
+
+### Adding New Features
+
+1. **Backend:**
+   - Add model to `internal/models/`
+   - Add DTO to `internal/api/dto/`
+   - Add service to `internal/service/`
+   - Add handler to `internal/api/handlers/`
+   - Register route in `internal/api/routes/`
+
+2. **Frontend:**
+   - Add component to `web/src/components/`
+   - Add page to `web/src/app/`
+   - Update types in `web/src/types/`
+   - Add store if needed in `web/src/stores/`
+
+3. **Database:**
+   - Create up migration in `migrations/postgresql/`
+   - Create down migration in `migrations/postgresql/`
+   - Test with `make migrate-up` and `make migrate-down`
+
+### Testing Before Committing
+
+1. Run `make fmt` (Go code formatting)
+2. Run `make test` (unit tests)
+3. Test manually in browser
+4. Check for linter warnings
+
+### Git Commit Messages
+
+```
+feat: add new feature
+fix: fix bug in existing feature
+docs: update documentation
+refactor: refactor code structure
+test: add tests
+chore: update dependencies
 ```
 
-## Testing
+---
 
-Run tests with coverage:
+## Next Steps
+
+### Immediate (This Week)
+- [ ] Add request logging middleware
+- [ ] Write integration tests
+- [ ] Add E2E tests for critical paths
+
+### Short-term (This Month)
+- [ ] Implement remaining notification features
+- [ ] Add query result export functionality
+- [ ] Create comprehensive test suite
+
+### Long-term (Next Quarter)
+- [ ] Query templates/saved queries library
+- [] Advanced query visualization (charts, graphs)
+- [] Query performance analysis
+- [ ] Multi-database JOIN support
+
+---
+
+## File Organization
+
+### Test Files Location
+- **Backend:** `/tests/unit/` (moved from `internal/`)
+- **Frontend:** `web/src/__tests__/` and `web/e2e/`
+
+### Migration Files
+- **PostgreSQL:** `/migrations/postgresql/`
+- **MySQL Schemas:** `/migrations/mysql/` (for data sources)
+
+### Documentation
+- **Root:** `/README.md` (overview)
+- **Development:** This file (`/CLAUDE.md`)
+- **Detailed:** `/docs/` (organized by topic)
+
+---
+
+## Quick Reference
+
+### Start Development
+```bash
+make docker-up && make migrate-up && make deps
+make build
+make run-api  # Terminal 1
+make run-worker  # Terminal 2
+cd web && npm run dev  # Terminal 3
+```
+
+### Run Tests
 ```bash
 make test-coverage
+cd web && npm test
 ```
 
-Open `coverage.html` in a browser to view coverage report.
-
-## Deployment Considerations
-
-**Security:**
-- ⚠️ Change `jwt.secret` in production
-- ⚠️ Use strong passwords for database
-- ⚠️ Enable SSL for database connections (`database.sslmode=require`)
-- ⚠️ Set `server.mode` to `release`
-- ⚠️ Configure proper CORS settings
-- ⚠️ Use environment variables for sensitive data
-
-**Performance:**
-- Implement rate limiting
-- Add database connection pooling
-- Configure Redis connection pool
-- Set up monitoring and logging
-- Use CDN for static assets (frontend)
-
-**Scalability:**
-- Run multiple API server instances behind load balancer
-- Scale workers independently based on queue depth
-- Use Redis Cluster for high availability
-- Configure PostgreSQL read replicas for queries
-
-## Troubleshooting
-
-### Database Connection Issues
+### Build for Production
 ```bash
-# Check if PostgreSQL is running
-docker-compose -f docker/docker-compose.yml ps postgres
-
-# View PostgreSQL logs
-make docker-logs | grep postgres
-
-# Test connection manually
-make db-shell
+make build-all
 ```
-
-### Redis Connection Issues
-```bash
-# Check if Redis is running
-docker-compose -f docker/docker-compose.yml ps redis
-
-# Test Redis connection
-redis-cli -h localhost -p 6379 ping
-```
-
-### Go Build Issues
-```bash
-# Clean and re-download dependencies
-make clean
-make deps
-
-# Update Go modules
-go mod tidy
-```
-
-## Next Steps for Development
-
-### ✅ Testing Phase - COMPLETED (January 27, 2025)
-
-**Unit Tests Implemented:**
-1. **Auth & JWT Tests** ([jwt_test.go](internal/auth/jwt_test.go:1))
-   - JWT token generation and validation (18 test functions)
-   - Password hashing with bcrypt
-   - Token expiration and tampering detection
-   - All tests: **PASS** ✅
-
-2. **SQL Parser Tests** ([parser_test.go](internal/service/parser_test.go:1))
-   - Operation type detection (SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER)
-   - Approval requirement checks
-   - SQL validation with edge cases (30+ test cases)
-   - All tests: **PASS** ✅
-
-3. **Query Service Tests** ([query_test.go](internal/service/query_test.go:1))
-   - Table name extraction (21 test cases, 19 PASS)
-   - Schema validation (requires PostgreSQL)
-   - Operation detection edge cases
-   - Status: **Mostly PASS** ✅ (2 edge cases with quoted identifiers)
-
-4. **Approval Service Tests** ([approval_test.go](internal/service/approval_test.go:1))
-   - CRUD operations for approval requests (9 test functions)
-   - Review workflow
-   - Eligible approvers
-   - Transaction management
-   - Status: **Skipped in short mode** (require PostgreSQL)
-
-**Enhanced Test Commands:**
-- `make test-short` - Quick tests without database
-- `make test` - All tests
-- `make test-race` - Race detection
-- `make test-coverage` - Coverage report with HTML
-- `make test-bench` - Performance benchmarks
-- `make test-integration` - Full integration tests (requires database)
-- `make test-auth` - Auth package only
-- `make test-service` - Service package only
-
-### Additional Features (1-2 days)
-1. **Middleware**
-   - CORS middleware (TODO)
-   - Request logging middleware (TODO)
-   - Rate limiting middleware (TODO)
-
-2. **Integration Tests**
-   - Test all API endpoints with authentication (TODO)
-   - Test permission checks (TODO)
-   - Test query execution with real data sources (TODO)
-
-### Frontend Development (1-2 weeks)
-3. **Next.js Application**
-   - Initialize Next.js project in `web/`
-   - Set up authentication flow
-   - Build SQL editor with Monaco
-   - Create query results table component
-   - Implement approval dashboard
-   - Data source management UI
-   - User/group management UI
 
 ---
 
-## Session 3: Database Migration & Query Storage (January 27, 2025)
-
-### ✅ Completed Tasks
-
-**Database Migration:**
-- Created migration 000002 to update query_results table schema
-- Changed column_names from TEXT[] to JSONB
-- Changed column_types from TEXT[] to JSONB
-- Migration includes rollback capability
-- Updated Makefile with migrate-up, migrate-down, migrate-status commands
-
-**Code Changes:**
-- Updated QueryResult model to use string fields (JSON storage)
-- Implemented JSON serialization in query service
-- Fixed foreign key constraint by saving query before execution
-- Cleaned up unused JSONStringSlice custom type
-- Removed debug logging and unused imports
-
-**Testing:**
-- Verified query execution works with new schema
-- Tested query result storage with JSON metadata
-- Confirmed foreign key constraints work correctly
-- Tested multiple data types (INT, VARCHAR, DATE)
-- Updated TESTING.md with multi-database testing procedures
-
-**Files Modified:**
-- `migrations/000002_update_query_results_schema.up.sql` (NEW)
-- `migrations/000002_update_query_results_schema.down.sql` (NEW)
-- `internal/models/query.go` - Updated QueryResult struct
-- `internal/service/query.go` - JSON serialization for columns
-- `internal/api/handlers/query.go` - Query save before execution + JSON parsing
-- `Makefile` - Added migration commands
-- `TESTING.md` - Added multi-database testing documentation
-
-**Test Results:**
-```
-Query: SELECT 1001 as id, 'Alice' as name, 50000 as salary, '2024-01-15' as hire_date
-✅ Query executed successfully
-✅ Query saved to database
-✅ Query result stored with JSONB metadata
-✅ Column names: ["id", "name", "salary", "hire_date"]
-✅ Row count: 1
-✅ Foreign key constraints satisfied
-```
-
-**Key Achievement:**
-The backend now properly stores query results with column metadata as JSONB in PostgreSQL, enabling efficient caching and retrieval of query execution history.
-
----
-
-## Session 5: CORS, Rate Limiting, and Approvals Dashboard (January 28, 2026)
-
-### ✅ Completed Tasks
-
-**Backend - Security Middleware:**
-
-1. **CORS Middleware Implementation**
-   - Created [internal/api/middleware/cors.go](internal/api/middleware/cors.go)
-   - Configuration modes: DefaultConfig, DevelopmentConfig, ProdConfig
-   - Features:
-     - Configurable allowed origins, methods, headers
-     - Preflight OPTIONS request handling (204 response)
-     - Origin validation with 403 rejection
-     - Credentials support (for cookies/auth tokens)
-     - Max-age caching (24 hours default)
-   - Unit tests: [cors_test.go](internal/api/middleware/cors_test.go) - 8/8 tests passing ✅
-   - Documentation: [docs/development/cors-implementation.md](docs/development/cors-implementation.md)
-
-2. **Rate Limiting Middleware Implementation**
-   - Created [internal/api/middleware/ratelimit.go](internal/api/middleware/ratelimit.go)
-   - Token bucket algorithm:
-     - 60 requests per minute (1 request/second)
-     - Burst size of 10 requests
-     - Automatic token replenishment based on elapsed time
-   - Features:
-     - Per-IP address rate limiting
-     - In-memory storage with automatic cleanup (every 5 minutes)
-     - Per-path rate limiting support (different limits per endpoint)
-     - Skip paths for public endpoints (/health, /api/v1/auth/login)
-   - Unit tests: [ratelimit_test.go](internal/api/middleware/ratelimit_test.go) - 7/7 tests passing ✅
-   - Documentation: [docs/development/rate-limiting.md](docs/development/rate-limiting.md)
-
-3. **Integration into API Server**
-   - Updated [cmd/api/main.go](cmd/api/main.go:91)
-   - Middleware chain order:
-     1. Error Recovery
-     2. Request Logging
-     3. CORS
-     4. Rate Limiting
-     5. Routes
-
-**Frontend - Phase 3: Approval Dashboard:**
-
-1. **Components Created:**
-   - [ApprovalList.tsx](web/src/components/approvals/ApprovalList.tsx) - Lists approval requests with status filters
-   - [ApprovalDetail.tsx](web/src/components/approvals/ApprovalDetail.tsx) - Shows approval details and actions
-   - [ApprovalDashboard.tsx](web/src/components/approvals/ApprovalDashboard.tsx) - Two-column master-detail layout
-   - [approvals/page.tsx](web/src/app/dashboard/approvals/page.tsx) - Approval dashboard route
-
-2. **Features Implemented:**
-   - Filter by status: all, pending, approved, rejected
-   - Operation type badges with color coding (SELECT, INSERT, UPDATE, DELETE)
-   - SQL query display with syntax highlighting
-   - Approve/Reject actions with comment support
-   - Real-time UI updates
-   - Loading and error states
-   - Responsive design (desktop + mobile)
-
-**Testing & Verification:**
-
-- ✅ CORS preflight OPTIONS requests return 204 with proper headers
-- ✅ CORS actual requests include Access-Control-Allow-Origin
-- ✅ CORS unauthorized origins rejected with 403
-- ✅ Rate limiting allows requests within limits (burst of 10)
-- ✅ Rate limiting blocks requests exceeding limits (returns 429)
-- ✅ Rate limiting skip paths work correctly (/health unlimited)
-- ✅ Rate limiting tokens replenish over time (verified with 6s wait)
-- ✅ All middleware unit tests passing (15/15)
-
-**Commits:**
-- [ee8c9e7](https://github.com/gatot-sayogya/querybase/commit/ee8c9e7) - feat: Implement CORS middleware
-- [6dd31ba](https://github.com/gatot-sayogya/querybase/commit/6dd31ba) - feat: Implement rate limiting middleware
-- [08d13e4](https://github.com/gatot-sayogya/querybase/commit/08d13e4) - feat: Add approvals dashboard UI
-
-**Backend Status:**
-- **Completion: ~99%** ✅
-- All critical middleware implemented (CORS, rate limiting, logging, error recovery)
-- Production-ready from security standpoint
-- Optional: Unit tests for services (deferred - requires PostgreSQL, not SQLite)
-- Optional: Integration tests for handlers (deferred - requires full stack)
-
-**Frontend Status:**
-- **Completion: ~65%** ✅
-- Phase 1: Authentication ✅
-- Phase 2: SQL Editor & Query Results ✅
-- Phase 3: Approval Dashboard ✅
-- Remaining: Phase 4 (Admin Features), Phase 5 (Polish)
-
-**Files Created/Modified:**
-- `internal/api/middleware/cors.go` (NEW)
-- `internal/api/middleware/cors_test.go` (NEW)
-- `internal/api/middleware/ratelimit.go` (NEW)
-- `internal/api/middleware/ratelimit_test.go` (NEW)
-- `cmd/api/main.go` (MODIFIED - added CORS and rate limiting)
-- `docs/development/cors-implementation.md` (NEW)
-- `docs/development/rate-limiting.md` (NEW)
-- `web/src/components/approvals/ApprovalList.tsx` (NEW)
-- `web/src/components/approvals/ApprovalDetail.tsx` (NEW)
-- `web/src/components/approvals/ApprovalDashboard.tsx` (NEW)
-- `web/src/app/dashboard/approvals/page.tsx` (NEW)
-
-**Key Achievements:**
-1. **Security Hardening**: CORS and rate limiting protect against abuse and enable secure frontend-backend communication
-2. **Comprehensive Testing**: All middleware has 100% test coverage
-3. **Production Ready**: Backend now has all essential security middleware for production deployment
-4. **User Experience**: Approval dashboard provides intuitive workflow for managing write operation approvals
-
-**Next Steps:**
-- Frontend Phase 4: Admin Features (data source management, user/group management UI)
-- Frontend Phase 5: Polish (error handling refinement, performance optimization)
-- Optional: Unit tests for services (requires PostgreSQL setup)
-- Optional: Integration tests for handlers (requires full stack testing)
-
-## Related Files
-
-- Implementation Plan: `.claude/SESSION_SUMMARY.md`
-- Session History: `.claude/conversation_history.json` (if exists)
-- Configuration: `config/config.yaml`
-- Environment: `.env` (create locally for overrides)
+**This guide is maintained alongside the codebase.** For the latest project status, always check the main README.md file.

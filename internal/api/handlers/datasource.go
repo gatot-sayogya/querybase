@@ -73,7 +73,7 @@ func (h *DataSourceHandler) CreateDataSource(c *gin.Context) {
 	})
 }
 
-// ListDataSources returns a list of data sources
+// ListDataSources returns a list of data sources with permissions
 func (h *DataSourceHandler) ListDataSources(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -82,7 +82,8 @@ func (h *DataSourceHandler) ListDataSources(c *gin.Context) {
 	}
 	offset := (page - 1) * limit
 
-	dataSources, total, err := h.dataSourceService.ListDataSources(c, limit, offset)
+	// Always fetch with permissions to avoid N+1 query problem
+	dataSources, total, err := h.dataSourceService.ListDataSourcesWithPermissions(c, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data sources"})
 		return
@@ -90,6 +91,18 @@ func (h *DataSourceHandler) ListDataSources(c *gin.Context) {
 
 	response := make([]gin.H, len(dataSources))
 	for i, ds := range dataSources {
+		// Build permissions array
+		perms := make([]gin.H, len(ds.Permissions))
+		for j, perm := range ds.Permissions {
+			perms[j] = gin.H{
+				"group_id":    perm.GroupID.String(),
+				"group_name":  perm.Group.Name,
+				"can_read":    perm.CanRead,
+				"can_write":   perm.CanWrite,
+				"can_approve": perm.CanApprove,
+			}
+		}
+
 		response[i] = gin.H{
 			"id":         ds.ID.String(),
 			"name":       ds.Name,
@@ -100,6 +113,7 @@ func (h *DataSourceHandler) ListDataSources(c *gin.Context) {
 			"username":   ds.Username,
 			"is_active":  ds.IsActive,
 			"created_at": ds.CreatedAt,
+			"permissions": perms,
 		}
 	}
 

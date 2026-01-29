@@ -34,7 +34,12 @@ func DefaultRateLimitConfig() *RateLimiterConfig {
 			"/health",
 			"/favicon.ico",
 			"/static",
-			"/api/v1/auth/login", // Don't rate limit login endpoint
+			"/api/v1/auth",        // Don't rate limit auth endpoints
+			"/ws",                 // Don't rate limit WebSocket endpoint
+			"/api/v1/datasources", // Don't rate limit data source/schema endpoints
+			"/api/v1/approvals",    // Don't rate limit approval endpoints
+			"/api/v1/groups",       // Don't rate limit group endpoints
+			// Note: /api/v1/queries is NOT skipped - query execution IS rate limited
 		},
 	}
 }

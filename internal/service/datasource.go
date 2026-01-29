@@ -88,6 +88,26 @@ func (s *DataSourceService) ListDataSources(ctx context.Context, limit, offset i
 	return dataSources, total, err
 }
 
+// ListDataSourcesWithPermissions retrieves a list of data sources with their permissions
+func (s *DataSourceService) ListDataSourcesWithPermissions(ctx context.Context, limit, offset int) ([]models.DataSource, int64, error) {
+	var dataSources []models.DataSource
+	var total int64
+
+	query := s.db.Model(&models.DataSource{})
+
+	// Get total count
+	query.Count(&total)
+
+	// Get paginated results with permissions preloaded
+	err := query.Preload("Permissions.Group").
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&dataSources).Error
+
+	return dataSources, total, err
+}
+
 // UpdateDataSource updates a data source
 func (s *DataSourceService) UpdateDataSource(ctx context.Context, dataSourceID string, req *UpdateDataSourceInput) (*models.DataSource, error) {
 	var dataSource models.DataSource

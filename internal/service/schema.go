@@ -363,6 +363,44 @@ func (s *SchemaService) getMySQLSchema(db *sql.DB) ([]TableInfo, error) {
 		return nil, err
 	}
 
+	// First get list of base tables
+	tableQuery := `
+		SELECT TABLE_NAME
+		FROM information_schema.tables
+		WHERE TABLE_SCHEMA = DATABASE()
+			AND TABLE_TYPE = 'BASE TABLE'
+	`
+
+	// Get the tables
+	tableRows, err := db.Query(tableQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer tableRows.Close()
+
+	var tablesList []string
+	for tableRows.Next() {
+		var tableName string
+		if err := tableRows.Scan(&tableName); err != nil {
+			return nil, err
+		}
+		tablesList = append(tablesList, tableName)
+	}
+
+	if len(tablesList) == 0 {
+		return []TableInfo{}, nil
+	}
+
+	// Build IN clause placeholders
+	inClause := ""
+	for i := 0; i < len(tablesList); i++ {
+		if i > 0 {
+			inClause += ","
+		}
+		inClause += "?"
+	}
+
+	// Now get columns for these tables
 	query := `
 		SELECT
 			TABLE_NAME,
@@ -373,11 +411,17 @@ func (s *SchemaService) getMySQLSchema(db *sql.DB) ([]TableInfo, error) {
 			COLUMN_KEY = 'PRI' as is_primary_key
 		FROM information_schema.columns
 		WHERE TABLE_SCHEMA = DATABASE()
-			AND TABLE_TYPE = 'BASE TABLE'
+			AND TABLE_NAME IN (` + inClause + `)
 		ORDER BY TABLE_NAME, ORDINAL_POSITION
 	`
 
-	rows, err := db.Query(query)
+	// Convert tablesList to interface{} for query args
+	args := make([]interface{}, len(tablesList))
+	for i, t := range tablesList {
+		args[i] = t
+	}
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}

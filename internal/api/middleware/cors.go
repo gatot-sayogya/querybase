@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/yourorg/querybase/internal/config"
 )
 
 // Config represents CORS configuration
@@ -158,5 +159,18 @@ func CORSMiddlewareFromEnv(env string) gin.HandlerFunc {
 		config = DefaultConfig()
 	}
 
+	return CORSMiddleware(config)
+}
+
+// CORSMiddlewareFromConfig creates CORS middleware from application config
+func CORSMiddlewareFromConfig(corsConfig config.CORSConfig) gin.HandlerFunc {
+	config := &Config{
+		AllowedOrigins:   corsConfig.GetAllowedOrigins(),
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"},
+		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
+		ExposedHeaders:   []string{"Content-Length", "Content-Type"},
+		AllowCredentials: corsConfig.AllowCredentials,
+		MaxAge:           corsConfig.MaxAge,
+	}
 	return CORSMiddleware(config)
 }

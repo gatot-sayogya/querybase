@@ -149,6 +149,13 @@ class ApiClient {
     return response.data.data_sources;
   }
 
+  async getDataSourcesWithPermissions(): Promise<DataSource[]> {
+    // Backend now includes permissions in the list response
+    // No need for N+1 queries anymore
+    const response = await this.client.get<{ data_sources: DataSource[] }>('/api/v1/datasources');
+    return response.data.data_sources;
+  }
+
   async getDataSource(id: string): Promise<DataSource> {
     const response = await this.client.get<DataSource>(`/api/v1/datasources/${id}`);
     return response.data;
@@ -291,7 +298,40 @@ class ApiClient {
 
   // Schema Inspection
   async getDatabaseSchema(dataSourceId: string): Promise<DatabaseSchema> {
-    const response = await this.client.get<DatabaseSchema>(`/api/v1/datasources/${dataSourceId}/schema`);
+    const response = await this.client.get<{
+      schema: DatabaseSchema;
+      last_sync: Date | null;
+      is_cached: boolean;
+      is_healthy: boolean;
+      data_source: {
+        id: string;
+        name: string;
+        type: string;
+      };
+    }>(`/api/v1/datasources/${dataSourceId}/schema`);
+    return response.data.schema;
+  }
+
+  async syncSchema(dataSourceId: string): Promise<{
+    message: string;
+    task_id: string;
+    schema: DatabaseSchema;
+    data_source?: {
+      id: string;
+      name: string;
+      type: string;
+    };
+  }> {
+    const response = await this.client.post<{
+      message: string;
+      task_id: string;
+      schema: DatabaseSchema;
+      data_source?: {
+        id: string;
+        name: string;
+        type: string;
+      };
+    }>(`/api/v1/datasources/${dataSourceId}/sync`);
     return response.data;
   }
 

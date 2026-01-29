@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
+import { filterAccessibleDataSources } from '@/lib/data-source-utils';
+import { useAuthStore } from '@/stores/auth-store';
 import type { DataSource } from '@/types';
 
 interface DataSourceSelectorProps {
@@ -18,13 +20,22 @@ export default function DataSourceSelector({
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuthStore();
 
   const fetchDataSources = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const sources = await apiClient.getDataSources();
-      const activeSources = sources.filter((ds) => ds.is_active);
+
+      // Fetch data sources with permissions
+      const sources = await apiClient.getDataSourcesWithPermissions();
+
+      // Filter based on user permissions
+      const accessibleSources = filterAccessibleDataSources(sources, user);
+
+      // Only show active data sources
+      const activeSources = accessibleSources.filter((ds) => ds.is_active);
+
       setDataSources(activeSources);
 
       // Auto-select first data source if none selected
@@ -36,7 +47,7 @@ export default function DataSourceSelector({
     } finally {
       setLoading(false);
     }
-  }, [value, onChange]);
+  }, [value, onChange, user]);
 
   useEffect(() => {
     fetchDataSources();
@@ -68,7 +79,7 @@ export default function DataSourceSelector({
     return (
       <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
         <p className="text-sm text-yellow-600 dark:text-yellow-400">
-          No active data sources available. Please contact an administrator.
+          No accessible data sources available. Please contact an administrator to get access.
         </p>
       </div>
     );

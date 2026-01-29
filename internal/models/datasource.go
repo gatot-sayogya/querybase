@@ -33,6 +33,9 @@ type DataSource struct {
 	EncryptedPassword string                   `gorm:"type:text;not null" json:"-"`
 	ConnectionParams  string                   `gorm:"type:jsonb;default:'{}'" json:"connection_params"`
 	IsActive          bool                     `gorm:"default:true" json:"is_active"`
+	IsHealthy         bool                     `gorm:"default:true" json:"is_healthy"`
+	LastSchemaSync    *time.Time               `json:"last_schema_sync"`
+	LastHealthCheck   *time.Time               `json:"last_health_check"`
 	CreatedBy         *uuid.UUID               `gorm:"type:uuid" json:"created_by"`
 	CreatedAt         time.Time                `json:"created_at"`
 	UpdatedAt         time.Time                `json:"updated_at"`

@@ -14,11 +14,12 @@ type LoginResponse struct {
 
 // UserResponse represents a user response
 type UserResponse struct {
-	ID       string `json:"id"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	FullName string `json:"full_name"`
-	Role     string `json:"role"`
+	ID       string   `json:"id"`
+	Email    string   `json:"email"`
+	Username string   `json:"username"`
+	FullName string   `json:"full_name"`
+	Role     string   `json:"role"`
+	Groups   []string `json:"groups,omitempty"`
 }
 
 // CreateUserRequest represents a create user request

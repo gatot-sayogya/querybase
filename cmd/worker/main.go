@@ -12,7 +12,9 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/yourorg/querybase/internal/config"
 	"github.com/yourorg/querybase/internal/database"
+	"github.com/yourorg/querybase/internal/models"
 	"github.com/yourorg/querybase/internal/queue"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -79,11 +81,34 @@ func main() {
 		return queue.HandleCleanupOldResults(ctx, t)
 	})
 
+	// Schema sync handler
+	mux.HandleFunc(queue.TypeSyncDataSourceSchema, func(ctx context.Context, t *asynq.Task) error {
+		// Inject DB and encryption key into context
+		ctx = context.WithValue(ctx, "db", db)
+		ctx = context.WithValue(ctx, "encryption_key", cfg.JWT.Secret)
+		return queue.HandleSyncDataSourceSchema(ctx, t)
+	})
+
 	// Start worker in a goroutine
 	go func() {
 		log.Println("Worker starting...")
 		if err := srv.Run(mux); err != nil {
 			log.Fatalf("Failed to start worker: %v", err)
+		}
+	}()
+
+	// Start periodic schema sync scheduler
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+
+		// Initial sync on startup
+		log.Println("[Periodic Sync] Running initial schema sync...")
+	 enqueueSchemaSyncs(db, redisAddr)
+
+		for range ticker.C {
+			log.Println("[Periodic Sync] Running scheduled schema sync...")
+			enqueueSchemaSyncs(db, redisAddr)
 		}
 	}()
 
@@ -99,4 +124,27 @@ func main() {
 
 	log.Println("Worker stopped")
 	os.Exit(0)
+}
+
+// enqueueSchemaSyncs enqueues schema sync tasks for all active data sources
+func enqueueSchemaSyncs(db *gorm.DB, redisAddr string) {
+	// Get all active data sources
+	var dataSources []models.DataSource
+	if err := db.Where("is_active = ?", true).Find(&dataSources).Error; err != nil {
+		log.Printf("[Periodic Sync] Failed to fetch data sources: %v", err)
+		return
+	}
+
+	// Create Asynq client
+	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
+
+	// Enqueue sync task for each data source
+	for _, ds := range dataSources {
+		_, err := queue.EnqueueSchemaSync(client, ds.ID.String(), false) // forceRefresh = false for periodic sync
+		if err != nil {
+			log.Printf("[Periodic Sync] Failed to enqueue sync for %s: %v", ds.Name, err)
+		} else {
+			log.Printf("[Periodic Sync] Enqueued sync for %s", ds.Name)
+		}
+	}
 }

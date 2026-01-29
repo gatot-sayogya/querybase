@@ -8,9 +8,11 @@ interface SchemaState {
   currentDataSourceId: string | null;
   isLoading: boolean;
   error: string | null;
+  lastSyncTime: Map<string, Date>;
 
   // Actions
   loadSchema: (dataSourceId: string) => Promise<DatabaseSchema>;
+  syncSchema: (dataSourceId: string) => Promise<DatabaseSchema>;
   loadTables: (dataSourceId: string) => Promise<TableInfo[]>;
   loadTableDetails: (dataSourceId: string, tableName: string) => Promise<TableInfo>;
   searchTables: (dataSourceId: string, searchTerm: string) => Promise<TableInfo[]>;
@@ -29,6 +31,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   currentDataSourceId: null,
   isLoading: false,
   error: null,
+  lastSyncTime: new Map(),
 
   loadSchema: async (dataSourceId: string) => {
     set({ isLoading: true, error: null, currentDataSourceId: dataSourceId });
@@ -37,14 +40,44 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
       set((state) => {
         const newSchemas = new Map(state.schemas);
         newSchemas.set(dataSourceId, schema);
+        const newLastSync = new Map(state.lastSyncTime);
+        newLastSync.set(dataSourceId, new Date());
         return {
           schemas: newSchemas,
+          lastSyncTime: newLastSync,
           isLoading: false,
         };
       });
       return schema;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load schema';
+      set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
+
+  syncSchema: async (dataSourceId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Force immediate sync via API
+      const response = await apiClient.syncSchema(dataSourceId);
+
+      // Update store with synced schema
+      set((state) => {
+        const newSchemas = new Map(state.schemas);
+        newSchemas.set(dataSourceId, response.schema);
+        const newLastSync = new Map(state.lastSyncTime);
+        newLastSync.set(dataSourceId, new Date()); // Fresh sync time
+        return {
+          schemas: newSchemas,
+          lastSyncTime: newLastSync,
+          isLoading: false,
+        };
+      });
+
+      return response.schema;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to sync schema';
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -132,7 +165,12 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
     set((state) => {
       const newSchemas = new Map(state.schemas);
       newSchemas.delete(dataSourceId);
-      return { schemas: newSchemas };
+      const newLastSync = new Map(state.lastSyncTime);
+      newLastSync.delete(dataSourceId);
+      return {
+        schemas: newSchemas,
+        lastSyncTime: newLastSync,
+      };
     });
   },
 
