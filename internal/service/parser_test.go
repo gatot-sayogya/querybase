@@ -1,4 +1,4 @@
-package tests
+package service
 
 import (
 	"testing"
@@ -9,9 +9,9 @@ import (
 // TestDetectOperationType tests the operation type detection
 func TestDetectOperationType(t *testing.T) {
 	tests := []struct {
-		name          string
-		sql           string
-		expectedType  models.OperationType
+		name         string
+		sql          string
+		expectedType models.OperationType
 	}{
 		{
 			name:         "SELECT query",

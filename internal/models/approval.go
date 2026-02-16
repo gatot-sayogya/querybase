@@ -10,7 +10,7 @@ import (
 type ApprovalStatus string
 
 const (
-	ApprovalStatusPending   ApprovalStatus = "pending"
+	ApprovalStatusPending  ApprovalStatus = "pending"
 	ApprovalStatusApproved ApprovalStatus = "approved"
 	ApprovalStatusRejected ApprovalStatus = "rejected"
 )
@@ -25,7 +25,7 @@ const (
 
 // ApprovalRequest represents a request for query approval
 type ApprovalRequest struct {
-	ID              uuid.UUID      `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID              uuid.UUID      `gorm:"type:uuid;primary_key" json:"id"`
 	QueryID         *uuid.UUID     `gorm:"type:uuid" json:"query_id"`
 	DirectQueryID   *uuid.UUID     `gorm:"type:uuid" json:"direct_query_id"`
 	RequestedBy     uuid.UUID      `gorm:"type:uuid;not null" json:"requested_by"`
@@ -39,9 +39,9 @@ type ApprovalRequest struct {
 	CompletedAt     *time.Time     `json:"completed_at"`
 
 	// Foreign key relationships
-	DataSource       DataSource       `gorm:"foreignKey:DataSourceID" json:"-"`
-	RequestedByUser  User             `gorm:"foreignKey:RequestedBy" json:"-"`
-	ApprovalReviews  []ApprovalReview `gorm:"foreignKey:ApprovalID;references:ID" json:"reviews"`
+	DataSource      DataSource       `gorm:"foreignKey:DataSourceID" json:"-"`
+	RequestedByUser User             `gorm:"foreignKey:RequestedBy" json:"-"`
+	ApprovalReviews []ApprovalReview `gorm:"foreignKey:ApprovalID;references:ID" json:"reviews"`
 }
 
 // TableName specifies the table name for ApprovalRequest
@@ -51,15 +51,15 @@ func (ApprovalRequest) TableName() string {
 
 // ApprovalReview represents an approval decision
 type ApprovalReview struct {
-	ID              uuid.UUID       `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	ApprovalID      uuid.UUID       `gorm:"type:uuid;not null;column:approval_request_id" json:"approval_id"`
-	ReviewerID      uuid.UUID       `gorm:"type:uuid;not null;column:reviewed_by" json:"reviewer_id"`
-	Decision        ApprovalDecision `gorm:"type:varchar(20);not null" json:"decision"`
-	Comments        string          `json:"comments"`
-	ReviewedAt      time.Time       `gorm:"default:CURRENT_TIMESTAMP" json:"reviewed_at"`
+	ID         uuid.UUID        `gorm:"type:uuid;primary_key" json:"id"`
+	ApprovalID uuid.UUID        `gorm:"type:uuid;not null;column:approval_request_id" json:"approval_id"`
+	ReviewerID uuid.UUID        `gorm:"type:uuid;not null;column:reviewed_by" json:"reviewer_id"`
+	Decision   ApprovalDecision `gorm:"type:varchar(20);not null" json:"decision"`
+	Comments   string           `json:"comments"`
+	ReviewedAt time.Time        `gorm:"default:CURRENT_TIMESTAMP" json:"reviewed_at"`
 
 	// Foreign key relationships
-	Reviewer       User            `gorm:"foreignKey:ReviewerID" json:"-"`
+	Reviewer        User            `gorm:"foreignKey:ReviewerID" json:"-"`
 	ApprovalRequest ApprovalRequest `gorm:"foreignKey:ApprovalID;references:ID" json:"-"`
 }
 
@@ -73,28 +73,28 @@ type TransactionStatus string
 
 const (
 	TransactionStatusActive     TransactionStatus = "active"
-	TransactionStatusCommitted TransactionStatus = "committed"
+	TransactionStatusCommitted  TransactionStatus = "committed"
 	TransactionStatusRolledBack TransactionStatus = "rolled_back"
 	TransactionStatusFailed     TransactionStatus = "failed"
 )
 
 // QueryTransaction represents an active database transaction for preview
 type QueryTransaction struct {
-	ID               uuid.UUID        `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	ApprovalID       uuid.UUID        `gorm:"type:uuid;not null;uniqueIndex" json:"approval_id"`
-	DataSourceID     uuid.UUID        `gorm:"type:uuid;not null" json:"data_source_id"`
-	QueryText        string           `gorm:"type:text;not null" json:"query_text"`
-	StartedBy        uuid.UUID        `gorm:"type:uuid;not null" json:"started_by"`
-	Status           TransactionStatus `gorm:"default:'active'" json:"status"`
-	PreviewData      string           `gorm:"type:jsonb" json:"preview_data"` // JSON string of results
-	AffectedRows     int              `json:"affected_rows"`
-	ErrorMessage     string           `json:"error_message"`
-	StartedAt        time.Time        `gorm:"default:CURRENT_TIMESTAMP" json:"started_at"`
-	CompletedAt      *time.Time       `json:"completed_at"`
+	ID           uuid.UUID         `gorm:"type:uuid;primary_key" json:"id"`
+	ApprovalID   uuid.UUID         `gorm:"type:uuid;not null;uniqueIndex" json:"approval_id"`
+	DataSourceID uuid.UUID         `gorm:"type:uuid;not null" json:"data_source_id"`
+	QueryText    string            `gorm:"type:text;not null" json:"query_text"`
+	StartedBy    uuid.UUID         `gorm:"type:uuid;not null" json:"started_by"`
+	Status       TransactionStatus `gorm:"default:'active'" json:"status"`
+	PreviewData  string            `gorm:"type:jsonb" json:"preview_data"` // JSON string of results
+	AffectedRows int               `json:"affected_rows"`
+	ErrorMessage string            `json:"error_message"`
+	StartedAt    time.Time         `gorm:"default:CURRENT_TIMESTAMP" json:"started_at"`
+	CompletedAt  *time.Time        `json:"completed_at"`
 
 	// Foreign key relationships
-	Approval     ApprovalRequest `gorm:"foreignKey:ApprovalID" json:"-"`
-	DataSource   DataSource      `gorm:"foreignKey:DataSourceID" json:"-"`
+	Approval      ApprovalRequest `gorm:"foreignKey:ApprovalID" json:"-"`
+	DataSource    DataSource      `gorm:"foreignKey:DataSourceID" json:"-"`
 	StartedByUser User            `gorm:"foreignKey:StartedBy" json:"-"`
 }
 
@@ -105,7 +105,7 @@ func (QueryTransaction) TableName() string {
 
 // ApprovalComment represents a comment on an approval request
 type ApprovalComment struct {
-	ID                uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID                uuid.UUID `gorm:"type:uuid;primary_key" json:"id"`
 	ApprovalRequestID uuid.UUID `gorm:"type:uuid;not null;column:approval_request_id" json:"approval_request_id"`
 	UserID            uuid.UUID `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
 	Comment           string    `gorm:"type:text;not null" json:"comment"`

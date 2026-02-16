@@ -1,6 +1,11 @@
 package routes
 
 import (
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/yourorg/querybase/internal/api/handlers"
 	"github.com/yourorg/querybase/internal/api/middleware"
@@ -9,6 +14,43 @@ import (
 
 // SetupRoutes configures all API routes
 func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHandler *handlers.QueryHandler, approvalHandler *handlers.ApprovalHandler, dataSourceHandler *handlers.DataSourceHandler, groupHandler *handlers.GroupHandler, schemaHandler *handlers.SchemaHandler, webSocketHandler *handlers.WebSocketHandler, jwtManager *auth.JWTManager) {
+	// Serve static files from the "web/out" directory
+	// This assumes the frontend has been built to this directory
+	router.Use(func(c *gin.Context) {
+		// Skip for API routes
+		if strings.HasPrefix(c.Request.URL.Path, "/api") {
+			c.Next()
+			return
+		}
+
+		// Serve static files
+		fs := gin.Dir("web/out", true)
+		fileServer := http.StripPrefix("/", http.FileServer(fs))
+
+		// Check if file exists
+		path := c.Request.URL.Path
+		if path == "/" {
+			path = "index.html"
+		}
+
+		_, err := os.Stat(filepath.Join("web/out", path))
+		if err == nil {
+			fileServer.ServeHTTP(c.Writer, c.Request)
+			c.Abort()
+			return
+		}
+
+		// If file doesn't exist and it's not an API route, serve index.html (SPA Fallback)
+		// This handles client-side routing
+		if !strings.HasPrefix(path, "/api") {
+			c.File("web/out/index.html")
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	})
+
 	api := router.Group("/api/v1")
 	{
 		// Public routes

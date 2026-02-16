@@ -1,4 +1,4 @@
-package tests
+package middleware
 
 import (
 	"net/http"
@@ -260,5 +260,5 @@ func TestDefaultRateLimitConfig(t *testing.T) {
 	assert.Equal(t, 10, config.BurstSize)
 	assert.False(t, config.SkipSuccessfulRequests)
 	assert.Contains(t, config.SkipPaths, "/health")
-	assert.Contains(t, config.SkipPaths, "/api/v1/auth/login")
+	assert.Contains(t, config.SkipPaths, "/api/v1/auth")
 }

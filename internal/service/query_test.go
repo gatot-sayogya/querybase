@@ -1,4 +1,4 @@
-package tests
+package service
 
 import (
 	"context"
@@ -253,48 +253,48 @@ func TestValidateQuerySchema(t *testing.T) {
 
 	queryService := &QueryService{}
 	dataSource := &models.DataSource{
-		Type:     models.DataSourceTypePostgreSQL,
-		Host:     "localhost",
-		Port:     5432,
+		Type:         models.DataSourceTypePostgreSQL,
+		Host:         "localhost",
+		Port:         5432,
 		DatabaseName: "querybase",
-		Username: "querybase",
+		Username:     "querybase",
 	}
 
 	tests := []struct {
 		name        string
 		sql         string
-		expectError  bool
+		expectError bool
 		errorMsg    string
 	}{
 		{
-			name:       "Valid query with existing tables",
-			sql:        "SELECT * FROM test_users",
+			name:        "Valid query with existing tables",
+			sql:         "SELECT * FROM test_users",
 			expectError: false,
 		},
 		{
-			name:       "Valid query with JOIN",
-			sql:        "SELECT * FROM test_users JOIN test_orders ON test_users.id = test_orders.user_id",
+			name:        "Valid query with JOIN",
+			sql:         "SELECT * FROM test_users JOIN test_orders ON test_users.id = test_orders.user_id",
 			expectError: false,
 		},
 		{
-			name:       "Invalid query with non-existing table",
-			sql:        "SELECT * FROM nonexistent_table",
+			name:        "Invalid query with non-existing table",
+			sql:         "SELECT * FROM nonexistent_table",
 			expectError: true,
-			errorMsg:   "does not exist",
+			errorMsg:    "does not exist",
 		},
 		{
-			name:       "Valid INSERT",
-			sql:        "INSERT INTO test_users VALUES (1, 'John')",
+			name:        "Valid INSERT",
+			sql:         "INSERT INTO test_users VALUES (1, 'John')",
 			expectError: false,
 		},
 		{
-			name:       "Valid UPDATE",
-			sql:        "UPDATE test_users SET name = 'Jane'",
+			name:        "Valid UPDATE",
+			sql:         "UPDATE test_users SET name = 'Jane'",
 			expectError: false,
 		},
 		{
-			name:       "Valid DELETE",
-			sql:        "DELETE FROM test_users WHERE id = 1",
+			name:        "Valid DELETE",
+			sql:         "DELETE FROM test_users WHERE id = 1",
 			expectError: false,
 		},
 	}
@@ -330,42 +330,42 @@ func TestDetectOperationTypeEdgeCases(t *testing.T) {
 	}{
 		{
 			name:         "SELECT with newline",
-			sql:         "SELECT *\nFROM\nusers",
+			sql:          "SELECT *\nFROM\nusers",
 			expectedType: models.OperationSelect,
 		},
 		{
 			name:         "SELECT with tabs",
-			sql:         "SELECT\t*\tFROM\tusers",
+			sql:          "SELECT\t*\tFROM\tusers",
 			expectedType: models.OperationSelect,
 		},
 		{
 			name:         "SELECT with comments before",
-			sql:         "-- comment\nSELECT * FROM users",
+			sql:          "-- comment\nSELECT * FROM users",
 			expectedType: models.OperationSelect,
 		},
 		{
 			name:         "INSERT with lowercase",
-			sql:         "insert into users values (1)",
+			sql:          "insert into users values (1)",
 			expectedType: models.OperationInsert,
 		},
 		{
 			name:         "UPDATE with newlines",
-			sql:         "UPDATE users\nSET name = 'Jane'\nWHERE id = 1",
+			sql:          "UPDATE users\nSET name = 'Jane'\nWHERE id = 1",
 			expectedType: models.OperationUpdate,
 		},
 		{
 			name:         "Complex SELECT with subqueries",
-			sql:         "SELECT * FROM (SELECT * FROM users) AS u",
+			sql:          "SELECT * FROM (SELECT * FROM users) AS u",
 			expectedType: models.OperationSelect,
 		},
 		{
 			name:         "Transaction BEGIN",
-			sql:         "BEGIN TRANSACTION",
+			sql:          "BEGIN TRANSACTION",
 			expectedType: models.OperationUpdate,
 		},
 		{
 			name:         "Transaction COMMIT",
-			sql:         "COMMIT",
+			sql:          "COMMIT",
 			expectedType: models.OperationUpdate,
 		},
 	}
@@ -383,58 +383,58 @@ func TestDetectOperationTypeEdgeCases(t *testing.T) {
 // TestConvertDeleteToSelect tests the DELETE to SELECT conversion
 func TestConvertDeleteToSelect(t *testing.T) {
 	tests := []struct {
-		name     string
-		deleteSQL string
+		name              string
+		deleteSQL         string
 		expectedSelectSQL string
 	}{
 		{
-			name:     "Simple DELETE",
-			deleteSQL: "DELETE FROM users WHERE id = 1",
+			name:              "Simple DELETE",
+			deleteSQL:         "DELETE FROM users WHERE id = 1",
 			expectedSelectSQL: "SELECT * FROM users WHERE id = 1",
 		},
 		{
-			name:     "DELETE with multiple conditions",
-			deleteSQL: "DELETE FROM users WHERE id = 1 AND status = 'active'",
+			name:              "DELETE with multiple conditions",
+			deleteSQL:         "DELETE FROM users WHERE id = 1 AND status = 'active'",
 			expectedSelectSQL: "SELECT * FROM users WHERE id = 1 AND status = 'active'",
 		},
 		{
-			name:     "DELETE with complex WHERE",
-			deleteSQL: "DELETE FROM orders WHERE created_at < '2025-01-01' AND status IN ('cancelled', 'expired')",
+			name:              "DELETE with complex WHERE",
+			deleteSQL:         "DELETE FROM orders WHERE created_at < '2025-01-01' AND status IN ('cancelled', 'expired')",
 			expectedSelectSQL: "SELECT * FROM orders WHERE created_at < '2025-01-01' AND status IN ('cancelled', 'expired')",
 		},
 		{
-			name:     "DELETE with subquery",
-			deleteSQL: "DELETE FROM users WHERE id IN (SELECT user_id FROM inactive_users)",
+			name:              "DELETE with subquery",
+			deleteSQL:         "DELETE FROM users WHERE id IN (SELECT user_id FROM inactive_users)",
 			expectedSelectSQL: "SELECT * FROM users WHERE id IN (SELECT user_id FROM inactive_users)",
 		},
 		{
-			name:     "DELETE without WHERE",
-			deleteSQL: "DELETE FROM users",
+			name:              "DELETE without WHERE",
+			deleteSQL:         "DELETE FROM users",
 			expectedSelectSQL: "SELECT * FROM users",
 		},
 		{
-			name:     "DELETE with JOIN",
-			deleteSQL: "DELETE FROM users USING orders WHERE users.id = orders.user_id AND orders.status = 'cancelled'",
+			name:              "DELETE with JOIN",
+			deleteSQL:         "DELETE FROM users USING orders WHERE users.id = orders.user_id AND orders.status = 'cancelled'",
 			expectedSelectSQL: "SELECT * FROM users USING orders WHERE users.id = orders.user_id AND orders.status = 'cancelled'",
 		},
 		{
-			name:     "DELETE with lowercase",
-			deleteSQL: "delete from users where id = 1",
+			name:              "DELETE with lowercase",
+			deleteSQL:         "delete from users where id = 1",
 			expectedSelectSQL: "SELECT * FROM users where id = 1",
 		},
 		{
-			name:     "DELETE with extra whitespace",
-			deleteSQL: "  DELETE   FROM  users  WHERE  id = 1  ",
+			name:              "DELETE with extra whitespace",
+			deleteSQL:         "  DELETE   FROM  users  WHERE  id = 1  ",
 			expectedSelectSQL: "SELECT * FROM users WHERE id = 1",
 		},
 		{
-			name:     "DELETE with comments",
-			deleteSQL: "-- Remove inactive users\nDELETE FROM users WHERE status = 'inactive'",
+			name:              "DELETE with comments",
+			deleteSQL:         "-- Remove inactive users\nDELETE FROM users WHERE status = 'inactive'",
 			expectedSelectSQL: "SELECT * FROM users WHERE status = 'inactive'",
 		},
 		{
-			name:     "DELETE with schema-qualified table",
-			deleteSQL: "DELETE FROM public.users WHERE id = 1",
+			name:              "DELETE with schema-qualified table",
+			deleteSQL:         "DELETE FROM public.users WHERE id = 1",
 			expectedSelectSQL: "SELECT * FROM public.users WHERE id = 1",
 		},
 	}
@@ -474,11 +474,11 @@ func TestExplainQuery_Integration(t *testing.T) {
 	defer db.Exec("DROP TABLE IF EXISTS test_explain")
 
 	dataSource := &models.DataSource{
-		Type:     models.DataSourceTypePostgreSQL,
-		Host:     "localhost",
-		Port:     5432,
+		Type:         models.DataSourceTypePostgreSQL,
+		Host:         "localhost",
+		Port:         5432,
 		DatabaseName: "querybase",
-		Username: "querybase",
+		Username:     "querybase",
 	}
 
 	queryService := &QueryService{}
@@ -567,44 +567,44 @@ func TestDryRunDelete_Integration(t *testing.T) {
 	defer db.Exec("DROP TABLE IF EXISTS test_dryrun")
 
 	dataSource := &models.DataSource{
-		Type:     models.DataSourceTypePostgreSQL,
-		Host:     "localhost",
-		Port:     5432,
+		Type:         models.DataSourceTypePostgreSQL,
+		Host:         "localhost",
+		Port:         5432,
 		DatabaseName: "querybase",
-		Username: "querybase",
+		Username:     "querybase",
 	}
 
 	queryService := &QueryService{}
 
 	tests := []struct {
-		name               string
-		deleteQuery        string
+		name                 string
+		deleteQuery          string
 		expectedAffectedRows int
-		expectError        bool
+		expectError          bool
 	}{
 		{
-			name:               "DELETE single row",
-			deleteQuery:        "DELETE FROM test_dryrun WHERE id = 1",
+			name:                 "DELETE single row",
+			deleteQuery:          "DELETE FROM test_dryrun WHERE id = 1",
 			expectedAffectedRows: 1,
-			expectError:        false,
+			expectError:          false,
 		},
 		{
-			name:               "DELETE multiple rows",
-			deleteQuery:        "DELETE FROM test_dryrun WHERE status = 'active'",
+			name:                 "DELETE multiple rows",
+			deleteQuery:          "DELETE FROM test_dryrun WHERE status = 'active'",
 			expectedAffectedRows: 2,
-			expectError:        false,
+			expectError:          false,
 		},
 		{
-			name:               "DELETE no rows",
-			deleteQuery:        "DELETE FROM test_dryrun WHERE id = 999",
+			name:                 "DELETE no rows",
+			deleteQuery:          "DELETE FROM test_dryrun WHERE id = 999",
 			expectedAffectedRows: 0,
-			expectError:        false,
+			expectError:          false,
 		},
 		{
-			name:               "DELETE all rows",
-			deleteQuery:        "DELETE FROM test_dryrun",
+			name:                 "DELETE all rows",
+			deleteQuery:          "DELETE FROM test_dryrun",
 			expectedAffectedRows: 3,
-			expectError:        false,
+			expectError:          false,
 		},
 	}
 
@@ -696,12 +696,12 @@ func TestSortRows(t *testing.T) {
 	queryService := &QueryService{}
 
 	tests := []struct {
-		name           string
-		rows           []map[string]interface{}
-		sortColumn     string
-		sortDirection  string
-		expectedFirst  interface{}
-		expectedLast   interface{}
+		name          string
+		rows          []map[string]interface{}
+		sortColumn    string
+		sortDirection string
+		expectedFirst interface{}
+		expectedLast  interface{}
 	}{
 		{
 			name: "Sort by int column ascending",
@@ -710,10 +710,10 @@ func TestSortRows(t *testing.T) {
 				{"id": 1, "name": "Alice"},
 				{"id": 2, "name": "Bob"},
 			},
-			sortColumn:     "id",
-			sortDirection:  "asc",
-			expectedFirst:  1,
-			expectedLast:   3,
+			sortColumn:    "id",
+			sortDirection: "asc",
+			expectedFirst: 1,
+			expectedLast:  3,
 		},
 		{
 			name: "Sort by int column descending",
@@ -722,10 +722,10 @@ func TestSortRows(t *testing.T) {
 				{"id": 3, "name": "Charlie"},
 				{"id": 2, "name": "Bob"},
 			},
-			sortColumn:     "id",
-			sortDirection:  "desc",
-			expectedFirst:  3,
-			expectedLast:   1,
+			sortColumn:    "id",
+			sortDirection: "desc",
+			expectedFirst: 3,
+			expectedLast:  1,
 		},
 		{
 			name: "Sort by string column ascending",
@@ -734,10 +734,10 @@ func TestSortRows(t *testing.T) {
 				{"name": "Alice", "id": 1},
 				{"name": "Bob", "id": 2},
 			},
-			sortColumn:     "name",
-			sortDirection:  "asc",
-			expectedFirst:  "Alice",
-			expectedLast:   "Charlie",
+			sortColumn:    "name",
+			sortDirection: "asc",
+			expectedFirst: "Alice",
+			expectedLast:  "Charlie",
 		},
 		{
 			name: "Sort by string column descending",
@@ -746,10 +746,10 @@ func TestSortRows(t *testing.T) {
 				{"name": "Charlie", "id": 3},
 				{"name": "Bob", "id": 2},
 			},
-			sortColumn:     "name",
-			sortDirection:  "desc",
-			expectedFirst:  "Charlie",
-			expectedLast:   "Alice",
+			sortColumn:    "name",
+			sortDirection: "desc",
+			expectedFirst: "Charlie",
+			expectedLast:  "Alice",
 		},
 		{
 			name: "Sort with nil values",
@@ -758,10 +758,10 @@ func TestSortRows(t *testing.T) {
 				{"id": 2, "name": "Bob"},
 				{"id": 1, "name": "Alice"},
 			},
-			sortColumn:     "id",
-			sortDirection:  "asc",
-			expectedFirst:  nil,
-			expectedLast:   2,
+			sortColumn:    "id",
+			sortDirection: "asc",
+			expectedFirst: nil,
+			expectedLast:  2,
 		},
 		{
 			name: "Sort by float column",
@@ -770,10 +770,10 @@ func TestSortRows(t *testing.T) {
 				{"price": 9.99, "name": "Item B"},
 				{"price": 29.99, "name": "Item C"},
 			},
-			sortColumn:     "price",
-			sortDirection:  "asc",
-			expectedFirst:  9.99,
-			expectedLast:   29.99,
+			sortColumn:    "price",
+			sortDirection: "asc",
+			expectedFirst: 9.99,
+			expectedLast:  29.99,
 		},
 	}
 
@@ -919,9 +919,9 @@ func TestExportToCSV(t *testing.T) {
 			expected: []string{"\"id\",\"name\",\"email\"", "\"1\",\"\",\"test@example.com\""},
 		},
 		{
-			name:    "Empty result set",
-			rows:    []map[string]interface{}{},
-			columns: []string{"id", "name"},
+			name:     "Empty result set",
+			rows:     []map[string]interface{}{},
+			columns:  []string{"id", "name"},
 			expected: []string{"\"id\",\"name\""}, // Only header row
 		},
 	}
@@ -998,4 +998,3 @@ func TestExportToJSON(t *testing.T) {
 		})
 	}
 }
-

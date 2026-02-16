@@ -1,4 +1,4 @@
-package tests
+package middleware
 
 import (
 	"encoding/json"
@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/yourorg/querybase/internal/auth"
+	"github.com/yourorg/querybase/internal/models"
 )
 
 // TestAuthMiddleware_ValidToken tests auth middleware with valid token
@@ -185,14 +186,14 @@ func TestRequireAdmin_AdminRole(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	router.Use(RequireAdmin())
 	router.Use(func(c *gin.Context) {
 		// Simulate auth middleware setting user info
 		c.Set("user_id", "00000000-0000-0000-0000-000000000001")
 		c.Set("email", "admin@example.com")
-		c.Set("role", "admin")
+		c.Set("role", string(models.RoleAdmin))
 		c.Next()
 	})
+	router.Use(RequireAdmin())
 	router.GET("/admin", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "admin access"})
 	})
@@ -221,7 +222,6 @@ func TestRequireAdmin_NonAdminRole(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	router.Use(RequireAdmin())
 	router.Use(func(c *gin.Context) {
 		// Simulate auth middleware setting user info for non-admin
 		c.Set("user_id", "00000000-0000-0000-0000-000000000002")
@@ -229,6 +229,7 @@ func TestRequireAdmin_NonAdminRole(t *testing.T) {
 		c.Set("role", "user")
 		c.Next()
 	})
+	router.Use(RequireAdmin())
 	router.GET("/admin", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "admin access"})
 	})
@@ -276,7 +277,6 @@ func TestRequireAdmin_ViewerRole(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
-	router.Use(RequireAdmin())
 	router.Use(func(c *gin.Context) {
 		// Simulate auth middleware setting user info for viewer
 		c.Set("user_id", "00000000-0000-0000-0000-000000000003")
@@ -284,6 +284,7 @@ func TestRequireAdmin_ViewerRole(t *testing.T) {
 		c.Set("role", "viewer")
 		c.Next()
 	})
+	router.Use(RequireAdmin())
 	router.GET("/admin", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "admin access"})
 	})

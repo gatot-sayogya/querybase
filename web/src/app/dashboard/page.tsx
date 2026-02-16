@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import AppLayout from '@/components/layout/AppLayout';
 import QueryExecutor from '@/components/query/QueryExecutor';
+import Loading from '@/components/ui/Loading';
+import PageTransition from '@/components/layout/PageTransition';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -18,8 +20,10 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <Loading variant="spinner" size="lg" text="Loading dashboard..." />
+        </div>
       </div>
     );
   }
@@ -29,8 +33,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <AppLayout>
-      <QueryExecutor />
-    </AppLayout>
+    <PageTransition animation="fade">
+      <AppLayout>
+        <QueryExecutor />
+      </AppLayout>
+    </PageTransition>
   );
 }

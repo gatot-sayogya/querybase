@@ -8,6 +8,7 @@ import SQLEditor from './SQLEditor';
 import DataSourceSchemaSelector from './DataSourceSchemaSelector';
 import QueryResults from './QueryResults';
 import Button from '@/components/ui/Button';
+import Loading from '@/components/ui/Loading';
 import { QueryError } from '@/components/ui/Alert';
 import type { QueryResult } from '@/types';
 
@@ -292,40 +293,42 @@ export default function QueryExecutor() {
               Execute SQL queries on your data sources
             </p>
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm">
             Logged in as <strong>{user?.username}</strong>
           </div>
         </div>
 
         {/* Show query editor only after data source is selected */}
         {!dataSourceId ? (
-          <div className="flex items-center justify-center h-96 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-            <div className="text-center">
-              <svg
-                className="mx-auto h-16 w-16 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
-                />
-              </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+          <div className="flex items-center justify-center h-96 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+            <div className="text-center animate-fade-in">
+              <span className="inline-block p-4 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-500 mb-4">
+                <svg
+                  className="h-12 w-12"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
+                  />
+                </svg>
+              </span>
+              <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">
                 Select a Data Source
               </h3>
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Choose a database from the selector above to start writing queries
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
+                Choose a database from the sidebar to start writing queries and exploring your data
               </p>
             </div>
           </div>
         ) : (
-          <>
+          <div className="animate-slide-up">
             {/* Row Limit Selector */}
-            <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm mb-4">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Row Limit:
               </label>
@@ -333,7 +336,7 @@ export default function QueryExecutor() {
                 value={rowLimit}
                 onChange={(e) => setRowLimit(Number(e.target.value))}
                 disabled={loading}
-                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
               >
                 <option value={0}>No Limit</option>
                 <option value={100}>100 rows</option>
@@ -342,13 +345,13 @@ export default function QueryExecutor() {
                 <option value={5000}>5000 rows</option>
                 <option value={10000}>10000 rows</option>
               </select>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-gray-500 dark:text-gray-400 border-l border-gray-200 dark:border-gray-700 pl-4">
                 Automatically added to SELECT queries without LIMIT
               </span>
             </div>
 
             {/* SQL Editor */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   SQL Query
@@ -358,6 +361,7 @@ export default function QueryExecutor() {
                     onClick={handleSaveQuery}
                     disabled={!queryText.trim()}
                     variant="secondary"
+                    size="sm"
                   >
                     Save Query
                   </Button>
@@ -366,79 +370,86 @@ export default function QueryExecutor() {
                     disabled={!queryText.trim()}
                     loading={loading}
                     variant="primary"
+                    size="sm"
+                    className="shadow-md shadow-blue-500/20"
                   >
                     {loading ? 'Executing...' : 'Run Query'}
                   </Button>
                 </div>
               </div>
-              <SQLEditor
-                value={queryText}
-                onChange={setQueryText}
-                placeholder="SELECT * FROM users LIMIT 10;"
-                readOnly={loading}
-                height="400px"
-                dataSourceId={dataSourceId}
-              />
+              <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700">
+                <SQLEditor
+                  value={queryText}
+                  onChange={setQueryText}
+                  placeholder="SELECT * FROM users LIMIT 10;"
+                  readOnly={loading}
+                  height="400px"
+                  dataSourceId={dataSourceId}
+                />
+              </div>
             </div>
-          </>
+          </div>
         )}
 
-      {/* Error Display */}
-      {error && (
-        <QueryError
-          error={error}
-          onRetry={() => {
-            setError(null);
-            handleExecuteQuery();
-          }}
-        />
-      )}
+        {/* Error Display */}
+        {error && (
+          <div className="animate-shake">
+            <QueryError
+              error={error}
+              onRetry={() => {
+                setError(null);
+                handleExecuteQuery();
+              }}
+            />
+          </div>
+        )}
 
-      {/* Results */}
-      {results && queryId && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Query Results
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {results.row_count} rows returned
-              </p>
+        {/* Results */}
+        {results && queryId && (
+          <div className="space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  Query Results
+                  <span className="text-xs font-normal text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                    {results.row_count} rows
+                  </span>
+                </h2>
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={handleExportCSV}
+                  variant="outline"
+                  size="sm"
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  onClick={handleExportJSON}
+                  variant="outline"
+                  size="sm"
+                >
+                  Export JSON
+                </Button>
+              </div>
             </div>
-            <div className="flex space-x-2">
-              <Button
-                onClick={handleExportCSV}
-                variant="secondary"
-              >
-                Export CSV
-              </Button>
-              <Button
-                onClick={handleExportJSON}
-                variant="secondary"
-              >
-                Export JSON
-              </Button>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <QueryResults
+                queryId={queryId}
+                results={results}
+                loading={loading}
+                error={error}
+              />
             </div>
           </div>
-          <QueryResults
-            queryId={queryId}
-            results={results}
-            loading={loading}
-            error={error}
-          />
-        </div>
-      )}
+        )}
 
-      {/* Loading State */}
-      {loading && !results && (
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Executing query...</p>
+        {/* Loading State */}
+        {loading && !results && (
+          <div className="flex items-center justify-center h-64 animate-fade-in">
+            <Loading variant="bars" size="lg" text="Executing query..." />
           </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );

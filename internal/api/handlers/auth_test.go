@@ -6,13 +6,16 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/yourorg/querybase/internal/api/middleware"
 	"github.com/yourorg/querybase/internal/auth"
 	"github.com/yourorg/querybase/internal/models"
 )
@@ -48,13 +51,19 @@ func setupTestRouter(db *gorm.DB) (*gin.Engine, *auth.JWTManager) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
-	jwtManager := auth.NewJWTManager("test-secret", 24*3600, "querybase")
+	jwtManager := auth.NewJWTManager("test-secret", 24*time.Hour, "querybase")
 	authHandler := NewAuthHandler(db, jwtManager)
 
 	// Setup routes
+	// Setup routes
 	router.POST("/login", authHandler.Login)
-	router.GET("/me", authHandler.GetMe)
-	router.POST("/change-password", authHandler.ChangePassword)
+
+	protected := router.Group("/")
+	protected.Use(middleware.AuthMiddleware(jwtManager))
+	{
+		protected.GET("/me", authHandler.GetMe)
+		protected.POST("/change-password", authHandler.ChangePassword)
+	}
 
 	return router, jwtManager
 }
@@ -69,6 +78,7 @@ func TestLogin_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	user := models.User{
+		ID:           uuid.New(),
 		Email:        "test@example.com",
 		Username:     "testuser",
 		PasswordHash: passwordHash,
@@ -116,6 +126,7 @@ func TestLogin_InvalidCredentials(t *testing.T) {
 	require.NoError(t, err)
 
 	user := models.User{
+		ID:           uuid.New(),
 		Email:        "test@example.com",
 		Username:     "testuser",
 		PasswordHash: passwordHash,
@@ -156,6 +167,7 @@ func TestLogin_InactiveUser(t *testing.T) {
 	require.NoError(t, err)
 
 	user := models.User{
+		ID:           uuid.New(),
 		Email:        "test@example.com",
 		Username:     "testuser",
 		PasswordHash: passwordHash,
@@ -163,6 +175,7 @@ func TestLogin_InactiveUser(t *testing.T) {
 		IsActive:     false,
 	}
 	require.NoError(t, db.Create(&user).Error)
+	require.NoError(t, db.Model(&user).Update("is_active", false).Error)
 
 	// Test login
 	loginReq := map[string]string{
@@ -177,7 +190,7 @@ func TestLogin_InactiveUser(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
 // TestLogin_MissingFields tests login with missing fields
@@ -225,6 +238,7 @@ func TestGetMe_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	user := models.User{
+		ID:           uuid.New(),
 		Email:        "test@example.com",
 		Username:     "testuser",
 		PasswordHash: passwordHash,
@@ -293,6 +307,7 @@ func TestChangePassword_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	user := models.User{
+		ID:           uuid.New(),
 		Email:        "test@example.com",
 		Username:     "testuser",
 		PasswordHash: passwordHash,
@@ -340,6 +355,7 @@ func TestChangePassword_WrongCurrentPassword(t *testing.T) {
 	require.NoError(t, err)
 
 	user := models.User{
+		ID:           uuid.New(),
 		Email:        "test@example.com",
 		Username:     "testuser",
 		PasswordHash: passwordHash,
@@ -379,6 +395,7 @@ func TestChangePassword_ShortNewPassword(t *testing.T) {
 	require.NoError(t, err)
 
 	user := models.User{
+		ID:           uuid.New(),
 		Email:        "test@example.com",
 		Username:     "testuser",
 		PasswordHash: passwordHash,

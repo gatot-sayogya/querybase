@@ -141,7 +141,7 @@ func ValidateSQL(sql string) error {
 	}
 
 	for _, pattern := range dangerousPatterns {
-		matched, _ := regexp.MatchStrings(strings.ToUpper(sql), pattern)
+		matched, _ := regexp.MatchString(strings.ToUpper(sql), pattern)
 		if matched {
 			return fmt.Errorf("SQL contains potentially dangerous pattern: %s", pattern)
 		}

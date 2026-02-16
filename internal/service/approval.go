@@ -163,7 +163,7 @@ func (s *ApprovalService) GetEligibleApprovers(ctx context.Context, dataSourceID
 // updateApprovalStatus updates the approval status based on reviews
 func (s *ApprovalService) updateApprovalStatus(approvalID uuid.UUID) {
 	var reviews []models.ApprovalReview
-	s.db.Where("approval_id = ?", approvalID).Find(&reviews)
+	s.db.Where("approval_request_id = ?", approvalID).Find(&reviews)
 
 	if len(reviews) == 0 {
 		return
@@ -321,9 +321,9 @@ func (s *ApprovalService) RollbackTransaction(ctx context.Context, transactionID
 	s.db.Model(&models.ApprovalRequest{}).
 		Where("id = ?", transaction.ApprovalID).
 		Updates(map[string]interface{}{
-			"status":       models.ApprovalStatusRejected,
+			"status":           models.ApprovalStatusRejected,
 			"rejection_reason": "Transaction rolled back by approver",
-			"completed_at": now,
+			"completed_at":     now,
 		})
 
 	return nil

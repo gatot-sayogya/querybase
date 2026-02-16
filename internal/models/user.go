@@ -18,7 +18,7 @@ const (
 
 // User represents a user in the system
 type User struct {
-	ID           uuid.UUID      `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID           uuid.UUID      `gorm:"type:uuid;primary_key" json:"id"`
 	Email        string         `gorm:"uniqueIndex;not null" json:"email"`
 	Username     string         `gorm:"uniqueIndex;not null" json:"username"`
 	PasswordHash string         `gorm:"not null" json:"-"`

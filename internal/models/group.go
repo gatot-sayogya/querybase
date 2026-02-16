@@ -9,7 +9,7 @@ import (
 
 // Group represents a group in the system
 type Group struct {
-	ID          uuid.UUID      `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID          uuid.UUID      `gorm:"type:uuid;primary_key" json:"id"`
 	Name        string         `gorm:"uniqueIndex;not null" json:"name"`
 	Description string         `json:"description"`
 	CreatedAt   time.Time      `json:"created_at"`

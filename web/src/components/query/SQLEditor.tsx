@@ -3,6 +3,7 @@
 import Editor, { Monaco } from '@monaco-editor/react';
 import { useEffect, useRef, useState } from 'react';
 import { useSchemaStore } from '@/stores/schema-store';
+import { useThemeStore } from '@/stores/theme-store';
 
 interface SQLEditorProps {
   value: string;
@@ -23,8 +24,11 @@ export default function SQLEditor({
 }: SQLEditorProps) {
   const [editorHeight] = useState(height);
   const [monaco, setMonaco] = useState<Monaco | null>(null);
+  const [editor, setEditor] = useState<any>(null);
   const completionProviderRef = useRef<any>(null);
   const { getTableNames, getAllColumns, schemas } = useSchemaStore();
+  const { getEffectiveTheme } = useThemeStore();
+  const effectiveTheme = getEffectiveTheme();
 
   const createCompletionProvider = (monacoInstance: any, currentDataSourceId: string) => {
     const languages = monacoInstance.languages;
@@ -249,9 +253,23 @@ export default function SQLEditor({
     };
   }, [monaco, dataSourceId, schemas]);
 
+  // Update editor theme when app theme changes
+  useEffect(() => {
+    if (!editor || !monaco) return;
+
+    const monacoTheme = effectiveTheme === 'dark' ? 'vs-dark' : 'vs-light';
+    monaco.editor.setTheme(monacoTheme);
+  }, [editor, monaco, effectiveTheme]);
+
   const handleEditorChange = (value: string | undefined) => {
     onChange(value || '');
   };
+
+  const handleEditorDidMount = (editorInstance: any, monacoInstance: Monaco) => {
+    setEditor(editorInstance);
+  };
+
+  const monacoTheme = effectiveTheme === 'dark' ? 'vs-dark' : 'vs-light';
 
   return (
     <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
@@ -260,8 +278,9 @@ export default function SQLEditor({
         defaultLanguage="sql"
         value={value}
         onChange={handleEditorChange}
-        theme="vs-dark"
+        theme={monacoTheme}
         beforeMount={handleEditorWillMount}
+        onMount={handleEditorDidMount}
         options={{
           minimap: { enabled: false },
           fontSize: 14,
