@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/auth-store';
 import { apiClient } from '@/lib/api-client';
 import SQLEditor from './SQLEditor';
@@ -164,7 +165,7 @@ export default function QueryExecutor() {
         name: 'Saved Query',
         description: `Query executed on ${new Date().toLocaleString()}`,
       });
-      alert('Query saved successfully!');
+      toast.success('Query saved successfully!', { duration: 5000 });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save query');
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import type { Group } from '@/types';
 
@@ -40,7 +41,7 @@ export default function GroupList({ onEditGroup, selectedId }: GroupListProps) {
       await apiClient.deleteGroup(id);
       setGroups(groups.filter((g) => g.id !== id));
     } catch (err) {
-      alert(`Failed to delete group: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      toast.error(`Failed to delete group: ${err instanceof Error ? err.message : 'Unknown error'}`, { duration: 7000 });
     }
   };
 

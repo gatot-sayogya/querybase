@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import type { Group } from '@/types';
 import GroupList from './GroupList';
@@ -39,7 +40,7 @@ export default function GroupManager() {
       setSelectedGroup(null);
       setRefreshKey((prev) => prev + 1);
     } catch (err) {
-      alert(`Failed to save group: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      toast.error(`Failed to save group: ${err instanceof Error ? err.message : 'Unknown error'}`, { duration: 7000 });
     }
   };
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import type { DataSource, CreateDataSourceRequest } from '@/types';
 
@@ -97,7 +98,9 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
 
       onSave();
     } catch (err) {
-      alert(`Failed to save data source: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      toast.error(`Failed to save data source: ${err instanceof Error ? err.message : 'Unknown error'}`, {
+        duration: 7000,
+      });
     } finally {
       setSaving(false);
     }
@@ -113,9 +116,13 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
       if (dataSource) {
         await apiClient.testDataSourceConnection(dataSource.id, formData);
       }
-      alert('Connection successful!');
+      toast.success('Connection successful! ✓', {
+        duration: 5000,
+      });
     } catch (err) {
-      alert(`Connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      toast.error(`Connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`, {
+        duration: 7000,
+      });
     } finally {
       setTesting(false);
     }

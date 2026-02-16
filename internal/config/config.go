@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -78,11 +79,12 @@ func Load(path string) (*Config, error) {
 	viper.SetDefault("redis.db", 0)
 	viper.SetDefault("jwt.expire_hours", 24*time.Hour)
 	viper.SetDefault("jwt.issuer", "querybase")
-	viper.SetDefault("cors.allowed_origins", "http://localhost:3000,http://localhost:3001")
+	viper.SetDefault("cors.allowed_origins", "http://localhost:3000,http://localhost:3001,http://localhost:8080")
 	viper.SetDefault("cors.allow_credentials", true)
 	viper.SetDefault("cors.max_age", 86400) // 24 hours
 
 	// Allow environment variables to override config
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {

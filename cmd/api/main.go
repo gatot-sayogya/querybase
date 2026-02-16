@@ -52,11 +52,12 @@ func main() {
 	defer sqlDB.Close()
 
 	// Run migrations
+	// Run migrations
 	// Note: We're using manual SQL migrations instead of GORM AutoMigrate
 	// To apply migrations, run: make migrate-up
-	// if err := database.AutoMigrate(db); err != nil {
-	// 	log.Fatalf("Failed to run migrations: %v", err)
-	// }
+	if err := database.AutoMigrate(db); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
 
 	// Seed database with initial data
 	if err := database.SeedData(db); err != nil {
@@ -104,13 +105,14 @@ func main() {
 	// Uses default config: 60 requests/minute, burst of 10
 	// Skips health check and login endpoints
 	// For production, you may want to use stricter limits
-	rateLimitConfig := middleware.DefaultRateLimitConfig()
-	router.Use(middleware.RateLimiterMiddleware(rateLimitConfig))
+	// Rate limiting
+	// rateLimitConfig := middleware.DefaultRateLimitConfig()
+	// router.Use(middleware.RateLimiterMiddleware(rateLimitConfig))
 
 	// Health check endpoint (no auth required)
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"status": "ok",
+			"status":  "ok",
 			"message": "QueryBase API is running",
 		})
 	})
@@ -147,4 +149,3 @@ func connectToMySQL(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	}
 	return database.NewMySQLConnection(mysqlCfg)
 }
-

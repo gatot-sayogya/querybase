@@ -33,11 +33,48 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 			path = "index.html"
 		}
 
-		_, err := os.Stat(filepath.Join("web/out", path))
+		// 1. Try with .html extension (priority for cleaning URLs like /dashboard -> dashboard.html)
+		if !strings.HasSuffix(path, ".html") && path != "/" {
+			htmlPath := path + ".html"
+			if _, err := os.Stat(filepath.Join("web/out", htmlPath)); err == nil {
+				c.Request.URL.Path = htmlPath
+				fileServer.ServeHTTP(c.Writer, c.Request)
+				c.Abort()
+				return
+			}
+		}
+
+		// 2. Try exact path (but avoid directory listing)
+		fullPath := filepath.Join("web/out", path)
+		stat, err := os.Stat(fullPath)
 		if err == nil {
-			fileServer.ServeHTTP(c.Writer, c.Request)
-			c.Abort()
-			return
+			if !stat.IsDir() {
+				// It's a file, serve it
+				fileServer.ServeHTTP(c.Writer, c.Request)
+				c.Abort()
+				return
+			}
+
+			// It's a directory, check for index.html
+			if _, err := os.Stat(filepath.Join(fullPath, "index.html")); err == nil {
+				fileServer.ServeHTTP(c.Writer, c.Request)
+				c.Abort()
+				return
+			}
+
+			// Directory without index.html -> Don't serve (fall through to SPA)
+		}
+
+		// Try with .html extension
+		if !strings.HasSuffix(path, ".html") {
+			htmlPath := path + ".html"
+			_, err := os.Stat(filepath.Join("web/out", htmlPath))
+			if err == nil {
+				c.Request.URL.Path = htmlPath
+				fileServer.ServeHTTP(c.Writer, c.Request)
+				c.Abort()
+				return
+			}
 		}
 
 		// If file doesn't exist and it's not an API route, serve index.html (SPA Fallback)
@@ -79,6 +116,7 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 				auth.GET("/users/:id", authHandler.GetUser)
 				auth.PUT("/users/:id", authHandler.UpdateUser)
 				auth.DELETE("/users/:id", authHandler.DeleteUser)
+				auth.POST("/users/:id/reset-password", authHandler.ResetUserPassword)
 
 				// Group routes
 				groups := admin.Group("/groups")

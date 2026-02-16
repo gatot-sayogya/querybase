@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import type { ApprovalRequest } from '@/types';
 import { formatDate } from '@/lib/utils';

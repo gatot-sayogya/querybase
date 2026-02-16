@@ -12,6 +12,7 @@ import {
   MagnifyingGlassIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { useSchemaStore } from '@/stores/schema-store';
 import { useAuthStore } from '@/stores/auth-store';

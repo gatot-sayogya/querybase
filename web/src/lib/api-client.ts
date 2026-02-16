@@ -58,10 +58,26 @@ class ApiClient {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          // Clear token and redirect to login
-          this.clearToken();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
+          // Don't redirect if:
+          // 1. Already on login page
+          // 2. The failed request was to /auth/login (legitimate failed login)
+          const isLoginPage = typeof window !== 'undefined' && window.location.pathname === '/login';
+          const isLoginRequest = error.config?.url?.includes('/auth/login');
+          
+          if (!isLoginPage && !isLoginRequest) {
+            // Clear token and redirect to login
+            this.clearToken();
+            if (typeof window !== 'undefined') {
+              // Also clear the auth store
+              localStorage.removeItem('auth-storage');
+              window.location.href = '/login';
+            }
+          } else if (!isLoginRequest) {
+            // On login page but got 401 from other request, just clear token
+            this.clearToken();
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('auth-storage');
+            }
           }
         }
         return Promise.reject(error);

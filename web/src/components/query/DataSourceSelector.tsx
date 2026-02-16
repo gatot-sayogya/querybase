@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { filterAccessibleDataSources } from '@/lib/data-source-utils';
 import { useAuthStore } from '@/stores/auth-store';

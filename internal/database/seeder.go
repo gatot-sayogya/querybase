@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/yourorg/querybase/internal/auth"
 	"github.com/yourorg/querybase/internal/models"
 	"gorm.io/gorm"
@@ -29,6 +30,7 @@ func SeedData(db *gorm.DB) error {
 
 	// Create admin user
 	adminUser := models.User{
+		ID:           uuid.New(),
 		Email:        "admin@querybase.local",
 		Username:     "admin",
 		PasswordHash: passwordHash,
@@ -43,9 +45,9 @@ func SeedData(db *gorm.DB) error {
 
 	// Create default groups
 	groups := []models.Group{
-		{Name: "Admins", Description: "Full system access"},
-		{Name: "Data Analysts", Description: "Read and write access to data sources"},
-		{Name: "Data Viewers", Description: "Read-only access to data sources"},
+		{ID: uuid.New(), Name: "Admins", Description: "Full system access"},
+		{ID: uuid.New(), Name: "Data Analysts", Description: "Read and write access to data sources"},
+		{ID: uuid.New(), Name: "Data Viewers", Description: "Read-only access to data sources"},
 	}
 
 	for _, group := range groups {

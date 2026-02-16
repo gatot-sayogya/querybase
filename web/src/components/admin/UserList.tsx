@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import type { User } from '@/types';
 
@@ -42,7 +43,7 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
       await apiClient.deleteUser(id);
       setUsers(users.filter((u) => u.id !== id));
     } catch (err) {
-      alert(`Failed to delete user: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      toast.error(`Failed to delete user: ${err instanceof Error ? err.message : 'Unknown error'}`, { duration: 7000 });
     }
   };
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import type { User } from '@/types';
 import UserList from './UserList';
@@ -52,7 +53,7 @@ export default function UserManager() {
       setSelectedUser(null);
       setRefreshKey((prev) => prev + 1);
     } catch (err) {
-      alert(`Failed to save user: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      toast.error(`Failed to save user: ${err instanceof Error ? err.message : 'Unknown error'}`, { duration: 7000 });
     }
   };
 

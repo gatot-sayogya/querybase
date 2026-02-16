@@ -7,15 +7,18 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 ## Quick Navigation
 
 ### 👥 For Users
+
 - **[Getting Started](getting-started/)** - Setup and installation
 - **[User Guide](user-guide/)** - How to use QueryBase features
 
 ### 👨‍💻 For Developers
+
 - **[Development Guide](development/)** - Local development setup
 - **[Architecture](architecture/)** - System architecture and design
 - **[API Reference](api/)** - API endpoints and usage
 
 ### 🎯 Project Status
+
 - **[Implementation Status](planning/IMPLEMENTATION_STATUS.md)** - Current progress
 - **[Planning](planning/)** - Roadmap and implementation plans
 
@@ -152,8 +155,11 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 
 ### Project Documentation
 
-- **[CLAUDE.md](../CLAUDE.md)** - Complete project guide for AI assistants
+- **[CLAUDE.md](development/CLAUDE.md)** - Complete project guide for AI assistants
 - **[Main README](../README.md)** - Project overview
+- **[CONTRIBUTING](../CONTRIBUTING.md)** - How to contribute to this project
+- **[CHANGELOG](../CHANGELOG.md)** - Version history and recent changes
+- **[LICENSE](../LICENSE)** - MIT License
 
 ---
 
@@ -162,6 +168,7 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 ### Backend: ✅ Complete (~95%)
 
 **Completed Features:**
+
 - ✅ All infrastructure (database, models, auth, config)
 - ✅ Query execution engine with SQL parser
 - ✅ Approval workflow system with transaction preview
@@ -182,6 +189,7 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 ### Frontend: ✅ Complete (~90%)
 
 **Completed Features:**
+
 - ✅ Next.js 15+ with App Router
 - ✅ SQL editor with Monaco Editor
 - ✅ Intelligent autocomplete (tables/columns)
@@ -210,13 +218,16 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 
 - **[GitHub Repository](https://github.com/yourorg/querybase)**
 - **[Main README](../README.md)** - Project overview
-- **[CLAUDE.md](../CLAUDE.md)** - Complete development guide
+- **[CONTRIBUTING](../CONTRIBUTING.md)** - Contribution guidelines
+- **[CHANGELOG](../CHANGELOG.md)** - Version history
+- **[CLAUDE.md](development/CLAUDE.md)** - Complete development guide
 
 ---
 
 ## Technology Stack
 
 ### Backend
+
 - **Language:** Go 1.21+
 - **Framework:** Gin (HTTP router)
 - **Database:** PostgreSQL 15 (primary)
@@ -224,6 +235,7 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 - **Auth:** JWT (golang-jwt/jwt)
 
 ### Frontend
+
 - **Framework:** Next.js 15+ (App Router)
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS

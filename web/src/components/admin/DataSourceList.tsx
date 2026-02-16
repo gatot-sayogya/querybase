@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import type { DataSource } from '@/types';
 
@@ -41,9 +42,9 @@ export default function DataSourceList({
     try {
       setTestingId(id);
       await apiClient.testDataSourceConnection(id, {});
-      alert('Connection successful!');
+      toast.success('Connection successful! ✓', { duration: 5000 });
     } catch (err) {
-      alert(`Connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      toast.error(`Connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`, { duration: 7000 });
     } finally {
       setTestingId(null);
     }
@@ -58,7 +59,7 @@ export default function DataSourceList({
       await apiClient.deleteDataSource(id);
       setDataSources(dataSources.filter((ds) => ds.id !== id));
     } catch (err) {
-      alert(`Failed to delete: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      toast.error(`Failed to delete: ${err instanceof Error ? err.message : 'Unknown error'}`, { duration: 7000 });
     }
   };
 

@@ -120,6 +120,7 @@ Complete flow from user submission to query execution, including authentication,
 ```
 
 **Middleware Chain:**
+
 ```go
 router.Use(middleware.AuthMiddleware(jwtManager))
    ↓
@@ -991,6 +992,7 @@ The complete QueryBase flow involves:
    - Dry run for safe DELETE preview
 
 **Core Features (Original):**
+
 - ✅ Secure authentication and authorization
 - ✅ SQL injection prevention
 - ✅ Approval workflow for write operations
@@ -1001,6 +1003,7 @@ The complete QueryBase flow involves:
 - ✅ Dry run for safe DELETE operations
 
 **New Features (Backend Polish - 2025-01-28):**
+
 - ✅ Query results pagination with sorting
 - ✅ Query export (CSV/JSON formats)
 - ✅ Approval comments system for collaboration
@@ -1011,7 +1014,16 @@ The complete QueryBase flow involves:
 - ✅ Input validation helpers
 - ✅ Standardized API response helpers
 
+**UI Improvements (2026-02-16):**
+
+- ✅ Session stability improvements with intelligent 401 handling
+- ✅ Toast notification system (react-hot-toast)
+- ✅ Replaced all alert() calls with persistent toast notifications
+- ✅ Non-blocking user feedback for all operations
+- ✅ Consistent design system integration
+
 **Integration Testing:**
+
 - ✅ Comprehensive integration test script (scripts/integration-test.sh)
 - Tests all flows from authentication to query execution
 - Tests approval workflow with comments
@@ -1021,6 +1033,7 @@ The complete QueryBase flow involves:
 - Tests permission system
 
 **Total API Endpoints: 41** (including 7 new endpoints)
+
 - Authentication: 3 endpoints
 - User Management: 6 endpoints
 - Group Management: 7 endpoints

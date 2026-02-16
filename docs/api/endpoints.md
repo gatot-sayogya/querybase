@@ -15,6 +15,7 @@ Complete reference for all QueryBase API endpoints.
 Login with email and password.
 
 **Request:**
+
 ```json
 {
   "email": "admin@querybase.local",
@@ -23,6 +24,7 @@ Login with email and password.
 ```
 
 **Response (200):**
+
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -42,6 +44,7 @@ Login with email and password.
 Get current user information.
 
 **Response (200):**
+
 ```json
 {
   "id": "uuid",
@@ -60,6 +63,7 @@ Get current user information.
 Change current user's password.
 
 **Request:**
+
 ```json
 {
   "current_password": "oldpassword",
@@ -68,11 +72,47 @@ Change current user's password.
 ```
 
 **Response (200):**
+
 ```json
 {
   "message": "Password changed successfully"
 }
 ```
+
+---
+
+### POST /auth/users/:id/reset-password
+
+Reset a user's password (admin only).
+
+**Request:**
+
+```json
+{
+  "new_password": "newpassword123"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "message": "Password reset successfully"
+}
+```
+
+**Permissions Required:** Admin only
+
+**Restrictions:**
+
+- Cannot reset own password via this endpoint (use `/auth/change-password` instead)
+- Minimum password length: 8 characters
+
+**Security Notes:**
+
+- Password is hashed using bcrypt before storage
+- Admin action should be logged for audit purposes
+- Consider invalidating user sessions after password reset
 
 ---
 
@@ -83,6 +123,7 @@ Change current user's password.
 Execute a query (SELECT or write operation).
 
 **Request:**
+
 ```json
 {
   "data_source_id": "uuid",
@@ -91,21 +132,21 @@ Execute a query (SELECT or write operation).
 ```
 
 **Response - SELECT (200):**
+
 ```json
 {
   "id": "query-uuid",
   "status": "completed",
   "row_count": 10,
   "columns": ["id", "email", "username"],
-  "data": [
-    {"id": 1, "email": "user@example.com", "username": "user1"}
-  ],
+  "data": [{ "id": 1, "email": "user@example.com", "username": "user1" }],
   "execution_time_ms": 45,
   "created_at": "2026-01-29T12:00:00Z"
 }
 ```
 
 **Response - Write Operation (202):**
+
 ```json
 {
   "approval_id": "approval-uuid",
@@ -116,6 +157,7 @@ Execute a query (SELECT or write operation).
 ```
 
 **Permissions Required:**
+
 - SELECT: `can_read` on data source
 - Write: `can_write` on data source
 
@@ -128,10 +170,12 @@ Execute a query (SELECT or write operation).
 List queries for current user.
 
 **Query Parameters:**
+
 - `page` (integer, default: 1)
 - `page_size` (integer, default: 50)
 
 **Response (200):**
+
 ```json
 {
   "data": [
@@ -159,6 +203,7 @@ List queries for current user.
 Get query details.
 
 **Response (200):**
+
 ```json
 {
   "id": "uuid",
@@ -179,6 +224,7 @@ Get query details.
 Delete a query and its results.
 
 **Response (200):**
+
 ```json
 {
   "message": "Query deleted successfully"
@@ -194,19 +240,19 @@ Delete a query and its results.
 Get paginated query results.
 
 **Query Parameters:**
+
 - `page` (integer, default: 1)
 - `page_size` (integer, default: 50)
 - `sort_by` (string, optional)
 - `sort_order` (string: "asc" or "desc", default: "asc")
 
 **Response (200):**
+
 ```json
 {
   "query_id": "uuid",
   "columns": ["id", "email", "username"],
-  "data": [
-    {"id": 1, "email": "user@example.com", "username": "user1"}
-  ],
+  "data": [{ "id": 1, "email": "user@example.com", "username": "user1" }],
   "pagination": {
     "page": 1,
     "page_size": 50,
@@ -223,6 +269,7 @@ Get paginated query results.
 Save a query for later use.
 
 **Request:**
+
 ```json
 {
   "data_source_id": "uuid",
@@ -232,6 +279,7 @@ Save a query for later use.
 ```
 
 **Response (201):**
+
 ```json
 {
   "id": "uuid",
@@ -250,10 +298,12 @@ Save a query for later use.
 List approval requests.
 
 **Query Parameters:**
+
 - `status` (string: "pending", "approved", "rejected", "executed", optional)
 - `data_source_id` (uuid, optional)
 
 **Response (200):**
+
 ```json
 {
   "data": [
@@ -282,6 +332,7 @@ List approval requests.
 Get approval details.
 
 **Response (200):**
+
 ```json
 {
   "id": "uuid",
@@ -309,6 +360,7 @@ Get approval details.
 Review (approve/reject) an approval request.
 
 **Request:**
+
 ```json
 {
   "decision": "approved",
@@ -317,6 +369,7 @@ Review (approve/reject) an approval request.
 ```
 
 **Response (200):**
+
 ```json
 {
   "id": "uuid",
@@ -336,6 +389,7 @@ Review (approve/reject) an approval request.
 Commit a transaction (after preview).
 
 **Response (200):**
+
 ```json
 {
   "message": "Transaction committed successfully",
@@ -350,6 +404,7 @@ Commit a transaction (after preview).
 Rollback a transaction.
 
 **Response (200):**
+
 ```json
 {
   "message": "Transaction rolled back successfully"
@@ -365,6 +420,7 @@ Rollback a transaction.
 List data sources (filtered by user's permissions).
 
 **Response (200):**
+
 ```json
 {
   "data": [
@@ -393,6 +449,7 @@ List data sources (filtered by user's permissions).
 Create a new data source.
 
 **Request:**
+
 ```json
 {
   "name": "Production Database",
@@ -407,6 +464,7 @@ Create a new data source.
 ```
 
 **Response (201):**
+
 ```json
 {
   "id": "uuid",
@@ -426,6 +484,7 @@ Create a new data source.
 Get data source details.
 
 **Response (200):**
+
 ```json
 {
   "id": "uuid",
@@ -451,6 +510,7 @@ Get data source details.
 Update data source configuration.
 
 **Request:**
+
 ```json
 {
   "name": "Production Database (Updated)",
@@ -459,6 +519,7 @@ Update data source configuration.
 ```
 
 **Response (200):**
+
 ```json
 {
   "id": "uuid",
@@ -476,6 +537,7 @@ Update data source configuration.
 Delete a data source.
 
 **Response (200):**
+
 ```json
 {
   "message": "Data source deleted successfully"
@@ -491,6 +553,7 @@ Delete a data source.
 Test data source connection.
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -500,6 +563,7 @@ Test data source connection.
 ```
 
 **Response (400):**
+
 ```json
 {
   "success": false,
@@ -514,9 +578,11 @@ Test data source connection.
 Get database schema (tables and columns).
 
 **Query Parameters:**
+
 - `table_name` (string, optional - filter by table)
 
 **Response (200):**
+
 ```json
 {
   "data_source_id": "uuid",
@@ -551,6 +617,7 @@ Get database schema (tables and columns).
 Force schema synchronization.
 
 **Response (200):**
+
 ```json
 {
   "message": "Schema synchronization started",
@@ -567,6 +634,7 @@ Force schema synchronization.
 Get data source permissions.
 
 **Response (200):**
+
 ```json
 {
   "data_source_id": "uuid",
@@ -591,6 +659,7 @@ Get data source permissions.
 Set data source permissions.
 
 **Request:**
+
 ```json
 {
   "permissions": [
@@ -605,6 +674,7 @@ Set data source permissions.
 ```
 
 **Response (200):**
+
 ```json
 {
   "message": "Permissions updated successfully"
@@ -620,6 +690,7 @@ Set data source permissions.
 Get data source health status.
 
 **Response (200):**
+
 ```json
 {
   "data_source_id": "uuid",
@@ -639,6 +710,7 @@ Get data source health status.
 List all users.
 
 **Response (200):**
+
 ```json
 {
   "data": [
@@ -663,6 +735,7 @@ List all users.
 Create a new user.
 
 **Request:**
+
 ```json
 {
   "email": "newuser@example.com",
@@ -673,6 +746,7 @@ Create a new user.
 ```
 
 **Response (201):**
+
 ```json
 {
   "id": "uuid",
@@ -693,6 +767,7 @@ Create a new user.
 Get user details.
 
 **Response (200):**
+
 ```json
 {
   "id": "uuid",
@@ -718,6 +793,7 @@ Get user details.
 Update user information.
 
 **Request:**
+
 ```json
 {
   "email": "updated@example.com",
@@ -726,6 +802,7 @@ Update user information.
 ```
 
 **Response (200):**
+
 ```json
 {
   "id": "uuid",
@@ -744,6 +821,7 @@ Update user information.
 Delete a user.
 
 **Response (200):**
+
 ```json
 {
   "message": "User deleted successfully"
@@ -761,6 +839,7 @@ Delete a user.
 List all groups.
 
 **Response (200):**
+
 ```json
 {
   "data": [
@@ -782,6 +861,7 @@ List all groups.
 Create a new group.
 
 **Request:**
+
 ```json
 {
   "name": "Developers",
@@ -790,6 +870,7 @@ Create a new group.
 ```
 
 **Response (201):**
+
 ```json
 {
   "id": "uuid",
@@ -808,6 +889,7 @@ Create a new group.
 Get group details.
 
 **Response (200):**
+
 ```json
 {
   "id": "uuid",
@@ -831,6 +913,7 @@ Get group details.
 Update group information.
 
 **Request:**
+
 ```json
 {
   "name": "Development Team",
@@ -839,6 +922,7 @@ Update group information.
 ```
 
 **Response (200):**
+
 ```json
 {
   "id": "uuid",
@@ -857,6 +941,7 @@ Update group information.
 Delete a group.
 
 **Response (200):**
+
 ```json
 {
   "message": "Group deleted successfully"
@@ -872,6 +957,7 @@ Delete a group.
 Add user to group.
 
 **Request:**
+
 ```json
 {
   "user_id": "uuid"
@@ -879,6 +965,7 @@ Add user to group.
 ```
 
 **Response (200):**
+
 ```json
 {
   "message": "User added to group successfully"
@@ -894,6 +981,7 @@ Add user to group.
 Remove user from group.
 
 **Request:**
+
 ```json
 {
   "user_id": "uuid"
@@ -901,6 +989,7 @@ Remove user from group.
 ```
 
 **Response (200):**
+
 ```json
 {
   "message": "User removed from group successfully"
@@ -918,6 +1007,7 @@ Remove user from group.
 Health check endpoint.
 
 **Response (200):**
+
 ```json
 {
   "status": "ok",
@@ -934,6 +1024,7 @@ Health check endpoint.
 All endpoints may return error responses:
 
 ### 400 Bad Request
+
 ```json
 {
   "error": "bad request",
@@ -942,6 +1033,7 @@ All endpoints may return error responses:
 ```
 
 ### 401 Unauthorized
+
 ```json
 {
   "error": "unauthorized",
@@ -950,6 +1042,7 @@ All endpoints may return error responses:
 ```
 
 ### 403 Forbidden
+
 ```json
 {
   "error": "forbidden",
@@ -958,6 +1051,7 @@ All endpoints may return error responses:
 ```
 
 ### 404 Not Found
+
 ```json
 {
   "error": "not found",
@@ -966,6 +1060,7 @@ All endpoints may return error responses:
 ```
 
 ### 422 Unprocessable Entity
+
 ```json
 {
   "error": "validation failed",
@@ -977,6 +1072,7 @@ All endpoints may return error responses:
 ```
 
 ### 429 Too Many Requests
+
 ```json
 {
   "error": "rate limit exceeded",
@@ -985,6 +1081,7 @@ All endpoints may return error responses:
 ```
 
 ### 500 Internal Server Error
+
 ```json
 {
   "error": "internal server error",
@@ -994,9 +1091,10 @@ All endpoints may return error responses:
 
 ---
 
-**Total Endpoints:** 41
+**Total Endpoints:** 42
 
 **See Also:**
+
 - [API Overview](README.md)
 - [CORS Setup](CORS_SETUP.md)
 - [Main Documentation](../README.md)

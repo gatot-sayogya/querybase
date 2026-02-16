@@ -38,3 +38,19 @@ type UpdateUserRequest struct {
 	Role     string `json:"role" binding:"omitempty,oneof=admin user viewer"`
 	IsActive *bool  `json:"is_active"`
 }
+
+// ResetPasswordRequest for admin-initiated password reset
+type ResetPasswordRequest struct {
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+// ForgotPasswordRequest for self-service reset (future)
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+// ResetPasswordTokenRequest for completing self-service reset (future)
+type ResetPasswordTokenRequest struct {
+	Token       string `json:"token" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}

@@ -76,3 +76,10 @@ coverage.html
 cpu.prof
 mem.prof
 pprof/
+
+# Compiled binaries (project-specific)
+/api
+/main
+/querybase
+/worker
+
