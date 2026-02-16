@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,8 +17,8 @@ import (
 
 // DataSourceHandler handles data source endpoints
 type DataSourceHandler struct {
-	db                 *gorm.DB
-	dataSourceService  *service.DataSourceService
+	db                *gorm.DB
+	dataSourceService *service.DataSourceService
 }
 
 // NewDataSourceHandler creates a new data source handler
@@ -30,13 +32,13 @@ func NewDataSourceHandler(db *gorm.DB, dataSourceService *service.DataSourceServ
 // CreateDataSource creates a new data source (admin only)
 func (h *DataSourceHandler) CreateDataSource(c *gin.Context) {
 	var req struct {
-		Name     string `json:"name" binding:"required"`
-		Type     string `json:"type" binding:"required,oneof=postgresql mysql"`
-		Host     string `json:"host" binding:"required"`
-		Port     int    `json:"port" binding:"required,min=1,max=65535"`
-		Database string `json:"database" binding:"required"`
-		Username string `json:"username" binding:"required"`
-		Password string `json:"password" binding:"required"`
+		Name         string `json:"name" binding:"required"`
+		Type         string `json:"type" binding:"required,oneof=postgresql mysql"`
+		Host         string `json:"host" binding:"required"`
+		Port         int    `json:"port" binding:"required,min=1,max=65535"`
+		DatabaseName string `json:"database_name" binding:"required"`
+		Username     string `json:"username" binding:"required"`
+		Password     string `json:"password" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -45,18 +47,26 @@ func (h *DataSourceHandler) CreateDataSource(c *gin.Context) {
 	}
 
 	input := &service.CreateDataSourceInput{
-		Name:     req.Name,
-		Type:     req.Type,
-		Host:     req.Host,
-		Port:     req.Port,
-		Database: req.Database,
-		Username: req.Username,
-		Password: req.Password,
+		Name:         req.Name,
+		Type:         req.Type,
+		Host:         req.Host,
+		Port:         req.Port,
+		DatabaseName: req.DatabaseName,
+		Username:     req.Username,
+		Password:     req.Password,
 	}
 
 	dataSource, err := h.dataSourceService.CreateDataSource(c, input)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create data source"})
+		// Return detailed error message to help users troubleshoot
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "duplicate key") || strings.Contains(errorMsg, "already exists") {
+			c.JSON(http.StatusConflict, gin.H{"error": "A data source with this name already exists"})
+		} else if strings.Contains(errorMsg, "encrypt") {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt database password. Please contact administrator."})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create data source: %s", errorMsg)})
+		}
 		return
 	}
 
@@ -104,15 +114,15 @@ func (h *DataSourceHandler) ListDataSources(c *gin.Context) {
 		}
 
 		response[i] = gin.H{
-			"id":         ds.ID.String(),
-			"name":       ds.Name,
-			"type":       string(ds.Type),
-			"host":       ds.Host,
-			"port":       ds.Port,
-			"database":   ds.GetDatabase(),
-			"username":   ds.Username,
-			"is_active":  ds.IsActive,
-			"created_at": ds.CreatedAt,
+			"id":          ds.ID.String(),
+			"name":        ds.Name,
+			"type":        string(ds.Type),
+			"host":        ds.Host,
+			"port":        ds.Port,
+			"database":    ds.GetDatabase(),
+			"username":    ds.Username,
+			"is_active":   ds.IsActive,
+			"created_at":  ds.CreatedAt,
 			"permissions": perms,
 		}
 	}
@@ -145,26 +155,26 @@ func (h *DataSourceHandler) GetDataSource(c *gin.Context) {
 	perms := make([]gin.H, len(permissions))
 	for i, perm := range permissions {
 		perms[i] = gin.H{
-			"group_id":   perm.GroupID.String(),
-			"group_name": perm.Group.Name,
-			"can_read":   perm.CanRead,
-			"can_write":  perm.CanWrite,
+			"group_id":    perm.GroupID.String(),
+			"group_name":  perm.Group.Name,
+			"can_read":    perm.CanRead,
+			"can_write":   perm.CanWrite,
 			"can_approve": perm.CanApprove,
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":              dataSource.ID.String(),
-		"name":            dataSource.Name,
-		"type":            string(dataSource.Type),
-		"host":            dataSource.Host,
-		"port":            dataSource.Port,
-		"database":        dataSource.GetDatabase(),
-		"username":        dataSource.Username,
-		"is_active":       dataSource.IsActive,
-		"created_at":      dataSource.CreatedAt,
-		"updated_at":      dataSource.UpdatedAt,
-		"permissions":     perms,
+		"id":          dataSource.ID.String(),
+		"name":        dataSource.Name,
+		"type":        string(dataSource.Type),
+		"host":        dataSource.Host,
+		"port":        dataSource.Port,
+		"database":    dataSource.GetDatabase(),
+		"username":    dataSource.Username,
+		"is_active":   dataSource.IsActive,
+		"created_at":  dataSource.CreatedAt,
+		"updated_at":  dataSource.UpdatedAt,
+		"permissions": perms,
 	})
 }
 
@@ -173,14 +183,14 @@ func (h *DataSourceHandler) UpdateDataSource(c *gin.Context) {
 	dataSourceID := c.Param("id")
 
 	var req struct {
-		Name     string `json:"name"`
-		Type     string `json:"type" binding:"omitempty,oneof=postgresql mysql"`
-		Host     string `json:"host"`
-		Port     int    `json:"port" binding:"omitempty,min=1,max=65535"`
-		Database string `json:"database"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		IsActive *bool  `json:"is_active"`
+		Name         string `json:"name"`
+		Type         string `json:"type" binding:"omitempty,oneof=postgresql mysql"`
+		Host         string `json:"host"`
+		Port         int    `json:"port" binding:"omitempty,min=1,max=65535"`
+		DatabaseName string `json:"database_name"`
+		Username     string `json:"username"`
+		Password     string `json:"password"`
+		IsActive     *bool  `json:"is_active"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -189,14 +199,14 @@ func (h *DataSourceHandler) UpdateDataSource(c *gin.Context) {
 	}
 
 	input := &service.UpdateDataSourceInput{
-		Name:     req.Name,
-		Type:     req.Type,
-		Host:     req.Host,
-		Port:     req.Port,
-		Database: req.Database,
-		Username: req.Username,
-		Password: req.Password,
-		IsActive: req.IsActive,
+		Name:         req.Name,
+		Type:         req.Type,
+		Host:         req.Host,
+		Port:         req.Port,
+		DatabaseName: req.DatabaseName,
+		Username:     req.Username,
+		Password:     req.Password,
+		IsActive:     req.IsActive,
 	}
 
 	dataSource, err := h.dataSourceService.UpdateDataSource(c, dataSourceID, input)
@@ -204,7 +214,13 @@ func (h *DataSourceHandler) UpdateDataSource(c *gin.Context) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Data source not found"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update data source"})
+			// Return detailed error message
+			errorMsg := err.Error()
+			if strings.Contains(errorMsg, "encrypt") {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt database password. Please contact administrator."})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to update data source: %s", errorMsg)})
+			}
 		}
 		return
 	}
@@ -243,9 +259,68 @@ func (h *DataSourceHandler) TestConnection(c *gin.Context) {
 	dataSourceID := c.Param("id")
 
 	if err := h.dataSourceService.TestConnection(c, dataSourceID); err != nil {
+		// Provide detailed connection error messages
+		errorMsg := err.Error()
+		var userMessage string
+
+		if strings.Contains(errorMsg, "connection refused") {
+			userMessage = "Connection refused. Please verify the host and port are correct and the database server is running."
+		} else if strings.Contains(errorMsg, "timeout") {
+			userMessage = "Connection timeout. Please check network connectivity and firewall settings."
+		} else if strings.Contains(errorMsg, "authentication failed") || strings.Contains(errorMsg, "Access denied") {
+			userMessage = "Authentication failed. Please verify the username and password are correct."
+		} else if strings.Contains(errorMsg, "database") && strings.Contains(errorMsg, "does not exist") {
+			userMessage = "Database not found. Please verify the database name is correct."
+		} else if strings.Contains(errorMsg, "no such host") || strings.Contains(errorMsg, "unknown host") {
+			userMessage = "Host not found. Please verify the hostname or IP address."
+		} else {
+			userMessage = fmt.Sprintf("Connection failed: %s", errorMsg)
+		}
+
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"error":   err.Error(),
+			"error":   userMessage,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Connection successful",
+	})
+}
+
+// TestConnectionWithParams tests the connection to a data source with raw parameters
+func (h *DataSourceHandler) TestConnectionWithParams(c *gin.Context) {
+	var req service.TestConnectionInput
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.dataSourceService.TestConnectionWithParams(c, &req); err != nil {
+		// Provide detailed connection error messages
+		errorMsg := err.Error()
+		var userMessage string
+
+		if strings.Contains(errorMsg, "connection refused") {
+			userMessage = "Connection refused. Please verify the host and port are correct and the database server is running."
+		} else if strings.Contains(errorMsg, "timeout") {
+			userMessage = "Connection timeout. Please check network connectivity and firewall settings."
+		} else if strings.Contains(errorMsg, "authentication failed") || strings.Contains(errorMsg, "Access denied") {
+			userMessage = "Authentication failed. Please verify the username and password are correct."
+		} else if strings.Contains(errorMsg, "database") && strings.Contains(errorMsg, "does not exist") {
+			userMessage = "Database not found. Please verify the database name is correct."
+		} else if strings.Contains(errorMsg, "no such host") || strings.Contains(errorMsg, "unknown host") {
+			userMessage = "Host not found. Please verify the hostname or IP address."
+		} else {
+			userMessage = fmt.Sprintf("Connection failed: %s", errorMsg)
+		}
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   userMessage,
 		})
 		return
 	}

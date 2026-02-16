@@ -25,6 +25,10 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{
+    type: 'success' | 'error' | null;
+    message: string;
+  }>({ type: null, message: '' });
 
   useEffect(() => {
     if (formData.type === 'mysql') {
@@ -41,11 +45,18 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
+    // Clear connection status when form changes
+    if (connectionStatus.type) {
+      setConnectionStatus({ type: null, message: '' });
+    }
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: parseInt(value) || 0 }));
+    if (connectionStatus.type) {
+      setConnectionStatus({ type: null, message: '' });
+    }
   };
 
   const validate = (): boolean => {
@@ -91,14 +102,21 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
           delete updateData.password;
         }
         await apiClient.updateDataSource(dataSource.id, updateData);
+        toast.success('Data source updated successfully! ✓', {
+          duration: 5000,
+        });
       } else {
         // Create new data source
         await apiClient.createDataSource(formData);
+        toast.success('Data source created successfully! ✓', {
+          duration: 5000,
+        });
       }
 
       onSave();
-    } catch (err) {
-      toast.error(`Failed to save data source: ${err instanceof Error ? err.message : 'Unknown error'}`, {
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error || err?.message || 'Unknown error';
+      toast.error(`Failed to save data source: ${errorMessage}`, {
         duration: 7000,
       });
     } finally {
@@ -113,14 +131,28 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
 
     try {
       setTesting(true);
+      setConnectionStatus({ type: null, message: '' });
+      
       if (dataSource) {
         await apiClient.testDataSourceConnection(dataSource.id, formData);
+      } else {
+        await apiClient.testNewDataSourceConnection(formData);
       }
+      
+      setConnectionStatus({
+        type: 'success',
+        message: 'Connection successful! Your database credentials are valid.',
+      });
       toast.success('Connection successful! ✓', {
         duration: 5000,
       });
-    } catch (err) {
-      toast.error(`Connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`, {
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error || err?.message || 'Unknown error';
+      setConnectionStatus({
+        type: 'error',
+        message: errorMessage,
+      });
+      toast.error(`Connection failed: ${errorMessage}`, {
         duration: 7000,
       });
     } finally {
@@ -135,6 +167,67 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
           {dataSource ? 'Edit Data Source' : 'Add New Data Source'}
         </h2>
       </div>
+
+      {/* Connection Status Banner */}
+      {connectionStatus.type && (
+        <div
+          className={`p-4 rounded-md ${
+            connectionStatus.type === 'success'
+              ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+              : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+          }`}
+        >
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              {connectionStatus.type === 'success' ? (
+                <svg
+                  className="h-5 w-5 text-green-600 dark:text-green-400"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              ) : (
+                <svg
+                  className="h-5 w-5 text-red-600 dark:text-red-400"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              )}
+            </div>
+            <div className="ml-3 flex-1">
+              <h3
+                className={`text-sm font-medium ${
+                  connectionStatus.type === 'success'
+                    ? 'text-green-800 dark:text-green-200'
+                    : 'text-red-800 dark:text-red-200'
+                }`}
+              >
+                {connectionStatus.type === 'success' ? 'Connection Successful' : 'Connection Failed'}
+              </h3>
+              <p
+                className={`mt-1 text-sm ${
+                  connectionStatus.type === 'success'
+                    ? 'text-green-700 dark:text-green-300'
+                    : 'text-red-700 dark:text-red-300'
+                }`}
+              >
+                {connectionStatus.message}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Name */}
       <div>

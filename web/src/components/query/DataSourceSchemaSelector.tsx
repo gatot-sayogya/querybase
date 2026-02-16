@@ -205,13 +205,13 @@ export default function DataSourceSchemaSelector({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 flex flex-col flex-1 overflow-hidden">
       {/* Data Source Selector */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
+      <div className="flex-shrink-0">
+        <div className="flex items-center justify-between mb-1 px-1">
           <label
             htmlFor="datasource-select"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            className="block text-xs font-medium text-gray-600 dark:text-gray-400"
           >
             Data Source
           </label>
@@ -220,11 +220,11 @@ export default function DataSourceSchemaSelector({
           <button
             onClick={handleSyncNow}
             disabled={!value || isSchemaLoading}
-            className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded disabled:opacity-50 disabled:cursor-not-allowed"
             title="Force schema refresh from database"
           >
-            <ArrowPathIcon className={`h-3.5 w-3.5 ${isSchemaLoading ? 'animate-spin' : ''}`} />
-            Sync Now
+            <ArrowPathIcon className={`h-3 w-3 ${isSchemaLoading ? 'animate-spin' : ''}`} />
+            Sync
           </button>
         </div>
         <select
@@ -232,7 +232,7 @@ export default function DataSourceSchemaSelector({
           value={value}
           onChange={(e) => handleDataSourceChange(e.target.value)}
           disabled={disabled}
-          className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-800 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          className="block w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {dataSources.map((ds) => (
             <option key={ds.id} value={ds.id}>
@@ -244,34 +244,34 @@ export default function DataSourceSchemaSelector({
 
       {/* Schema Browser for Selected Data Source */}
       {value && (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 dark:bg-gray-900 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+        <div className="border border-gray-200 dark:border-gray-700 rounded overflow-hidden flex flex-col flex-1">
+          <div className="bg-gray-50 dark:bg-gray-900 px-2 py-1 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                 Schema
               </h3>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => setShowSearchModal(true)}
-                  className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                  className="p-0.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                   title="Search tables, views, functions"
                 >
-                  <MagnifyingGlassIcon className="h-4 w-4" />
+                  <MagnifyingGlassIcon className="h-3 w-3" />
                 </button>
                 {value && lastSyncTime.get(value) && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Last sync: {lastSyncTime.get(value)!.toLocaleTimeString()}
+                  <span className="text-[9px] text-gray-500 dark:text-gray-400">
+                    {lastSyncTime.get(value)!.toLocaleTimeString()}
                   </span>
                 )}
                 {isSchemaLoading && (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
                 )}
               </div>
             </div>
 
             {/* Active Search Filter Indicator */}
             {searchTerm && (
-              <div className="mt-2 flex items-center gap-2 text-xs bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+              <div className="mt-1 flex items-center gap-1 text-[9px] bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded">
                 <span className="text-blue-700 dark:text-blue-300">
                   Filter: <strong>{searchTerm}</strong>
                 </span>
@@ -279,7 +279,7 @@ export default function DataSourceSchemaSelector({
                   onClick={() => setSearchTerm('')}
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
                 >
-                  <XMarkIcon className="h-3 w-3" />
+                  <XMarkIcon className="h-2.5 w-2.5" />
                 </button>
               </div>
             )}
@@ -439,7 +439,7 @@ export default function DataSourceSchemaSelector({
             </div>
           )}
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             {(() => {
               const currentSchema = value ? schemas.get(value) : null;
               if (!currentSchema) return null;
@@ -573,19 +573,19 @@ function SchemaSection({ title, icon, count, isExpanded, onToggle, children }: S
     <div className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
       <button
         onClick={onToggle}
-        className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50"
+        className="w-full px-2 py-1 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {isExpanded ? (
-            <ChevronDownIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+            <ChevronDownIcon className="h-3 w-3 text-gray-500 dark:text-gray-400" />
           ) : (
-            <ChevronRightIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+            <ChevronRightIcon className="h-3 w-3 text-gray-500 dark:text-gray-400" />
           )}
-          <div className="text-gray-600 dark:text-gray-300">{icon}</div>
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+          <div className="text-gray-600 dark:text-gray-300 scale-75">{icon}</div>
+          <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
             {title}
           </span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-[10px] text-gray-500 dark:text-gray-400">
             ({count})
           </span>
         </div>
@@ -606,17 +606,17 @@ function SchemaTableItem({ table, onTableSelect }: SchemaTableItemProps) {
     <div className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
       <button
         onClick={() => onTableSelect && onTableSelect(table.table_name)}
-        className="w-full px-6 py-2 flex items-center justify-between text-left"
+        className="w-full px-3 py-0.5 flex items-center justify-between text-left"
         title={`Click to view data: SELECT * FROM ${table.table_name} LIMIT 100`}
       >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <TableCellsIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+        <div className="flex items-center gap-1 flex-1 min-w-0">
+          <TableCellsIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
+          <span className="text-xs text-gray-700 dark:text-gray-200 truncate">
             {table.table_name}
           </span>
           {table.columns && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              ({table.columns.length} cols)
+            <span className="text-[9px] text-gray-500 dark:text-gray-400 flex-shrink-0">
+              ({table.columns.length})
             </span>
           )}
         </div>
@@ -637,15 +637,15 @@ function SchemaViewItem({ view, viewName, onTableSelect }: SchemaViewItemProps) 
     <div className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
       <button
         onClick={() => onTableSelect && onTableSelect(viewName)}
-        className="w-full px-6 py-2 flex items-center justify-between text-left"
+        className="w-full px-3 py-0.5 flex items-center justify-between text-left"
         title={`Click to view data: SELECT * FROM ${viewName} LIMIT 100`}
       >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <EyeIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+        <div className="flex items-center gap-1 flex-1 min-w-0">
+          <EyeIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
+          <span className="text-xs text-gray-700 dark:text-gray-200 truncate">
             {viewName}
           </span>
-          <span className="px-1.5 py-0.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
+          <span className="px-1 py-0 text-[8px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded flex-shrink-0">
             VIEW
           </span>
         </div>

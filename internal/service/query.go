@@ -67,7 +67,7 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 	if err != nil {
 		// Update query status to failed
 		s.db.Model(query).Updates(map[string]interface{}{
-			"status":      models.StatusFailed,
+			"status":        models.StatusFailed,
 			"error_message": err.Error(),
 		})
 
@@ -143,6 +143,7 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 
 	// Create query result
 	queryResult := &models.QueryResult{
+		ID:          uuid.New(), // Generate proper UUID
 		QueryID:     query.ID,
 		RowCount:    len(results),
 		ColumnNames: string(columnNamesJSON), // Store as JSON string
@@ -244,10 +245,10 @@ func (s *QueryService) GetPaginatedResults(ctx context.Context, queryID uuid.UUI
 
 // PaginationMeta represents pagination metadata
 type PaginationMeta struct {
-	Page       int `json:"page"`
-	PerPage    int `json:"per_page"`
-	TotalPages int `json:"total_pages"`
-	TotalRows  int `json:"total_rows"`
+	Page       int  `json:"page"`
+	PerPage    int  `json:"per_page"`
+	TotalPages int  `json:"total_pages"`
+	TotalRows  int  `json:"total_rows"`
 	HasNext    bool `json:"has_next"`
 	HasPrev    bool `json:"has_prev"`
 }
@@ -428,9 +429,9 @@ func (s *QueryService) exportToCSV(rows []map[string]interface{}, columns []stri
 func (s *QueryService) exportToJSON(rows []map[string]interface{}, columns []string) ([]byte, error) {
 	// Create a structured JSON output
 	output := map[string]interface{}{
-		"columns":  columns,
+		"columns":   columns,
 		"row_count": len(rows),
-		"data":     rows,
+		"data":      rows,
 	}
 
 	return json.MarshalIndent(output, "", "  ")
@@ -482,7 +483,7 @@ func (s *QueryService) ListQueries(ctx context.Context, userID string, limit, of
 // ExplainQueryResult represents the result of an EXPLAIN query
 type ExplainQueryResult struct {
 	Plan      []map[string]interface{} `json:"plan"`
-	RawOutput string                    `json:"raw_output"`
+	RawOutput string                   `json:"raw_output"`
 }
 
 // DryRunResult represents the result of a DELETE dry run
@@ -966,7 +967,6 @@ func (s *QueryService) tableExists(db *gorm.DB, dataSource *models.DataSource, t
 		return true
 	}
 }
-
 
 // ExecuteQueryInTransaction executes a query in a transaction and keeps it open for preview
 func (s *QueryService) ExecuteQueryInTransaction(ctx context.Context, approval *models.ApprovalRequest, dataSource *models.DataSource) (*models.QueryResult, error) {

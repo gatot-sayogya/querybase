@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/yourorg/querybase/internal/api/dto"
 	"github.com/yourorg/querybase/internal/models"
-	gormpostgres "gorm.io/driver/postgres"
 	gormmysql "gorm.io/driver/mysql"
+	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -46,7 +46,7 @@ func (s *DataSourceService) CreateDataSource(ctx context.Context, req *CreateDat
 		Type:              models.DataSourceType(req.Type),
 		Host:              req.Host,
 		Port:              req.Port,
-		DatabaseName:      req.Database,
+		DatabaseName:      req.DatabaseName,
 		Username:          req.Username,
 		EncryptedPassword: encryptedPassword,
 		IsActive:          true,
@@ -126,8 +126,8 @@ func (s *DataSourceService) UpdateDataSource(ctx context.Context, dataSourceID s
 	if req.Port != 0 {
 		updates["port"] = req.Port
 	}
-	if req.Database != "" {
-		updates["database_name"] = req.Database
+	if req.DatabaseName != "" {
+		updates["database_name"] = req.DatabaseName
 	}
 	if req.Username != "" {
 		updates["username"] = req.Username
@@ -192,6 +192,27 @@ func (s *DataSourceService) TestConnection(ctx context.Context, dataSourceID str
 		return s.testPostgreSQLConnection(dataSource, password)
 	case models.DataSourceTypeMySQL:
 		return s.testMySQLConnection(dataSource, password)
+	default:
+		return fmt.Errorf("unsupported data source type: %s", dataSource.Type)
+	}
+}
+
+// TestConnectionWithParams tests connection with raw parameters
+func (s *DataSourceService) TestConnectionWithParams(ctx context.Context, input *TestConnectionInput) error {
+	dataSource := &models.DataSource{
+		Type:         models.DataSourceType(input.Type),
+		Host:         input.Host,
+		Port:         input.Port,
+		DatabaseName: input.DatabaseName,
+		Username:     input.Username,
+	}
+
+	// Test connection based on type
+	switch dataSource.Type {
+	case models.DataSourceTypePostgreSQL:
+		return s.testPostgreSQLConnection(dataSource, input.Password)
+	case models.DataSourceTypeMySQL:
+		return s.testMySQLConnection(dataSource, input.Password)
 	default:
 		return fmt.Errorf("unsupported data source type: %s", dataSource.Type)
 	}
@@ -422,25 +443,25 @@ func (s *DataSourceService) CheckHealth(ctx context.Context, dataSourceID string
 
 // CreateDataSourceInput represents input for creating a data source
 type CreateDataSourceInput struct {
-	Name     string
-	Type     string
-	Host     string
-	Port     int
-	Database string
-	Username string
-	Password string
+	Name         string
+	Type         string
+	Host         string
+	Port         int
+	DatabaseName string
+	Username     string
+	Password     string
 }
 
 // UpdateDataSourceInput represents input for updating a data source
 type UpdateDataSourceInput struct {
-	Name     string
-	Type     string
-	Host     string
-	Port     int
-	Database string
-	Username string
-	Password string
-	IsActive *bool
+	Name         string
+	Type         string
+	Host         string
+	Port         int
+	DatabaseName string
+	Username     string
+	Password     string
+	IsActive     *bool
 }
 
 // PermissionInput represents permission settings
@@ -448,4 +469,14 @@ type PermissionInput struct {
 	CanRead    bool
 	CanWrite   bool
 	CanApprove bool
+}
+
+// TestConnectionInput represents input for testing a connection
+type TestConnectionInput struct {
+	Type         string `json:"type" binding:"required,oneof=postgresql mysql"`
+	Host         string `json:"host" binding:"required"`
+	Port         int    `json:"port" binding:"required,min=1,max=65535"`
+	DatabaseName string `json:"database_name" binding:"required"`
+	Username     string `json:"username" binding:"required"`
+	Password     string `json:"password" binding:"required"`
 }

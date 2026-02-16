@@ -206,6 +206,7 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 				adminDatasources := admin.Group("/datasources")
 				{
 					adminDatasources.POST("", dataSourceHandler.CreateDataSource)
+					adminDatasources.POST("/test", dataSourceHandler.TestConnectionWithParams)
 					adminDatasources.PUT("/:id", dataSourceHandler.UpdateDataSource)
 					adminDatasources.DELETE("/:id", dataSourceHandler.DeleteDataSource)
 					adminDatasources.PUT("/:id/permissions", dataSourceHandler.SetPermissions)

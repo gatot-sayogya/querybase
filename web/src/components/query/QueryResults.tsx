@@ -77,49 +77,48 @@ export default function QueryResults({
   };
 
   return (
-    <div className="space-y-4">
+    <div>
       {/* Results Header */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-600 dark:text-gray-400">
-          Showing {startIndex + 1} to {Math.min(endIndex, data.length)} of {data.length}{' '}
-          rows
+      <div className="flex items-center justify-between px-2 py-1 bg-gray-50 dark:bg-gray-800/30 text-xs border-b border-gray-200 dark:border-gray-700">
+        <div className="text-gray-600 dark:text-gray-400">
+          {startIndex + 1}-{Math.min(endIndex, data.length)} of {data.length}
         </div>
         {data.length > rowsPerPage && (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={handlePrevious}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed dark:text-white"
+              className="px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed dark:text-white"
             >
-              Previous
+              ←
             </button>
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              Page {currentPage} of {totalPages}
+            <span className="text-gray-600 dark:text-gray-400 px-1">
+              {currentPage}/{totalPages}
             </span>
             <button
               onClick={handleNext}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed dark:text-white"
+              className="px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed dark:text-white"
             >
-              Next
+              →
             </button>
           </div>
         )}
       </div>
 
-      {/* Results Table */}
-      <div className="overflow-x-auto border border-gray-300 dark:border-gray-700 rounded-lg">
+      {/* Results Table - Now with flexible max height */}
+      <div className="overflow-auto border-b border-gray-200 dark:border-gray-700 max-h-[650px]">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-800">
+          <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.name}
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  className="px-2 py-1 text-left text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tight"
                 >
                   <div className="flex flex-col">
-                    <span>{column.name}</span>
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                    <span className="font-semibold">{column.name}</span>
+                    <span className="text-[9px] text-gray-400 dark:text-gray-500 font-normal">
                       {column.type}
                     </span>
                   </div>
@@ -133,7 +132,8 @@ export default function QueryResults({
                 {columns.map((column) => (
                   <td
                     key={column.name}
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100"
+                    className="px-2 py-1 text-xs text-gray-900 dark:text-gray-100 max-w-xs truncate"
+                    title={String(row[column.name])}
                   >
                     {formatCellValue(row[column.name])}
                   </td>
@@ -146,27 +146,27 @@ export default function QueryResults({
 
       {/* Pagination Footer */}
       {data.length > rowsPerPage && (
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            {data.length} total rows
+        <div className="flex items-center justify between px-2 py-1 bg-gray-50 dark:bg-gray-800/30 text-xs border-t border-gray-200 dark:border-gray-700">
+          <div className="text-gray-600 dark:text-gray-400">
+            {data.length} total
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={handlePrevious}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed dark:text-white"
+              className="px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed dark:text-white"
             >
-              Previous
+              ←
             </button>
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              {currentPage} / {totalPages}
+            <span className="text-gray-600 dark:text-gray-400 px-1">
+              {currentPage}/{totalPages}
             </span>
             <button
               onClick={handleNext}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed dark:text-white"
+              className="px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed dark:text-white"
             >
-              Next
+              →
             </button>
           </div>
         </div>
@@ -175,9 +175,9 @@ export default function QueryResults({
   );
 }
 
-function formatCellValue(value: unknown): string {
+function formatCellValue(value: unknown): React.ReactNode {
   if (value === null) {
-    return '<span class="text-gray-400 italic">NULL</span>';
+    return <span className="text-gray-400 italic">NULL</span>;
   }
   if (value === undefined) {
     return '';

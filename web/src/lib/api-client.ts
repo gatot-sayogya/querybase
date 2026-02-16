@@ -195,6 +195,10 @@ class ApiClient {
     await this.client.post(`/api/v1/datasources/${id}/test`, data);
   }
 
+  async testNewDataSourceConnection(data: CreateDataSourceRequest): Promise<void> {
+    await this.client.post('/api/v1/datasources/test', data);
+  }
+
   async getDataSourceHealth(id: string): Promise<HealthStatus> {
     const response = await this.client.get<HealthStatus>(`/api/v1/datasources/${id}/health`);
     return response.data;

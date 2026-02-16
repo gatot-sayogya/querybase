@@ -29,29 +29,49 @@ func NewAuthHandler(db *gorm.DB, jwtManager *auth.JWTManager) *AuthHandler {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request format. Please provide both username and password.",
+		})
+		return
+	}
+
+	// Validate input
+	if req.Username == "" || req.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Username and password are required.",
+		})
 		return
 	}
 
 	var user models.User
 	if err := h.db.Preload("Groups").Where("username = ? OR email = ?", req.Username, req.Username).First(&user).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		// Don't reveal whether user exists - use generic message for security
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid username or password. Please check your credentials and try again.",
+		})
 		return
 	}
 
 	if !user.IsActive {
-		c.JSON(http.StatusForbidden, gin.H{"error": "User account is inactive"})
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "Your account has been deactivated. Please contact your administrator for assistance.",
+		})
 		return
 	}
 
 	if !auth.CheckPassword(req.Password, user.PasswordHash) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		// Use same message as user not found to prevent user enumeration
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid username or password. Please check your credentials and try again.",
+		})
 		return
 	}
 
 	token, err := h.jwtManager.GenerateToken(user.ID, user.Email, string(user.Role))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Unable to complete login. Please try again or contact support if the problem persists.",
+		})
 		return
 	}
 
