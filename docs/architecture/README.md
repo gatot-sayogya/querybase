@@ -11,6 +11,7 @@ System design, architecture, and flow documentation for QueryBase.
 ## Overview
 
 QueryBase is a database explorer system with:
+
 - Multi-database support (PostgreSQL, MySQL)
 - Approval workflow for write operations
 - Role-based access control (RBAC)
@@ -19,67 +20,49 @@ QueryBase is a database explorer system with:
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Frontend Layer                          │
-│                   (Next.js - Planned)                        │
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTP/REST API
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      API Gateway                             │
-│                    (Gin Framework)                           │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  Middleware Chain                                  │    │
-│  │  - Auth (JWT)                                      │    │
-│  │  - RBAC (Role-Based Access Control)                │    │
-│  │  - CORS (TODO)                                     │    │
-│  │  - Logging (TODO)                                  │    │
-│  └─────────────────────────────────────────────────────┘    │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Service Layer                             │
-│  - Query Service (execution, EXPLAIN, dry run)             │
-│  - Approval Service (workflow management)                  │
-│  - Data Source Service (connection management)             │
-│  - Notification Service (Google Chat webhooks)             │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-         ┌───────────────┴───────────────┐
-         │                               │
-         ▼                               ▼
-┌──────────────────┐            ┌──────────────────┐
-│  PostgreSQL DB   │            │   Redis Queue    │
-│  - Users         │            │  - Job Queue     │
-│  - Groups        │            │  - Tasks         │
-│  - Data Sources  │            │  - Workers       │
-│  - Queries       │            └──────────────────┘
-│  - Approvals     │                      │
-│  - Permissions   │                      │
-└──────────────────┘                      │
-         │                                 │
-         │                                 ▼
-         │                    ┌──────────────────────┐
-         │                    │  Background Worker   │
-         │                    │  - Execute approved  │
-         │                    │    write operations  │
-         │                    └──────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│              User Data Sources (PostgreSQL/MySQL)            │
-│  - Actual databases where queries are executed              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Frontend ["Frontend Layer"]
+        FE["Next.js Application"]
+    end
+
+    subgraph API ["API Gateway (Go/Gin)"]
+        Middleware["Middleware Chain<br/>(Auth, RBAC, CORS, Log)"]
+        Routes["Route Handlers"]
+    end
+
+    subgraph Service ["Service Layer"]
+        QS["Query Service<br/>(Execution, Explain, Dry Run)"]
+        AS["Approval Service<br/>(Workflow Management)"]
+        DS["Data Source Service<br/>(Connection Management)"]
+        NS["Notification Service<br/>(Webhooks)"]
+    end
+
+    subgraph Infrastructure ["Infrastructure"]
+        DB[("PostgreSQL DB<br/>(Metadata)")]
+        Queue[("Redis Queue<br/>(Asynq)")]
+    end
+
+    Worker["Background Worker"]
+    Sources[("User Data Sources<br/>(PG/MySQL)")]
+
+    FE -- "HTTP/REST API" --> Middleware
+    Middleware --> Routes
+    Routes --> Service
+    Service --> DB
+    Service --> Queue
+    Queue --> Worker
+    Worker --> Sources
 ```
 
 ## Documentation
 
 ### 1. [Flow Diagrams](flow.md)
+
 **Visual System Flow**
 
 ASCII art diagrams showing:
+
 - Main query execution flow
 - SELECT query path
 - Write query approval workflow
@@ -88,15 +71,18 @@ ASCII art diagrams showing:
 - Decision trees
 
 **When to Read:**
+
 - Understanding system behavior
 - Debugging flow issues
 - Learning query execution lifecycle
 - Onboarding new developers
 
 ### 2. [Detailed Flow](detailed-flow.md)
+
 **Technical Implementation Details**
 
 Comprehensive technical documentation:
+
 - Step-by-step execution flow
 - Authentication & authorization phases
 - Service layer interactions
@@ -106,26 +92,40 @@ Comprehensive technical documentation:
 - Error handling
 - Monitoring & observability
 
+### 3. [Frontend Schema Technical](frontend-schema-technical.md)
+
+**Technical Implementation Summary**
+
+Detailed documentation on:
+
+- Frontend state management (Zustand)
+- WebSocket integration for schema updates
+- Monaco Editor SQL autocomplete provider
+- Dashboard data fetching and robustness fixes
+
 **When to Read:**
-- Understanding technical implementation
-- Debugging complex issues
-- Contributing to the codebase
-- Architecture reviews
+
+- Deep diving into frontend technical implementation
+- Improving autocomplete or real-time feature
+- Debugging dashboard data issues
 
 ## Key Architectural Decisions
 
 ### 1. Separation of Concerns
+
 - **API Layer**: HTTP handling, routing, middleware
 - **Service Layer**: Business logic, validation
 - **Data Layer**: Database operations, caching
 
 ### 2. Approval Workflow
+
 - Write operations require approval before execution
 - Transaction-based preview (preview before commit)
 - Asynchronous execution via Redis queue
 - Complete audit trail
 
 ### 3. Security Layers
+
 - JWT-based authentication
 - Role-based access control (RBAC)
 - Group-based permissions
@@ -133,12 +133,14 @@ Comprehensive technical documentation:
 - SQL injection prevention
 
 ### 4. Multi-Database Support
+
 - Primary database: PostgreSQL (QueryBase metadata)
 - Target databases: PostgreSQL, MySQL (user data)
 - Connection pooling per data source
 - Encrypted password storage
 
 ### 5. Scalability
+
 - Stateless API servers (can run multiple instances)
 - Background workers (can scale independently)
 - Redis queue for async processing
@@ -147,12 +149,14 @@ Comprehensive technical documentation:
 ## Data Flow
 
 ### SELECT Query (Direct Execution)
+
 ```
 User → API → Parser → Check Permissions → Execute → Cache → Return
 Time: 80-600ms
 ```
 
 ### Write Query (Approval Workflow)
+
 ```
 User → API → Parser → Create Approval → Notify Approvers → Wait
                                                         ↓
@@ -164,6 +168,7 @@ Execution: 100-700ms
 ## Technology Stack
 
 ### Backend
+
 - **Language**: Go 1.22+
 - **Framework**: Gin (HTTP router)
 - **ORM**: GORM
@@ -172,13 +177,16 @@ Execution: 100-700ms
 - **Password Hashing**: bcrypt
 
 ### Databases
+
 - **Primary**: PostgreSQL 15
 - **Queue**: Redis 7
 - **Data Sources**: PostgreSQL, MySQL
 
-### Frontend (Planned)
-- **Framework**: Next.js 14/15
+### Frontend
+
+- **Framework**: Next.js 15+ (App Router)
 - **Language**: TypeScript
+- **State Management**: Zustand
 - **Styling**: Tailwind CSS
 - **Editor**: Monaco (SQL editor)
 
@@ -207,6 +215,7 @@ Execution: 100-700ms
 ## Performance Considerations
 
 ### Optimization Strategies
+
 1. **Connection Pooling**: Per data source
 2. **Result Caching**: JSONB storage
 3. **Async Processing**: Redis queue for writes
@@ -214,6 +223,7 @@ Execution: 100-700ms
 5. **Pagination**: Limit response sizes
 
 ### Monitoring Points
+
 - Query execution time
 - Queue depth
 - Worker utilization
@@ -223,7 +233,7 @@ Execution: 100-700ms
 ## Related Documentation
 
 - **[Getting Started](../getting-started/)** - Setup and installation
-- **[User Guides](../guides/)** - How to use features
+- **[User Guide](../user-guide/)** - How to use features
 - **[Development](../development/)** - Testing and building
 - **[CLAUDE.md](../../CLAUDE.md)** - Complete project guide
 

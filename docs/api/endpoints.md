@@ -327,6 +327,25 @@ List approval requests.
 
 ---
 
+### GET /approvals/counts
+
+Get approval counts grouped by status.
+
+**Response (200):**
+
+```json
+{
+  "all": 10,
+  "pending": 3,
+  "approved": 5,
+  "rejected": 2
+}
+```
+
+**Permissions Required:** Any authenticated user (admins and approvers see global/accessible counts, regular users see counts for their requests)
+
+---
+
 ### GET /approvals/:id
 
 Get approval details.

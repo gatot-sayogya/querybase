@@ -6,285 +6,72 @@ Quick visual reference for QueryBase query execution flow.
 
 ## Main Flow: User to Query Execution
 
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                           USER REQUEST                                     │
-│  POST /api/v1/queries                                                      │
-│  {                                                                         │
-│    "data_source_id": "uuid",                                              │
-│    "query_text": "SELECT * FROM users WHERE status = 'active'"            │
-│  }                                                                         │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│                    AUTH MIDDLEWARE                                          │
-│  ✓ Validate JWT token                                                     │
-│  ✓ Extract user_id, role                                                   │
-│  ✓ Set context                                                             │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│                   ROUTE: ExecuteQuery                                      │
-│  ✓ Parse request DTO                                                       │
-│  ✓ Get user_id from context                                                │
-│  ✓ Call QueryService.ExecuteQuery()                                        │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│                  SERVICE: DetectOperationType                              │
-│  ✓ Parse SQL query                                                         │
-│  ✓ Match against patterns (SELECT, INSERT, UPDATE, DELETE, etc.)           │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                ┌────────────┴────────────┐
-                │                         │
-                ▼                         ▼
-         ┌──────────────┐         ┌──────────────┐
-         │   SELECT     │         │  WRITE       │
-         │  Operation   │         │  Operations   │
-         │              │         │              │
-         │  (Direct)    │         │ (Approval)    │
-         └──────┬───────┘         └──────┬───────┘
-                │                        │
-                │                        │
-                ▼                        ▼
+```mermaid
+flowchart TD
+    Req["<b>USER REQUEST</b><br/>POST /api/v1/queries"] --> Auth["<b>AUTH MIDDLEWARE</b><br/>Validate JWT & Set Context"]
+    Auth --> Route["<b>ROUTE: ExecuteQuery</b><br/>Parse DTO & Call Service"]
+    Route --> Detect["<b>SERVICE: DetectOperationType</b><br/>Parse SQL & Match Patterns"]
+
+    Detect --> Type{Operation Type?}
+    Type -- "SELECT<br/>(Read)" --> PathA["<b>Path A: SELECT Query</b><br/>(Direct Execution)"]
+    Type -- "WRITE<br/>(INSERT/UPDATE/DELETE/DDL)" --> PathB["<b>Path B: Write Query</b><br/>(Approval Workflow)"]
 ```
 
 ---
 
 ## Path A: SELECT Query (Direct Execution)
 
+```mermaid
+flowchart TD
+    StartA([Path A Start]) --> DS["<b>1. VALIDATE DATA SOURCE</b><br/>Check existence & Get connection details"]
+    DS --> Perms["<b>2. CHECK PERMISSIONS</b><br/>Verify can_read from user_permissions"]
+    Perms --> Connect["<b>3. CONNECT TO DATA SOURCE</b><br/>Decrypt password & Open connection"]
+    Connect --> Exec["<b>4. EXECUTE QUERY</b><br/>db.Raw().Rows() & Stream results"]
+    Exec --> Process["<b>5. PROCESS RESULTS</b><br/>Scan rows into maps & Format types"]
+    Process --> Cache["<b>6. CACHE RESULTS</b><br/>Serialize to JSON & Store in query_results"]
+    Cache --> Log["<b>7. LOG HISTORY</b><br/>Create query_history entry"]
+    Log --> Response["<b>8. RETURN RESPONSE</b><br/>JSON results & HTTP 200 OK"]
 ```
-SELECT QUERY FLOW (Read Operations)
-═════════════════════════════════════
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│  1. VALIDATE DATA SOURCE                                                   │
-│     ✓ Check data_source exists in database                                 │
-│     ✓ Get connection details (host, port, username, encrypted password)    │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  2. CHECK PERMISSIONS                                                       │
-│     ✓ Query user_permissions view                                          │
-│     ✓ Verify can_read = true                                               │
-│     ✓ OR user is admin                                                     │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  3. CONNECT TO DATA SOURCE                                                  │
-│     ✓ Decrypt password (AES-256-GCM)                                       │
-│     ✓ Build DSN string                                                     │
-│     ✓ Open connection (PostgreSQL or MySQL)                                │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  4. EXECUTE QUERY                                                           │
-│     ✓ db.Raw(queryText).Rows()                                             │
-│     ✓ Stream results row by row                                            │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  5. PROCESS RESULTS                                                         │
-│     ✓ Get column names                                                     │
-│     ✓ Scan rows into maps                                                  │
-│     ✓ Convert byte[] to string                                             │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  6. CACHE RESULTS                                                           │
-│     ✓ Serialize to JSON                                                    │
-│     ✓ Create query_result record                                           │
-│     ✓ Save to database                                                     │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  7. LOG HISTORY                                                             │
-│     ✓ Create query_history entry                                           │
-│     ✓ Record: user_id, query_text, row_count, execution_time              │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  8. RETURN RESPONSE                                                         │
-│     ✓ JSON with: query_id, status, row_count, data, columns               │
-│     ✓ HTTP 200 OK                                                           │
-└────────────────────────────────────────────────────────────────────────────┘
-
-Total Time: ~100-500ms (depending on query)
-```
+**Total Time:** ~100-500ms (depending on query)
 
 ---
 
 ## Path B: Write Query (Approval Workflow)
 
-```
-WRITE QUERY FLOW (INSERT/UPDATE/DELETE/DDL)
-═══════════════════════════════════════════
+```mermaid
+flowchart TD
+    StartB([Path B Start]) --> DS["<b>1. VALIDATE DATA SOURCE</b><br/>Check existence & Get connection details"]
+    DS --> Perms["<b>2. CHECK PERMISSIONS</b><br/>Verify can_write from user_permissions"]
+    Perms --> Syntax["<b>3. VALIDATE SQL SYNTAX</b><br/>Parentheses, keywords, unterminated strings"]
+    Syntax --> AppReq["<b>4. CREATE APPROVAL REQUEST</b><br/>Insert pending request into database"]
+    AppReq --> FindApprovers["<b>5. FIND ELIGIBLE APPROVERS</b><br/>Filter users with can_approve = true"]
+    FindApprovers --> NotifyApprovers["<b>6. SEND NOTIFICATIONS</b><br/>Google Chat webhooks to all approvers"]
+    NotifyApprovers --> ResponseB["<b>7. RETURN PENDING RESPONSE</b><br/>HTTP 202 Accepted & approval_id"]
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│  1. VALIDATE DATA SOURCE                                                   │
-│     ✓ Check data_source exists in database                                 │
-│     ✓ Get connection details                                                │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  2. CHECK PERMISSIONS                                                       │
-│     ✓ Query user_permissions view                                          │
-│     ✓ Verify can_write = true                                              │
-│     ✓ OR user is admin                                                     │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  3. VALIDATE SQL SYNTAX                                                     │
-│     ✓ Check empty query                                                     │
-│     ✓ Check balanced parentheses                                            │
-│     ✓ Check unterminated strings                                            │
-│     ✓ Check required keywords (VALUES, SET, FROM)                          │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  4. CREATE APPROVAL REQUEST                                                 │
-│     ✓ Generate approval_request_id (UUID)                                  │
-│     ✓ Insert into approval_requests:                                       │
-│       - query_text, operation_type, data_source_id, requested_by          │
-│     ✓ Set status = 'pending'                                               │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  5. FIND ELIGIBLE APPROVERS                                                 │
-│     ✓ Query user_permissions view                                          │
-│     ✓ Filter users with can_approve = true                                 │
-│     ✓ For current data_source_id                                           │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  6. SEND NOTIFICATIONS                                                      │
-│     ✓ For each eligible approver:                                          │
-│       - Insert notification record                                         │
-│       - Send Google Chat webhook                                          │
-│       - Include query_text, operation_type, approval_id                    │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  7. RETURN PENDING RESPONSE                                                 │
-│     ✓ JSON with: approval_id, status='pending', requires_approval=true    │
-│     ✓ HTTP 202 Accepted                                                    │
-└────────────────────────────────────────────────────────────────────────────┘
-                             │
-                             │  (Wait for approver action)
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│                   APPROVER REVIEW PHASE                                    │
-│  ┌──────────────────────────────────────────────────────────────────────┐ │
-│  │  Approver submits:                                                     │ │
-│  │  POST /api/v1/approvals/:id/review                                     │ │
-│  │  {                                                                     │ │
-│  │    "decision": "approved" or "rejected",                              │ │
-│  │    "comments": "Looks good"                                           │ │
-│  │  }                                                                     │ │
-│  └──────────────────────────────────────────────────────────────────────┘ │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                ┌────────────┴────────────┐
-                │                         │
-                ▼                         ▼
-         ┌──────────────┐         ┌──────────────┐
-         │  APPROVED    │         │   REJECTED   │
-         └──────┬───────┘         └──────────────┘
-                │
-                ▼
+    ResponseB -- "(Wait for approver)" --> Review["<b>APPROVER REVIEW PHASE</b><br/>Review Decision & Comments"]
+    Review --> Decision{Decision?}
+    Decision -- Approved --> PathB1[Path B1: Approved Flow]
+    Decision -- Rejected --> Rejected[Notify Requester ✗]
 ```
 
 ---
 
 ## Path B1: Approved Query Execution
 
-```
-APPROVED QUERY EXECUTION
-═════════════════════════
+```mermaid
+flowchart TD
+    StartB1([Path B1 Start]) --> Review["<b>1. CREATE APPROVAL REVIEW</b><br/>Insert review record & store decision"]
+    Review --> Update["<b>2. UPDATE APPROVAL STATUS</b><br/>Set status = 'approved'"]
+    Update --> Enqueue["<b>3. ENQUEUE TASK (Redis)</b><br/>Push ExecuteApprovedQuery to queue"]
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│  1. CREATE APPROVAL REVIEW                                                  │
-│     ✓ Insert approval_review record                                        │
-│     ✓ Store: decision, comments, reviewer_id, reviewed_at                │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  2. UPDATE APPROVAL STATUS                                                  │
-│     ✓ UPDATE approval_requests SET status = 'approved'                    │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  3. ENQUEUE TASK (Redis Queue)                                              │
-│     ✓ Create task: ExecuteApprovedQuery                                    │
-│     ✓ Payload: {approval_id: uuid}                                        │
-│     ✓ Push to Asynq queue                                                  │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│                   BACKGROUND WORKER PICKS UP TASK                          │
-│  ┌──────────────────────────────────────────────────────────────────────┐ │
-│  │  Worker: ExecuteApprovedQueryHandler                                  │ │
-│  │  - Runs asynchronously                                                │ │
-│  │  - Processes one approval at a time                                   │ │
-│  └──────────────────────────────────────────────────────────────────────┘ │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  4. START TRANSACTION (Optional Preview)                                  │
-│     ✓ BEGIN transaction on data source                                    │
-│     ✓ Execute query in transaction                                        │
-│     ✓ Return preview results to approver                                  │
-│     ✓ Wait for: COMMIT or ROLLBACK decision                              │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                ┌────────────┴────────────┐
-                │                         │
-                ▼                         ▼
-         ┌──────────────┐         ┌──────────────┐
-         │   COMMIT     │         │  ROLLBACK    │
-         └──────┬───────┘         └──────────────┘
-                │
-                ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  5. FINALIZE EXECUTION (After Commit)                                      │
-│     ✓ Create query_result record                                           │
-│     ✓ Update approval_requests status = 'executed'                        │
-│     ✓ Log to query_history                                                 │
-│     ✓ Notify requester of success                                         │
-└────────────────────────────┬───────────────────────────────────────────────┘
-                             │
-                             ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  6. SEND COMPLETION NOTIFICATION                                            │
-│     ✓ Google Chat webhook to requester                                    │
-│     ✓ Include: row_count, execution_time, status                         │
-└────────────────────────────────────────────────────────────────────────────┘
-
-Total Time: 2-5 minutes (including approval wait)
-Actual Execution: 100-500ms
+    Enqueue -- "Asynq Worker" --> Worker["<b>BACKGROUND WORKER</b><br/>ExecuteApprovedQueryHandler"]
+    Worker --> Tx["<b>4. TRANSACTIONAL EXECUTE</b><br/>BEGIN -> Execute -> COMMIT"]
+    Tx --> Final["<b>5. FINALIZE EXECUTION</b><br/>Update status = 'executed' & Log history"]
+    Final --> NotifyB1["<b>6. SEND NOTIFICATION</b><br/>Google Chat webhook completion"]
 ```
+
+**Total Time:** 2-5 minutes (human wait) + 100-500ms (exec)
 
 ---
 
@@ -292,240 +79,94 @@ Actual Execution: 100-500ms
 
 ### EXPLAIN Query Flow
 
-```
-EXPLAIN QUERY FLOW
-═════════════════
-
-User Request:
-POST /api/v1/queries/explain
-{
-  "data_source_id": "uuid",
-  "query_text": "SELECT * FROM users WHERE email = '...'",
-  "analyze": false  // or true for EXPLAIN ANALYZE
-}
-    │
-    ▼
-┌───────────────────────────────────┐
-│  1. Validate Data Source          │
-│     ✓ Check permissions (can_read)│
-└───────────┬───────────────────────┘
-            ▼
-┌───────────────────────────────────┐
-│  2. Build EXPLAIN Query           │
-│     EXPLAIN SELECT ...            │
-│     or EXPLAIN ANALYZE SELECT ... │
-└───────────┬───────────────────────┘
-            ▼
-┌───────────────────────────────────┐
-│  3. Execute EXPLAIN               │
-│     ✓ Run on data source          │
-│     ✓ Get execution plan          │
-└───────────┬───────────────────────┘
-            ▼
-┌───────────────────────────────────┐
-│  4. Return Plan                   │
-│  {                                │
-│    "plan": [...],                 │
-│    "raw_output": "..."            │
-│  }                                │
-└───────────────────────────────────┘
+```mermaid
+flowchart TD
+    ExpReq["<b>EXPLAIN REQUEST</b><br/>POST /api/v1/queries/explain"] --> ExpVal["<b>1. Validate Data Source</b><br/>Check permissions"]
+    ExpVal --> ExpBuild["<b>2. Build EXPLAIN Query</b><br/>Prepend EXPLAIN [ANALYZE] to SQL"]
+    ExpBuild --> ExpExec["<b>3. Execute EXPLAIN</b><br/>Run on target source"]
+    ExpExec --> ExpResp["<b>4. Return Plan</b><br/>Return raw & formatted plan data"]
 ```
 
 ### Dry Run DELETE Flow
 
-```
-DRY RUN DELETE FLOW
-═══════════════════
-
-User Request:
-POST /api/v1/queries/dry-run
-{
-  "data_source_id": "uuid",
-  "query_text": "DELETE FROM users WHERE status = 'inactive'"
-}
-    │
-    ▼
-┌───────────────────────────────────┐
-│  1. Validate DELETE Operation     │
-│     ✓ Check operation type        │
-│     ✓ Must be DELETE              │
-└───────────┬───────────────────────┘
-            ▼
-┌───────────────────────────────────┐
-│  2. Convert to SELECT             │
-│  DELETE FROM users WHERE ...      │
-│     ↓                             │
-│  SELECT * FROM users WHERE ...    │
-└───────────┬───────────────────────┘
-            ▼
-┌───────────────────────────────────┐
-│  3. Execute SELECT                │
-│     ✓ Run converted query         │
-│     ✓ Get affected rows           │
-└───────────┬───────────────────────┘
-            ▼
-┌───────────────────────────────────┐
-│  4. Return Preview                │
-│  {                                │
-│    "affected_rows": 3,            │
-│    "query": "SELECT * ...",       │
-│    "rows": [...]                  │
-│  }                                │
-└───────────────────────────────────┘
+```mermaid
+flowchart TD
+    ReqDry["<b>DRY RUN DELETE REQUEST</b><br/>POST /api/v1/queries/dry-run"] --> Val["<b>1. Validate DELETE Operation</b><br/>Verify it's actually a DELETE"]
+    Val --> Conv["<b>2. Convert to SELECT</b><br/>DELETE FROM users WHERE...<br/>↓<br/>SELECT * FROM users WHERE..."]
+    Conv --> ExecDry["<b>3. Execute SELECT</b><br/>Run on target source & Get count"]
+    ExecDry --> RespDry["<b>4. Return Preview</b><br/>Affected rows + Row data preview"]
 ```
 
 ---
 
-## Database Flow Summary
+## Database Flow Summary (Sequence)
 
-```
-QueryBase PostgreSQL Database
-═════════════════════════════
+```mermaid
+sequenceDiagram
+    participant User
+    participant Auth as Auth & AuthZ
+    participant DS as Data Sources (PostgreSQL)
+    participant Worker as Worker (Redis/Asynq)
+    participant Results as Query Results
 
-┌─────────────────┐
-│   Authentication│
-│   & AuthZ       │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────┐
-│  1. VALIDATE TOKEN                                 │
-│     SELECT * FROM users WHERE id = user_id         │
-└────────┬────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────┐
-│  2. CHECK PERMISSIONS                               │
-│     SELECT * FROM user_permissions                  │
-│     WHERE user_id = ? AND data_source_id = ?        │
-└────────┬────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────┐
-│  3. GET DATA SOURCE                                 │
-│     SELECT * FROM data_sources WHERE id = ?         │
-│     - Returns encrypted password                    │
-└────────┬────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────┐
-│  4a. FOR SELECT: EXECUTE & CACHE                    │
-│     INSERT INTO query_results (...)                 │
-│     INSERT INTO query_history (...)                 │
-│                                                     │
-│  4b. FOR WRITE: CREATE APPROVAL                    │
-│     INSERT INTO approval_requests (...)             │
-│     INSERT INTO notifications (...)                 │
-└─────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────┐
-│  5. APPROVAL WORKFLOW                               │
-│     INSERT INTO approval_reviews (...)              │
-│     UPDATE approval_requests SET status = ...       │
-└─────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────┐
-│  6. EXECUTE (after approval)                        │
-│     INSERT INTO query_results (...)                 │
-│     INSERT INTO query_history (...)                 │
-│     UPDATE approval_requests SET status = 'executed'│
-└─────────────────────────────────────────────────────┘
+    User->>Auth: 1. Validate Token (SELECT * FROM users)
+    Auth->>DS: 2. Check Permissions (SELECT * FROM user_permissions)
+    DS->>Auth: Permissions Valid
+    Auth->>DS: 3. Get Data Source (SELECT host, pass... FROM data_sources)
+
+    alt SELECT Operation
+        Auth->>Results: 4a. Execute & Cache (INSERT query_results)
+        Auth->>Results: INSERT query_history
+    else WRITE Operation
+        Auth->>DS: 4b. Create Approval (INSERT approval_requests)
+        Auth->>DS: INSERT notifications
+        User->>DS: 5. Approval Workflow (INSERT approval_reviews)
+        DS->>Worker: 6. Pick up approved job
+        Worker->>Results: INSERT query_results & history
+        Worker->>DS: UPDATE approval_requests status='executed'
+    end
 ```
 
 ---
 
 ## Quick Decision Tree
 
-``                        USER SUBMITS QUERY
-                                   │
-                        ┌──────────┴──────────┐
-                        │   Is Authenticated? │
-                        └──────────┬──────────┘
-                                   │ NO
-                    ┌──────────────┴──────────────┐
-                    │                             │
-                    YES                           RETURN 401
-                    │                             │
-                    ▼                             │
-        ┌─────────────────────────┐               │
-        │  What operation type?  │               │
-        └────────────┬────────────┘               │
-                     │                             │
-        ┌────────────┼────────────┐               │
-        │            │            │               │
-        ▼            ▼            ▼               │
-    SELECT    INSERT/UPDATE/DELETE   DDL          │
-        │            │            │               │
-        ▼            ▼            ▼               │
-    ┌────────┐  ┌─────────┐  ┌─────────┐         │
-    │Direct │  │Approval│  │Approval │         │
-    │Exec   │  │Workflow│  │Workflow│         │
-    └───┬────┘  └────┬────┘  └────┬────┘         │
-        │            │            │               │
-        ▼            ▼            ▼               │
-   [Execute]    [Create      [Create           │
-     & Return    Approval]    Approval]         │
-                  Request      Request          │
-                        │            │            │
-                        ▼            ▼            │
-                  [Wait for    [Wait for       │
-                   Approval]    Approval]       │
-                        │            │            │
-                  ┌───┴────────┐   └───────┐     │
-                  │            │           │     │
-             Approved      Rejected    Approved │
-                  │            │         │     │
-                  ▼            │         │     │
-            [Execute]         │         │     │
-            [Return]          │         │     │
-                               │         │     │
-                        Notify    Notify   │     │
-                        Requester Requester│
-                           ✓         ✗      │
-                                      │     │
-                                      └─────┴──→ RETURN
+```mermaid
+flowchart TD
+    Start([User Submits Query]) --> Auth{Authenticated?}
+    Auth -- NO --> 401[Return 401]
+    Auth -- YES --> Type{Operation Type?}
+
+    Type -- SELECT --> Direct[Direct Execution]
+    Type -- "INSERT/UPDATE/DELETE" --> Approval[Approval Workflow]
+    Type -- DDL --> Approval
+
+    Direct --> Execute([Execute & Return])
+
+    Approval --> CreateReq[Create Approval Request]
+    CreateReq --> Wait[Wait for Approval]
+
+    Wait --> Decision{Approval Decision?}
+    Decision -- Approved --> ExecuteApp[Execute Approved Query]
+    Decision -- Rejected --> Notify[Notify Requester ✗]
+
+    ExecuteApp --> NotifyApp[Notify Requester ✓]
+
+    Notify --> Finish([Return])
+    NotifyApp --> Finish
+    Execute --> Finish
 ```
 
 ---
 
 ## Time Estimates
 
-```
-SELECT Query (Direct):
-  - Auth: 1-5ms
-  - Permission check: 5-10ms
-  - Connect to data source: 10-50ms
-  - Execute query: 50-500ms (varies)
-  - Cache results: 10-20ms
-  - Log history: 5-10ms
-  ────────────────────────────────
-  Total: 80-600ms
-
-Write Query (Approval):
-  - Auth: 1-5ms
-  - Permission check: 5-10ms
-  - Validate SQL: 5-10ms
-  - Create approval: 10-20ms
-  - Find approvers: 10-20ms
-  - Send notifications: 50-100ms
-  ────────────────────────────────
-  Total: 80-165ms (for submission)
-
-  Approval Wait: 2 minutes to 7 days (human)
-
-  Execution (after approval):
-  - Worker pickup: 1-5 seconds (queue poll)
-  - Connect to data source: 10-50ms
-  - Start transaction: 5-10ms
-  - Execute query: 50-500ms
-  - Commit: 10-50ms
-  - Cache & log: 10-20ms
-  - Send notification: 50-100ms
-  ────────────────────────────────
-  Total: 100-700ms (actual execution)
-```
+| Operation          | Phase             | Time Estimate |
+| :----------------- | :---------------- | :------------ |
+| **SELECT**         | Total Lifecycle   | 80-600ms      |
+| **Write (Submit)** | Submission only   | 80-165ms      |
+| **Write (Wait)**   | Human approval    | 2m - 7 days   |
+| **Write (Exec)**   | Worker processing | 100-700ms     |
 
 ---
 

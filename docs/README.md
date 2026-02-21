@@ -1,6 +1,6 @@
 # QueryBase Documentation
 
-**Last Updated:** January 29, 2026
+**Last Updated:** February 21, 2026
 
 Comprehensive documentation for QueryBase - A database explorer with approval workflow.
 
@@ -150,6 +150,7 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 ### Features ✨
 
 - **[Features Overview](features/README.md)** - Feature documentation
+- **[Schema Browser](user-guide/schema-browser.md)** - Database schema inspection
 - **[EXPLAIN & Dry Run](features/explain-dryrun.md)** - Query analysis features
 - **[Encrypted Communication](features/ENCRYPTED_COMMUNICATION.md)** - Security documentation
 
@@ -186,7 +187,7 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 
 **API Endpoints:** 41 endpoints implemented
 
-### Frontend: ✅ Complete (~90%)
+### Frontend: ✅ Complete (~95%)
 
 **Completed Features:**
 
@@ -194,14 +195,16 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 - ✅ SQL editor with Monaco Editor
 - ✅ Intelligent autocomplete (tables/columns)
 - ✅ Query results viewer (pagination, sorting)
-- ✅ Approval dashboard
+- ✅ Approval dashboard with accurate counts
 - ✅ Admin panel (users, groups, data sources)
 - ✅ Schema browser with polling
+- ✅ Live Dashboard metrics and health indicators
 - ✅ Permission-based UI filtering
 - ✅ Authentication and authorization
 - ✅ Query history and export
+- ✅ Robust API client with timeout management
 
-**Next Step:** Polish and optimization
+**Next Step:** Production deployment & monitoring
 
 ### Testing: ✅ 90/90 Tests Passing (100%)
 
@@ -246,10 +249,10 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 
 ## Next Steps
 
-1. ✅ **Backend complete!** (All core features implemented)
-2. ✅ **Frontend complete!** (All UI components implemented)
-3. ⏳ **Polish and optimization** (Performance, UX improvements)
-4. ⏳ **Comprehensive testing** (Integration tests, E2E tests)
+1. ✅ **Backend complete!** (Dashboard services added)
+2. ✅ **Frontend complete!** (Live metrics & health monitoring implemented)
+3. ⏳ **Polish and optimization** (Performance fine-tuning)
+4. ⏳ **Comprehensive testing** (Backend & Frontend test suites)
 5. ⏳ **Production deployment** (Infrastructure, monitoring)
 
 ---

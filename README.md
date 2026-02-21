@@ -37,66 +37,40 @@ npm run dev
 ```
 
 **Access the application:**
+
 - **Frontend:** http://localhost:3000
 - **API:** http://localhost:8080
 - **Default Admin:** admin@querybase.local / admin123 ⚠️
 
 ## 📋 Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Frontend (Next.js)                        │
-│  - SQL Editor with Monaco (autocomplete for tables/columns)    │
-│  - Query Results Viewer (sortable, paginated, exportable)       │
-│  - Approval Dashboard (review/approve/reject queries)         │
-│  - Schema Browser (explore tables, columns, types)             │
-│  - Admin Panel (manage users, groups, data sources)            │
-└─────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                       API Gateway (Go/Gin)                        │
-│  - RESTful API endpoints                                        │
-│  - JWT Authentication                                          │
-│  - Role-Based Access Control (RBAC)                             │
-│  - Rate Limiting (query execution only)                         │
-│  - CORS Middleware (configurable via env vars)                  │
-└─────────────────────────────────────────────────────────────────┘
-                                  │
-                    ┌─────────────┴──────────────┐
-                    ▼                           ▼
-            ┌───────────────┐         ┌────────────────┐
-            │  PostgreSQL   │         │     Redis      │
-            │ (Primary DB)  │         │   (Job Queue)  │
-            └───────────────┘         └────────────────┘
-                    │                           │
-                    └─────────────┬──────────────┘
-                                  ▼
-                    ┌─────────────────────────┐
-                    │  Background Worker        │
-                    │  - Execute queries       │
-                    │  - Sync schemas          │
-                    │  - Send notifications   │
-                    └─────────────────────────┘
-                                  │
-                    ┌─────────┴──────────────┐
-                    ▼                        ▼
-            ┌─────────────┐         ┌──────────────┐
-            │ PostgreSQL │         │   MySQL       │
-            │   Data     │         │   Sources    │
-            │  Sources   │         │              │
-            └─────────────┘         └──────────────┘
-                    │
-                    ▼
-          ┌─────────────────┐
-          │ Google Chat     │
-          │   Webhooks      │
-          └─────────────────┘
+```mermaid
+graph TD
+    classDef frontend fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef backend fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef storage fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef external fill:#f1f8e9,stroke:#33691e,stroke-width:2px;
+
+    FE["💻 Frontend (Next.js)"]:::frontend
+    API["🚀 API Gateway (Go/Gin)"]:::backend
+    DB[("📁 PostgreSQL (Primary DB)")]:::storage
+    Queue[("📬 Redis (Job Queue)")]:::storage
+    Worker["⚙️ Background Worker"]:::backend
+    Sources[("🗄️ Data Sources (PG/MySQL)")]:::storage
+    Chat["💬 Google Chat Webhooks"]:::external
+
+    FE <--> API
+    API <--> DB
+    API <--> Queue
+    Queue <--> Worker
+    Worker <--> Sources
+    Worker --> Chat
 ```
 
 ## 🛠️ Technology Stack
 
 ### Backend
+
 - **Language:** Go 1.21+
 - **Framework:** Gin (HTTP router)
 - **ORM:** GORM
@@ -107,6 +81,7 @@ npm run dev
 - **Config:** Viper (YAML + env vars)
 
 ### Frontend
+
 - **Framework:** Next.js 15+ (App Router)
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS
@@ -115,6 +90,7 @@ npm run dev
 - **HTTP Client:** Axios
 
 ### DevOps
+
 - **Containerization:** Docker
 - **Process Management:** Makefiles
 - **Migrations:** Manual SQL migrations
@@ -123,6 +99,7 @@ npm run dev
 ## ✨ Key Features
 
 ### 🔍 Query Execution
+
 - **SELECT Queries:** Execute immediately with results
 - **Write Operations:** CREATE approval workflow
   - INSERT, UPDATE, DELETE, DDL
@@ -133,6 +110,7 @@ npm run dev
 - **Row Limiting:** Configurable limits for safety
 
 ### 👥 User & Group Management
+
 - **User Roles:** Admin, User, Viewer
 - **Groups:** Organize users into teams
 - **Group-Based Permissions:** Assign data source access by group
@@ -142,6 +120,7 @@ npm run dev
   - `can_approve`: Approve/reject write operations
 
 ### 📊 Schema Management
+
 - **Schema Browser:** Explore tables, columns, types
 - **Polling Updates:** Auto-refresh every 60 seconds
 - **Manual Sync:** "Sync Now" button for immediate refresh
@@ -149,6 +128,7 @@ npm run dev
 - **Health Tracking:** Monitor data source connectivity
 
 ### 🔒 Security
+
 - **JWT Authentication:** Token-based auth with configurable expiration
 - **Password Encryption:** Bcrypt hashing
 - **Data Source Encryption:** Passwords encrypted with AES
@@ -156,6 +136,7 @@ npm run dev
 - **Rate Limiting:** Token bucket (query execution only)
 
 ### 📝 Approval Workflow
+
 1. User submits write operation query
 2. System creates approval request
 3. Approvers receive Google Chat notification
@@ -165,6 +146,7 @@ npm run dev
 7. On rejection: User notified with reason
 
 ### 🎨 SQL Editor Features
+
 - **Monaco Editor:** Full-featured code editor
 - **Intelligent Autocomplete:**
   - SQL keywords (highest priority)
@@ -287,6 +269,7 @@ querybase/
 ### Environment Variables
 
 **Backend (.env or config.yaml):**
+
 ```bash
 # Server
 SERVER_PORT=8080
@@ -313,6 +296,7 @@ CORS_ALLOW_CREDENTIALS=true
 ```
 
 **Frontend (web/.env.local):**
+
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
@@ -320,6 +304,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 ## 📜 Available Commands
 
 ### Docker Operations
+
 ```bash
 make docker-up          # Start PostgreSQL and Redis
 make docker-down        # Stop services
@@ -328,12 +313,14 @@ make db-shell          # Open PostgreSQL shell
 ```
 
 ### Database
+
 ```bash
 make migrate-up         # Run migrations
 make migrate-down       # Rollback migrations
 ```
 
 ### Build & Run
+
 ```bash
 # Build
 make build              # Build all (native platform)
@@ -347,6 +334,7 @@ make run-worker         # Start worker (processes background jobs)
 ```
 
 ### Development
+
 ```bash
 make deps               # Download Go dependencies
 make test               # Run tests
@@ -357,6 +345,7 @@ make clean              # Clean build artifacts
 ```
 
 ### Multi-Architecture Builds
+
 ```bash
 ./build.sh native       # Build for current platform
 ./build.sh all         # Build for all platforms (ARM64 + AMD64)
@@ -366,11 +355,13 @@ make clean              # Clean build artifacts
 ## 🔌 API Endpoints
 
 ### Authentication
+
 - `POST /api/v1/auth/login` - User login
 - `GET /api/v1/auth/me` - Get current user
 - `POST /api/v1/auth/change-password` - Change password
 
 ### Queries
+
 - `POST /api/v1/queries` - Execute query
 - `GET /api/v1/queries` - List queries
 - `GET /api/v1/queries/:id` - Get query details
@@ -379,6 +370,7 @@ make clean              # Clean build artifacts
 - `POST /api/v1/queries/save` - Save query
 
 ### Approvals
+
 - `GET /api/v1/approvals` - List approval requests
 - `GET /api/v1/approvals/:id` - Get approval details
 - `POST /api/v1/approvals/:id/review` - Review (approve/reject)
@@ -386,6 +378,7 @@ make clean              # Clean build artifacts
 - `POST /api/v1/transactions/:id/rollback` - Rollback transaction
 
 ### Data Sources
+
 - `GET /api/v1/datasources` - List data sources
 - `POST /api/v1/datasources` - Create data source (admin)
 - `GET /api/v1/datasources/:id` - Get data source details
@@ -398,6 +391,7 @@ make clean              # Clean build artifacts
 - `PUT /api/v1/datasources/:id/permissions` - Set permissions (admin)
 
 ### Users & Groups (Admin)
+
 - `GET /api/v1/auth/users` - List users
 - `POST /api/v1/auth/users` - Create user
 - `GET /api/v1/auth/users/:id` - Get user details
@@ -412,6 +406,7 @@ make clean              # Clean build artifacts
 - `DELETE /api/v1/groups/:id/users` - Remove user from group
 
 ### Health
+
 - `GET /health` - Health check
 
 ## 🔐 Default Credentials
@@ -466,6 +461,7 @@ docker-compose -f docker/docker-compose.yml up -d
 ## 🧪 Testing
 
 ### Unit Tests
+
 ```bash
 # Backend
 make test
@@ -476,6 +472,7 @@ cd web && npm test
 ```
 
 ### E2E Tests
+
 ```bash
 cd web
 npm run test:e2e
@@ -488,6 +485,7 @@ MIT License - See LICENSE file for details
 ## 🤝 Contributing
 
 Contributions are welcome! Please:
+
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
