@@ -77,7 +77,7 @@ export default function QueryResults({
   };
 
   return (
-    <div>
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Results Header */}
       <div className="flex items-center justify-between px-2 py-1 bg-gray-50 dark:bg-gray-800/30 text-xs border-b border-gray-200 dark:border-gray-700">
         <div className="text-gray-600 dark:text-gray-400">
@@ -106,8 +106,8 @@ export default function QueryResults({
         )}
       </div>
 
-      {/* Results Table - Now with flexible max height */}
-      <div className="overflow-auto border-b border-gray-200 dark:border-gray-700 max-h-[650px]">
+      {/* Results Table - Now with flexible height */}
+      <div className="flex-1 overflow-auto border-b border-gray-200 dark:border-gray-700 min-h-0">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
             <tr>
@@ -146,7 +146,7 @@ export default function QueryResults({
 
       {/* Pagination Footer */}
       {data.length > rowsPerPage && (
-        <div className="flex items-center justify between px-2 py-1 bg-gray-50 dark:bg-gray-800/30 text-xs border-t border-gray-200 dark:border-gray-700">
+        <div className="flex-shrink-0 flex items-center justify-between px-2 py-1 bg-gray-50 dark:bg-gray-800/30 text-xs border-t border-gray-200 dark:border-gray-700">
           <div className="text-gray-600 dark:text-gray-400">
             {data.length} total
           </div>

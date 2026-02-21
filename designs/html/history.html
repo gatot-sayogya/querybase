@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QueryBase – Query History</title>
+  <link rel="stylesheet" href="shared.css" />
+  <script>
+    (function() {
+      var saved = localStorage.getItem('qb_theme');
+      var dark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.classList.add('dark');
+    })();
+  </script>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="sidebar">
+      <div class="sidebar-logo"><div class="sidebar-mark">Q</div></div>
+      <div class="sidebar-nav">
+        <a href="query-editor.html" class="nav-item" data-tooltip="Query Editor"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></a>
+        <a href="history.html" class="nav-item active" title="History">↻</a>
+        <a href="approvals.html" class="nav-item" data-tooltip="Approvals"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></a>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="settings-wrapper" id="settingsWrapper">
+          <button class="nav-item" id="settingsBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+          <div class="settings-menu" id="settingsMenu">
+            <div class="settings-menu-label">Settings</div>
+            <a href="admin-users.html" class="settings-item" id="smi-users">
+              <span class="settings-icon" style="background:#EFF6FF;color:#2563EB"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              Users
+            </a>
+            <a href="admin-groups.html" class="settings-item" id="smi-groups">
+              <span class="settings-icon" style="background:#F5F3FF;color:#7C3AED"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+              Groups
+            </a>
+            <a href="admin-datasources.html" class="settings-item" id="smi-datasources">
+              <span class="settings-icon" style="background:#F0FDF4;color:#059669"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>
+              Data Sources
+            </a>
+          </div>
+        </div>
+        <script>
+          (function() {
+            var btn = document.getElementById("settingsBtn");
+            var menu = document.getElementById("settingsMenu");
+            if (!btn) return;
+            // Mark active page
+            var path = window.location.pathname;
+            if (path.includes("admin-users"))       document.getElementById("smi-users").classList.add("active-page");
+            else if (path.includes("admin-groups")) document.getElementById("smi-groups").classList.add("active-page");
+            else if (path.includes("admin-datasources")) document.getElementById("smi-datasources").classList.add("active-page");
+            if (path.includes("admin-")) btn.classList.add("active");
+            })();
+        </script>
+        <div class="avatar-wrapper" id="avatarWrapper">
+          <div class="avatar-btn" id="avatarBtn" title="Account">A</div>
+          <div class="avatar-menu" id="avatarMenu">
+            <div class="menu-user-info">
+              <div class="menu-user-name" id="menuUserName">Admin User</div>
+              <div class="menu-user-role" id="menuUserRole">admin</div>
+            </div>
+            <a href="profile.html" class="menu-item">
+              <span class="menu-icon" style="background:#EFF6FF;color:#2563EB">&#x1F464;</span>
+              My Profile
+            </a>
+            <a href="query-editor.html" class="menu-item">
+              <span class="menu-icon" style="background:#F0FDF4;color:#059669">&#x2315;</span>
+              New Query
+            </a>
+            <div class="menu-divider"></div>
+            <button class="menu-item" onclick="toggleTheme()" id="themeToggleBtn">
+              <span class="menu-icon" style="background:#F3F4F6;color:#374151" id="themeToggleIcon">💻</span>
+              <span style="flex:1">Theme</span>
+              <span style="font-size:11px;color:var(--text-muted);text-transform:capitalize" id="themeToggleText">System</span>
+            </button>
+            <script>
+              function updateThemeUI() {
+                var btn = document.getElementById('themeToggleBtn');
+                var icon = document.getElementById('themeToggleIcon');
+                var text = document.getElementById('themeToggleText');
+                if (!btn) return;
+                var theme = localStorage.getItem('qb_theme') || 'system';
+                text.textContent = theme;
+                if (theme === 'dark') {
+                  icon.textContent = '🌙';
+                  icon.style.background = '#374151'; icon.style.color = '#F3F4F6';
+                } else if (theme === 'light') {
+                  icon.textContent = '☀️';
+                  icon.style.background = '#F3F4F6'; icon.style.color = '#374151';
+                } else {
+                  icon.textContent = '💻';
+                  icon.style.background = '#F3F4F6'; icon.style.color = '#374151';
+                }
+              }
+              function toggleTheme() {
+                var current = localStorage.getItem('qb_theme') || 'system';
+                var next = current === 'light' ? 'dark' : current === 'dark' ? 'system' : 'light';
+                if (next === 'system') {
+                  localStorage.removeItem('qb_theme');
+                  if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
+                  else document.documentElement.classList.remove('dark');
+                } else {
+                  localStorage.setItem('qb_theme', next);
+                  if (next === 'dark') document.documentElement.classList.add('dark');
+                  else document.documentElement.classList.remove('dark');
+                }
+                updateThemeUI();
+              }
+              document.addEventListener('DOMContentLoaded', updateThemeUI);
+            </script>
+            <div class="menu-divider"></div>
+            <button class="menu-item danger" onclick="signOut()">
+              <span class="menu-icon">&#x1F6AA;</span>
+              Sign out
+            </button>
+          </div>
+        </div>
+        <script>
+          (function() {
+            var raw = sessionStorage.getItem('qb_user');
+            var user = raw ? JSON.parse(raw) : { username: 'admin', fullName: 'Admin User', role: 'admin' };
+            var btn = document.getElementById('avatarBtn');
+            if (btn) {
+              btn.textContent = (user.fullName || user.username).charAt(0).toUpperCase();
+              document.getElementById('menuUserName').textContent = user.fullName || user.username;
+              document.getElementById('menuUserRole').textContent = user.role;
+            }
+          })();
+          function signOut() {
+            sessionStorage.removeItem('qb_user');
+            window.location.href = 'login.html';
+          }
+        </script>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <div class="page-header" style="align-items: center">
+        <div>
+          <h1 class="page-title">Query History</h1>
+          <p class="page-subtitle">View your past query executions</p>
+        </div>
+        <div style="position:relative; width:280px">
+          <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-faint)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" class="form-input" style="padding-left:36px; height:36px" placeholder="Search queries..."/>
+        </div>
+      </div>
+
+      <div class="card">
+        <table class="data-table compact">
+          <thead>
+            <tr>
+              <th>QUERY</th>
+              <th>DATA SOURCE</th>
+              <th>STATUS</th>
+              <th>TIMESTAMP</th>
+              <th style="text-align:right">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding-top:4px;padding-bottom:4px">
+                <div style="font-weight:500;color:var(--text-primary)">User Report</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">SELECT * FROM users LIMIT 100</div>
+              </td>
+              <td>production-db</td>
+              <td><span class="badge badge-green">completed</span></td>
+              <td style="color:var(--text-muted)">Feb 20, 2026 · 09:14</td>
+              <td style="text-align:right"><a href="#" style="color:var(--accent-blue);font-size:13px;text-decoration:none">View Results</a></td>
+            </tr>
+            <tr>
+              <td style="padding-top:4px;padding-bottom:4px">
+                <div style="font-weight:500;color:var(--text-primary)">Unnamed Query</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">DELETE FROM sessions WHERE expired = true</div>
+              </td>
+              <td>production-db</td>
+              <td><span class="badge badge-amber">pending</span></td>
+              <td style="color:var(--text-muted)">Feb 20, 2026 · 08:55</td>
+              <td style="text-align:right"><a href="#" style="color:var(--accent-blue);font-size:13px;text-decoration:none">View Results</a></td>
+            </tr>
+            <tr>
+              <td style="padding-top:4px;padding-bottom:4px">
+                <div style="font-weight:500;color:var(--text-primary)">Order Stats</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">SELECT COUNT(*) FROM orders GROUP BY status</div>
+              </td>
+              <td>analytics-db</td>
+              <td><span class="badge badge-green">completed</span></td>
+              <td style="color:var(--text-muted)">Feb 19, 2026 · 17:30</td>
+              <td style="text-align:right"><a href="#" style="color:var(--accent-blue);font-size:13px;text-decoration:none">View Results</a></td>
+            </tr>
+            <tr>
+              <td style="padding-top:4px;padding-bottom:4px">
+                <div style="font-weight:500;color:var(--text-primary)">Product Lookup</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">SELECT id, name FROM products WHERE active = 1</div>
+              </td>
+              <td>production-db</td>
+              <td><span class="badge" style="background:#FEF2F2;color:#B91C1C">failed</span></td>
+              <td style="color:var(--text-muted)">Feb 19, 2026 · 14:02</td>
+              <td style="text-align:right"><a href="#" style="color:var(--accent-blue);font-size:13px;text-decoration:none">View Results</a></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-top:1px solid var(--border-light)">
+          <span style="font-size:13px;color:var(--text-muted)">Showing 1 to 4 of 45 results</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" disabled style="opacity:0.4">Previous</button>
+            <button class="btn btn-ghost btn-sm">Next</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

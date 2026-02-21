@@ -45,12 +45,28 @@ export default function GroupList({ onEditGroup, selectedId }: GroupListProps) {
     }
   };
 
+          const colors = [
+            { bg: '#F0FDF4', color: '#16A34A' },
+            { bg: '#EFF6FF', color: '#1D4ED8' },
+            { bg: '#FDF4FF', color: '#7C3AED' },
+            { bg: '#FEF2F2', color: '#DC2626' },
+            { bg: '#FFFBEB', color: '#D97706' },
+          ];
+          
+          const getIconColor = (name: string) => {
+            let num = 0;
+            for (let i = 0; i < (name || '').length; i++) {
+              num += name.charCodeAt(i);
+            }
+            return colors[num % colors.length];
+          };
+
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="p-8 space-y-4">
         {[1, 2, 3].map((i) => (
           <div key={i} className="animate-pulse">
-            <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+            <div className="h-16 bg-slate-100 rounded-lg"></div>
           </div>
         ))}
       </div>
@@ -59,7 +75,7 @@ export default function GroupList({ onEditGroup, selectedId }: GroupListProps) {
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 m-4">
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         <button
           onClick={fetchGroups}
@@ -72,99 +88,93 @@ export default function GroupList({ onEditGroup, selectedId }: GroupListProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-          Groups
-        </h2>
-        <span className="text-sm text-gray-500 dark:text-gray-400">
-          {groups.length} {groups.length === 1 ? 'group' : 'groups'}
-        </span>
-      </div>
-
+    <>
+      <style>{`
+        .group-icon-cell { display: flex; align-items: center; gap: 10px; }
+        .group-icon {
+          width: 34px; height: 34px; border-radius: 9px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 16px; flex-shrink: 0;
+        }
+      `}</style>
+      
       {groups.length === 0 ? (
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v2c0 .656-.126 1.283-.356 1.857m-7.5 10.5a3 3 0 11-5.997 3.019m-6.035 3.019A3 3 0 0110 21 12.979m3 4.5c0 1.412-.656 2.675-1.718 3.014M5 21h12a2 2 0 002-2V6a2 2 0 00-2-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2-2v-2a2 2 0 00-2-2h12a2 2 0 002 2v2a2 2 0 002 2z"
-            />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No groups found</h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-hover)', color: 'var(--text-muted)', marginBottom: '16px' }}>
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v2c0 .656-.126 1.283-.356 1.857m-7.5 10.5a3 3 0 11-5.997 3.019m-6.035 3.019A3 3 0 0110 21 12.979m3 4.5c0 1.412-.656 2.675-1.718 3.014M5 21h12a2 2 0 002-2V6a2 2 0 00-2-2V8a2 2 0 00-2-2H6a2 2 0 00-2-2v2a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2-2v-2a2 2 0 00-2-2h12a2 2 0 002 2v2a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>No groups found</h3>
+          <p style={{ marginTop: '4px', fontSize: '14px', color: 'var(--text-muted)' }}>
             Get started by creating your first group
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Group Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Description
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Users
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Created
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-              {groups.map((group) => (
-                <tr key={group.id} className={selectedId === group.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">{group.name}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {group.description || '-'}
+        <table className="data-table compact">
+          <thead>
+            <tr>
+              <th>GROUP NAME</th>
+              <th>DESCRIPTION</th>
+              <th>MEMBERS</th>
+              <th>DATA SOURCES</th>
+              <th style={{ textAlign: 'right' }}>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => {
+              const iconStyle = getIconColor(group.name);
+              const dataSources = group.data_sources || [];
+              const users = group.users || [];
+              
+              return (
+                <tr key={group.id} className={selectedId === group.id ? 'active' : ''}>
+                  <td>
+                    <div className="group-icon-cell">
+                      <div className="group-icon" style={{ background: iconStyle.bg, color: iconStyle.color }}>⛾</div>
+                      <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{group.name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {group.users?.length || 0} users
-                    </div>
+                  <td style={{ color: 'var(--text-muted)' }}>
+                    {group.description || '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(group.created_at).toLocaleDateString()}
+                  <td>
+                    <span className="badge badge-slate">{users.length} members</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {onEditGroup && (
-                      <button
-                        onClick={() => onEditGroup(group)}
-                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3"
-                      >
-                        Edit
-                      </button>
+                  <td>
+                    {dataSources.length === 0 && <span className="badge badge-slate" style={{ opacity: 0.5 }}>None</span>}
+                    {dataSources.length > 0 && (
+                      <span className="badge badge-blue">{dataSources[0].name}</span>
                     )}
-                    <button
-                      onClick={() => handleDelete(group.id, group.name)}
-                      className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                    >
-                      Delete
-                    </button>
+                    {dataSources.length > 1 && (
+                      <span className="badge badge-slate" style={{ marginLeft: '4px' }}>+{dataSources.length - 1} more</span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div className="action-buttons" style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                      {onEditGroup && (
+                        <button
+                          onClick={() => onEditGroup(group)}
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: 'var(--accent-blue)' }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(group.id, group.name)}
+                        className="btn btn-ghost btn-danger btn-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </table>
       )}
-    </div>
+    </>
   );
 }

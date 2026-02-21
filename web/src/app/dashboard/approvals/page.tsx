@@ -8,15 +8,15 @@ import ApprovalDashboard from '@/components/approvals/ApprovalDashboard';
 
 export default function ApprovalsPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, isHydrating } = useAuthStore();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isHydrating && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isHydrating, router]);
 
-  if (isLoading) {
+  if (isHydrating || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-gray-600 dark:text-gray-400">Loading...</div>
@@ -30,20 +30,7 @@ export default function ApprovalsPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Approval Dashboard
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Review and approve/reject write operation requests
-          </p>
-        </div>
-
-        {/* Approval Dashboard */}
-        <ApprovalDashboard />
-      </div>
+      <ApprovalDashboard />
     </AppLayout>
   );
 }

@@ -139,118 +139,84 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
   const isPending = approval.status === 'pending';
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Approval Request Details
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Request ID: {approval.id.slice(0, 8)}...
-            </p>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Detail Header */}
+      <div className="detail-header">
+        <div>
+          <div className="detail-title">
+            {approval.operation_type ? approval.operation_type.toUpperCase() : 'UNKNOWN'} Statement Review
           </div>
-          <div className="flex items-center space-x-2">
-            <span
-              className={`px-3 py-1 text-sm font-medium rounded ${getOperationBadgeColor(
-                approval.operation_type
-              )}`}
-            >
-              {approval.operation_type ? approval.operation_type.toUpperCase() : 'UNKNOWN'}
-            </span>
-            <span
-              className={`px-3 py-1 text-sm font-medium rounded ${getStatusBadgeColor(
-                approval.status
-              )}`}
-            >
-              {approval.status.charAt(0).toUpperCase() + approval.status.slice(1)}
+          <div style={{ marginTop: '6px' }}>
+            <span className={`badge ${getStatusBadgeColor(approval.status)}`}>
+              {approval.status}
             </span>
           </div>
         </div>
-
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-gray-500 dark:text-gray-400">Created:</span>
-            <span className="ml-2 text-gray-900 dark:text-white">
-              {formatDate(approval.created_at)}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-500 dark:text-gray-400">Updated:</span>
-            <span className="ml-2 text-gray-900 dark:text-white">
-              {formatDate(approval.updated_at)}
-            </span>
-          </div>
+        <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>
+          Requested by <strong>{approval.requester_name || approval.requester_id}</strong><br/>
+          {formatDate(approval.created_at)}
         </div>
       </div>
 
-      {/* SQL Query */}
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-          SQL Query
-        </h3>
-        <div className="bg-gray-900 dark:bg-black rounded-lg p-4 overflow-x-auto">
-          <pre className="text-sm text-gray-100 font-mono whitespace-pre-wrap">
-            {approval.query_text}
-          </pre>
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         </div>
+      )}
+
+      {/* SQL Statement */}
+      <div className="detail-section-label">SQL Statement</div>
+      <div className="code-block" style={{ marginBottom: '20px' }}>
+        <pre style={{ margin: 0, fontFamily: 'inherit', whiteSpace: 'pre-wrap' }}>
+          {approval.query_text}
+        </pre>
+      </div>
+
+      {/* Data Source */}
+      <div className="detail-section-label">Data Source</div>
+      <div style={{ fontSize: '14px', color: 'var(--text-primary)', marginBottom: '20px' }}>
+        {approval.data_source_name || approval.data_source_id || 'Unknown Data Source'}
       </div>
 
       {/* Comment & Actions */}
       {isPending && (
-        <div className="space-y-4">
-          <div>
-            <label
-              htmlFor="comment"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              Review Comment (Optional)
-            </label>
-            <textarea
-              id="comment"
-              rows={3}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              disabled={submitting}
-              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-800 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              placeholder="Add a comment explaining your decision..."
-            />
-          </div>
-
-          <div className="flex space-x-3">
+        <>
+          <div className="detail-section-label">Comments (optional)</div>
+          <textarea
+            className="comment-area"
+            placeholder="Add a comment for the requester..."
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            disabled={submitting}
+          />
+          <div className="detail-actions">
             <button
-              onClick={() => handleReview('approved')}
+              className="btn btn-danger"
               disabled={submitting}
-              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {submitting ? 'Processing...' : 'Approve'}
-            </button>
-            <button
               onClick={() => handleReview('rejected')}
-              disabled={submitting}
-              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={submitting ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
             >
-              {submitting ? 'Processing...' : 'Reject'}
+              ✕ Reject
+            </button>
+            <button
+              className="btn btn-success"
+              disabled={submitting}
+              onClick={() => handleReview('approved')}
+              style={submitting ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+            >
+              ✔ Approve
             </button>
           </div>
-        </div>
+        </>
       )}
 
       {/* Info for non-pending */}
       {!isPending && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <p className="text-sm text-blue-800 dark:text-blue-300">
-            This approval has been{' '}
-            <strong>{approval.status}</strong>. No further actions can be taken.
+        <div style={{ padding: '12px', background: 'var(--bg-hover)', borderRadius: 'var(--r-md)', marginTop: '20px' }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+            This approval has been <strong>{approval.status}</strong>. No further actions can be taken.
           </p>
-        </div>
-      )}
-
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         </div>
       )}
     </div>

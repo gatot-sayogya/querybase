@@ -14,13 +14,15 @@ import (
 type ApprovalService struct {
 	db           *gorm.DB
 	queryService *QueryService
+	statsService *StatsService
 }
 
 // NewApprovalService creates a new approval service
-func NewApprovalService(db *gorm.DB, queryService *QueryService) *ApprovalService {
+func NewApprovalService(db *gorm.DB, queryService *QueryService, statsService *StatsService) *ApprovalService {
 	return &ApprovalService{
 		db:           db,
 		queryService: queryService,
+		statsService: statsService,
 	}
 }
 
@@ -44,6 +46,11 @@ func (s *ApprovalService) CreateApprovalRequest(ctx context.Context, req *Approv
 	}
 
 	// TODO: Send notifications to eligible approvers
+
+	// Trigger stats update
+	if s.statsService != nil {
+		s.statsService.TriggerStatsChanged()
+	}
 
 	return approval, nil
 }
@@ -95,6 +102,39 @@ func (s *ApprovalService) ListApprovals(ctx context.Context, filter *ApprovalFil
 		Find(&approvals).Error
 
 	return approvals, total, err
+}
+
+// GetApprovalCounts retrieves counts of approvals grouped by status
+func (s *ApprovalService) GetApprovalCounts(ctx context.Context, requestedBy string) (map[string]int64, error) {
+	counts := make(map[string]int64)
+	counts["all"] = 0
+	counts["pending"] = 0
+	counts["approved"] = 0
+	counts["rejected"] = 0
+
+	type result struct {
+		Status string
+		Count  int64
+	}
+	var results []result
+
+	query := s.db.Model(&models.ApprovalRequest{}).Select("status, count(*) as count").Group("status")
+	if requestedBy != "" {
+		query = query.Where("requested_by = ?", requestedBy)
+	}
+
+	if err := query.Scan(&results).Error; err != nil {
+		return nil, fmt.Errorf("failed to count approvals: %w", err)
+	}
+
+	var total int64
+	for _, r := range results {
+		counts[r.Status] = r.Count
+		total += r.Count
+	}
+	counts["all"] = total
+
+	return counts, nil
 }
 
 // ReviewApproval adds a review to an approval request
@@ -186,6 +226,11 @@ func (s *ApprovalService) updateApprovalStatus(approvalID uuid.UUID) {
 			s.db.Model(&models.ApprovalRequest{}).
 				Where("id = ?", approvalID).
 				Update("status", models.ApprovalStatusApproved)
+
+			// Trigger stats update
+			if s.statsService != nil {
+				s.statsService.TriggerStatsChanged()
+			}
 
 			// TODO: Trigger query execution for approved queries
 			return

@@ -15,8 +15,8 @@ import (
 
 // ApprovalHandler handles approval endpoints
 type ApprovalHandler struct {
-	db               *gorm.DB
-	approvalService  *service.ApprovalService
+	db              *gorm.DB
+	approvalService *service.ApprovalService
 }
 
 // NewApprovalHandler creates a new approval handler
@@ -79,6 +79,30 @@ func (h *ApprovalHandler) ListApprovals(c *gin.Context) {
 		"page":      page,
 		"limit":     limit,
 	})
+}
+
+// GetApprovalCounts returns counts of approvals grouped by status
+func (h *ApprovalHandler) GetApprovalCounts(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	var requestedBy string
+	var user models.User
+	if err := h.db.First(&user, "id = ?", userID).Error; err == nil {
+		if user.Role != models.RoleAdmin {
+			isApprover := h.checkIsApprover(userID)
+			if !isApprover {
+				requestedBy = userID
+			}
+		}
+	}
+
+	counts, err := h.approvalService.GetApprovalCounts(c, requestedBy)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch approval counts"})
+		return
+	}
+
+	c.JSON(http.StatusOK, counts)
 }
 
 // GetApproval retrieves a single approval request
@@ -169,9 +193,9 @@ func (h *ApprovalHandler) GetEligibleApprovers(c *gin.Context) {
 	response := make([]gin.H, len(approvers))
 	for i, approver := range approvers {
 		response[i] = gin.H{
-			"id":       approver.ID.String(),
-			"email":    approver.Email,
-			"username": approver.Username,
+			"id":        approver.ID.String(),
+			"email":     approver.Email,
+			"username":  approver.Username,
 			"full_name": approver.FullName,
 		}
 	}
@@ -258,8 +282,8 @@ func (h *ApprovalHandler) ValidateQuery(c *gin.Context) {
 	err := service.ValidateSQL(req.QueryText)
 	if err != nil {
 		c.JSON(http.StatusOK, dto.ValidateQueryResponse{
-			Valid:        false,
-			Error:        err.Error(),
+			Valid:         false,
+			Error:         err.Error(),
 			OperationType: string(service.DetectOperationType(req.QueryText)),
 		})
 		return
@@ -271,8 +295,8 @@ func (h *ApprovalHandler) ValidateQuery(c *gin.Context) {
 		var dataSource models.DataSource
 		if err := h.db.First(&dataSource, "id = ?", req.DataSourceID).Error; err != nil {
 			c.JSON(http.StatusOK, dto.ValidateQueryResponse{
-				Valid:        false,
-				Error:        "Data source not found",
+				Valid:         false,
+				Error:         "Data source not found",
 				OperationType: string(service.DetectOperationType(req.QueryText)),
 			})
 			return
@@ -288,7 +312,7 @@ func (h *ApprovalHandler) ValidateQuery(c *gin.Context) {
 	operationType := service.DetectOperationType(req.QueryText)
 
 	c.JSON(http.StatusOK, dto.ValidateQueryResponse{
-		Valid:        true,
+		Valid:         true,
 		OperationType: string(operationType),
 	})
 }

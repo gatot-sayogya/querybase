@@ -146,6 +146,7 @@ export interface Group {
   created_at: string;
   updated_at: string;
   users?: User[];
+  data_sources?: DataSource[];
 }
 
 // API Response Types
@@ -171,6 +172,15 @@ export interface HealthStatus {
   last_error?: string;
   last_checked: string;
   message: string;
+}
+
+// Dashboard Stats Types
+export interface DashboardStats {
+  my_queries_today: number;
+  pending_approvals?: number;
+  total_queries?: number;
+  db_access_count: number;
+  total_users?: number;
 }
 
 // Schema Types
@@ -226,7 +236,7 @@ export interface IndexInfo {
 
 // WebSocket Types
 export interface WebSocketMessage {
-  type: 'connected' | 'schema' | 'schema_update' | 'subscribed' | 'error' | 'get_schema' | 'subscribe_schema';
+  type: 'connected' | 'schema' | 'schema_update' | 'subscribed' | 'error' | 'get_schema' | 'subscribe_schema' | 'subscribe_stats' | 'subscribed_stats' | 'stats_changed';
   payload?: any;
 }
 

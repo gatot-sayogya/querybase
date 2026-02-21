@@ -130,27 +130,29 @@ update_datasource() {
 UPDATED=0
 FAILED=0
 
-# Update Test PostgreSQL
-if update_datasource "639e9d34-08b4-4fb7-919f-9f602e13e242" "querybase" "Test PostgreSQL"; then
-    ((UPDATED++))
-else
-    ((FAILED++))
-fi
-echo ""
+# Process each datasource — id | password | name
+# Add/remove entries here as datasources change
+DATASOURCES="
+639e9d34-08b4-4fb7-919f-9f602e13e242|querybase|Test PostgreSQL
+04e87632-377e-42b6-9297-56f6c07df354|querybase|Test PostgreSQL (2)
+9afe0ac9-9f66-4633-b717-b5eeba23551c|querybase|PostgreSQL Test
+1e7d3a97-9a9f-4fe6-813b-0c3aae7aefab|querybase|Updated Test Database
+1fd19be8-0050-4ecd-b525-a3d31672e65b|querybase|Schema Test
+89c59a2a-09c6-4125-8ca6-7c881caed600|querybase|PostgreSQL Sample Database
+2d52fae1-bb32-4257-a0af-6904c1ffad52|querybase|MySQL Target CLI
+0224565d-df52-4ecb-9a8e-1ce8e23f6a50|root|MySQL Sample Database
+2f454a2e-f83b-42ba-9d4e-efc6f9d043c8|root|Goapotik Dev
+"
 
-# Update MySQL Target CLI
-if update_datasource "2d52fae1-bb32-4257-a0af-6904c1ffad52" "querybase" "MySQL Target CLI"; then
-    ((UPDATED++))
-else
-    ((FAILED++))
-fi
-echo ""
-
-# Update Updated Test Database (if exists)
-if update_datasource "1e7d3a97-9a9f-4fe6-813b-0c3aae7aefab" "querybase" "Updated Test Database" 2>/dev/null; then
-    ((UPDATED++))
+while IFS="|" read -r ds_id ds_pass ds_name; do
+    [ -z "$ds_id" ] && continue
+    if update_datasource "$ds_id" "$ds_pass" "$ds_name"; then
+        ((UPDATED++))
+    else
+        ((FAILED++))
+    fi
     echo ""
-fi
+done <<< "$DATASOURCES"
 
 # Summary
 echo -e "${YELLOW}=================================${NC}"

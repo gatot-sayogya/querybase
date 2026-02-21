@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QueryBase – Data Sources</title>
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    .ds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .ds-card { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .ds-card-head { display: flex; align-items: center; gap: 12px; }
+    .ds-icon {
+      width: 44px; height: 44px; border-radius: var(--r-lg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .ds-icon-pg   { background: #DBEAFE; color: #1D4ED8; }
+    .ds-icon-mysql { background: #DCFCE7; color: #166534; }
+    .ds-icon-redis { background: #FEE2E2; color: #B91C1C; }
+    .ds-card-name { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+    .ds-card-type { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .ds-divider   { height: 1px; background: var(--border-light); }
+    .ds-host      { font-size: 12px; color: var(--text-muted); }
+    .ds-actions   { display: flex; gap: 8px; justify-content: flex-end; }
+    .conn-status  { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--green-text); }
+    .conn-dot     { width: 7px; height: 7px; border-radius: 50%; background: var(--green-text); }
+  </style>
+  <script>
+    (function() {
+      var saved = localStorage.getItem('qb_theme');
+      var dark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.classList.add('dark');
+    })();
+  </script>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="sidebar">
+      <div class="sidebar-logo"><div class="sidebar-mark">Q</div></div>
+      <div class="sidebar-nav">
+        <a href="query-editor.html" class="nav-item" data-tooltip="Query Editor"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></a>
+        <a href="history.html" class="nav-item" data-tooltip="History"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></a>
+        <a href="approvals.html" class="nav-item" data-tooltip="Approvals"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></a>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="settings-wrapper" id="settingsWrapper">
+          <button class="nav-item" id="settingsBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+          <div class="settings-menu" id="settingsMenu">
+            <div class="settings-menu-label">Settings</div>
+            <a href="admin-users.html" class="settings-item" id="smi-users">
+              <span class="settings-icon" style="background:#EFF6FF;color:#2563EB"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              Users
+            </a>
+            <a href="admin-groups.html" class="settings-item" id="smi-groups">
+              <span class="settings-icon" style="background:#F5F3FF;color:#7C3AED"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+              Groups
+            </a>
+            <a href="admin-datasources.html" class="settings-item" id="smi-datasources">
+              <span class="settings-icon" style="background:#F0FDF4;color:#059669"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>
+              Data Sources
+            </a>
+          </div>
+        </div>
+        <script>
+          (function() {
+            var btn = document.getElementById("settingsBtn");
+            var menu = document.getElementById("settingsMenu");
+            if (!btn) return;
+            var path = window.location.pathname;
+            if (path.includes("admin-users"))           document.getElementById("smi-users").classList.add("active-page");
+            else if (path.includes("admin-groups"))     document.getElementById("smi-groups").classList.add("active-page");
+            else if (path.includes("admin-datasources"))document.getElementById("smi-datasources").classList.add("active-page");
+            if (path.includes("admin-")) btn.classList.add("active");
+            })();
+        </script>
+        <div class="avatar-wrapper" id="avatarWrapper">
+          <div class="avatar-btn" id="avatarBtn" title="Account">A</div>
+          <div class="avatar-menu" id="avatarMenu">
+            <div class="menu-user-info">
+              <div class="menu-user-name" id="menuUserName">Admin User</div>
+              <div class="menu-user-role" id="menuUserRole">admin</div>
+            </div>
+            <a href="profile.html" class="menu-item">
+              <span class="menu-icon" style="background:#EFF6FF;color:#2563EB">&#x1F464;</span>
+              My Profile
+            </a>
+            <a href="query-editor.html" class="menu-item">
+              <span class="menu-icon" style="background:#F0FDF4;color:#059669">&#x2315;</span>
+              New Query
+            </a>
+            <div class="menu-divider"></div>
+            <button class="menu-item" onclick="toggleTheme()" id="themeToggleBtn">
+              <span class="menu-icon" style="background:#F3F4F6;color:#374151" id="themeToggleIcon">💻</span>
+              <span style="flex:1">Theme</span>
+              <span style="font-size:11px;color:var(--text-muted);text-transform:capitalize" id="themeToggleText">System</span>
+            </button>
+            <script>
+              function updateThemeUI() {
+                var btn = document.getElementById('themeToggleBtn');
+                var icon = document.getElementById('themeToggleIcon');
+                var text = document.getElementById('themeToggleText');
+                if (!btn) return;
+                var theme = localStorage.getItem('qb_theme') || 'system';
+                text.textContent = theme;
+                if (theme === 'dark') {
+                  icon.textContent = '🌙';
+                  icon.style.background = '#374151'; icon.style.color = '#F3F4F6';
+                } else if (theme === 'light') {
+                  icon.textContent = '☀️';
+                  icon.style.background = '#F3F4F6'; icon.style.color = '#374151';
+                } else {
+                  icon.textContent = '💻';
+                  icon.style.background = '#F3F4F6'; icon.style.color = '#374151';
+                }
+              }
+              function toggleTheme() {
+                var current = localStorage.getItem('qb_theme') || 'system';
+                var next = current === 'light' ? 'dark' : current === 'dark' ? 'system' : 'light';
+                if (next === 'system') {
+                  localStorage.removeItem('qb_theme');
+                  if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
+                  else document.documentElement.classList.remove('dark');
+                } else {
+                  localStorage.setItem('qb_theme', next);
+                  if (next === 'dark') document.documentElement.classList.add('dark');
+                  else document.documentElement.classList.remove('dark');
+                }
+                updateThemeUI();
+              }
+              document.addEventListener('DOMContentLoaded', updateThemeUI);
+            </script>
+            <div class="menu-divider"></div>
+            <button class="menu-item danger" onclick="signOut()">
+              <span class="menu-icon">&#x1F6AA;</span>
+              Sign out
+            </button>
+          </div>
+        </div>
+        <script>
+          (function() {
+            var raw = sessionStorage.getItem('qb_user');
+            var user = raw ? JSON.parse(raw) : { username: 'admin', fullName: 'Admin User', role: 'admin' };
+            var btn = document.getElementById('avatarBtn');
+            if (btn) {
+              btn.textContent = (user.fullName || user.username).charAt(0).toUpperCase();
+              document.getElementById('menuUserName').textContent = user.fullName || user.username;
+              document.getElementById('menuUserRole').textContent = user.role;
+            }
+          })();
+          function signOut() {
+            sessionStorage.removeItem('qb_user');
+            window.location.href = 'login.html';
+          }
+        </script>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Data Sources</h1>
+          <p class="page-subtitle">Manage your database connections</p>
+        </div>
+        <button class="btn btn-primary">＋ Add Data Source</button>
+      </div>
+
+      <div class="ds-grid">
+        <!-- Card 1 -->
+        <div class="card ds-card">
+          <div class="ds-card-head">
+            <div class="ds-icon ds-icon-pg">◉</div>
+            <div>
+              <div class="ds-card-name">Production DB</div>
+              <div class="ds-card-type">PostgreSQL</div>
+            </div>
+          </div>
+          <div class="ds-host">db.prod.internal:5432</div>
+          <div class="conn-status"><div class="conn-dot"></div> Connected</div>
+          <div class="ds-divider"></div>
+          <div class="ds-actions">
+            <button class="btn btn-ghost btn-sm" style="color:var(--green-text);background:var(--green-bg);border-color:transparent">Test</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--blue-text);background:var(--blue-bg);border-color:transparent">Edit</button>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="card ds-card">
+          <div class="ds-card-head">
+            <div class="ds-icon ds-icon-mysql">◉</div>
+            <div>
+              <div class="ds-card-name">Analytics DB</div>
+              <div class="ds-card-type">MySQL</div>
+            </div>
+          </div>
+          <div class="ds-host">analytics.internal:3306</div>
+          <div class="conn-status"><div class="conn-dot"></div> Connected</div>
+          <div class="ds-divider"></div>
+          <div class="ds-actions">
+            <button class="btn btn-ghost btn-sm" style="color:var(--green-text);background:var(--green-bg);border-color:transparent">Test</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--blue-text);background:var(--blue-bg);border-color:transparent">Edit</button>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="card ds-card">
+          <div class="ds-card-head">
+            <div class="ds-icon ds-icon-redis">◉</div>
+            <div>
+              <div class="ds-card-name">Redis Cache</div>
+              <div class="ds-card-type">Redis</div>
+            </div>
+          </div>
+          <div class="ds-host">redis.internal:6379</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#D97706;">
+            <div style="width:7px;height:7px;border-radius:50%;background:#D97706;"></div> Timeout
+          </div>
+          <div class="ds-divider"></div>
+          <div class="ds-actions">
+            <button class="btn btn-ghost btn-sm" style="color:var(--green-text);background:var(--green-bg);border-color:transparent">Test</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--blue-text);background:var(--blue-bg);border-color:transparent">Edit</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

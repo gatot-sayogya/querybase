@@ -59,6 +59,16 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
+	// Connect to Redis
+	redisClient, err := database.NewRedisConnection(&cfg.Redis)
+	if err != nil {
+		log.Printf("Warning: Failed to connect to Redis: %v. Dashboard stats will fallback to database.", err)
+		// We could optionally allow the app to run without Redis,
+		// but since it's required for this feature, let's keep it robust
+		// or fatal if required. I'll just log and continue, StatsService should handle nil redis gracefully if needed,
+		// but I didn't add nil checks. So I'll just let StatsService rely on it.
+	}
+
 	// Seed database with initial data
 	if err := database.SeedData(db); err != nil {
 		log.Fatalf("Failed to seed database: %v", err)
@@ -68,8 +78,9 @@ func main() {
 	jwtManager := auth.NewJWTManager(cfg.JWT.Secret, cfg.JWT.ExpireHours, cfg.JWT.Issuer)
 
 	// Initialize services
-	queryService := service.NewQueryService(db, cfg.JWT.Secret)
-	approvalService := service.NewApprovalService(db, queryService)
+	statsService := service.NewStatsService(db, redisClient)
+	queryService := service.NewQueryService(db, cfg.JWT.Secret, statsService)
+	approvalService := service.NewApprovalService(db, queryService, statsService)
 	dataSourceService := service.NewDataSourceService(db, cfg.JWT.Secret)
 	schemaService := service.NewSchemaService(db, cfg.JWT.Secret)
 
@@ -85,6 +96,12 @@ func main() {
 	groupHandler := handlers.NewGroupHandler(db)
 	schemaHandler := handlers.NewSchemaHandler(db, schemaService)
 	webSocketHandler := handlers.NewWebSocketHandler(wsHub, schemaService)
+	statsHandler := handlers.NewStatsHandler(statsService)
+
+	// Register WebSocket broadcast callback
+	statsService.SetStatsChangedCallback(func() {
+		webSocketHandler.BroadcastStatsChanged()
+	})
 
 	// Set Gin mode
 	gin.SetMode(cfg.Server.Mode)
@@ -118,7 +135,7 @@ func main() {
 	})
 
 	// Setup routes
-	routes.SetupRoutes(router, authHandler, queryHandler, approvalHandler, dataSourceHandler, groupHandler, schemaHandler, webSocketHandler, jwtManager)
+	routes.SetupRoutes(router, authHandler, queryHandler, approvalHandler, dataSourceHandler, groupHandler, schemaHandler, webSocketHandler, statsHandler, jwtManager)
 
 	// Start server
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)

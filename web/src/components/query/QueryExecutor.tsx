@@ -273,7 +273,7 @@ export default function QueryExecutor() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       {/* Data Source & Schema Sidebar */}
       <div className="w-64 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
         <div className="p-2 flex flex-col flex-1 overflow-hidden">
@@ -288,21 +288,10 @@ export default function QueryExecutor() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Query Editor</h1>
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              {user?.username}
-            </div>
-          </div>
-        </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-          <div className="space-y-3 w-full">
+        <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+          <div className="flex-1 flex flex-col w-full h-full p-2 gap-2 overflow-hidden">
             {/* Show query editor only after data source is selected */}
             {!dataSourceId ? (
               <div className="flex items-center justify-center h-96 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
@@ -331,7 +320,7 @@ export default function QueryExecutor() {
                 </div>
               </div>
             ) : (
-              <div className="animate-slide-up space-y-2">
+              <div className="animate-slide-up flex flex-col flex-1 overflow-hidden gap-3">
 
 
                 {/* SQL Editor - Now with flexible height */}
@@ -378,7 +367,7 @@ export default function QueryExecutor() {
                       </Button>
                     </div>
                   </div>
-                  <div className="overflow-hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                  <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
                     <SQLEditor
                       value={queryText}
                       onChange={setQueryText}
@@ -407,8 +396,8 @@ export default function QueryExecutor() {
 
             {/* Results - Now with flexible height */}
             {results && queryId && (
-              <div className="space-y-0 animate-slide-up">
-                <div className="flex items-center justify-between px-2 py-1.5 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex-1 flex flex-col animate-slide-up overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-sm">
+                <div className="flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-900 dark:text-white">Results</span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -432,7 +421,7 @@ export default function QueryExecutor() {
                     </Button>
                   </div>
                 </div>
-                <div className="bg-white dark:bg-gray-800">
+                <div className="flex-1 overflow-hidden bg-white dark:bg-gray-800 flex flex-col">
                   <QueryResults
                     queryId={queryId}
                     results={results}

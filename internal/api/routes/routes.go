@@ -13,7 +13,7 @@ import (
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHandler *handlers.QueryHandler, approvalHandler *handlers.ApprovalHandler, dataSourceHandler *handlers.DataSourceHandler, groupHandler *handlers.GroupHandler, schemaHandler *handlers.SchemaHandler, webSocketHandler *handlers.WebSocketHandler, jwtManager *auth.JWTManager) {
+func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHandler *handlers.QueryHandler, approvalHandler *handlers.ApprovalHandler, dataSourceHandler *handlers.DataSourceHandler, groupHandler *handlers.GroupHandler, schemaHandler *handlers.SchemaHandler, webSocketHandler *handlers.WebSocketHandler, statsHandler *handlers.StatsHandler, jwtManager *auth.JWTManager) {
 	// Serve static files from the "web/out" directory
 	// This assumes the frontend has been built to this directory
 	router.Use(func(c *gin.Context) {
@@ -107,6 +107,12 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 				auth.POST("/change-password", authHandler.ChangePassword)
 			}
 
+			// Dashboard Stats
+			dashboard := protected.Group("/dashboard")
+			{
+				dashboard.GET("/stats", statsHandler.GetDashboardStats)
+			}
+
 			// Admin routes
 			admin := protected.Group("")
 			admin.Use(middleware.RequireAdmin())
@@ -157,6 +163,7 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 			approvals := protected.Group("/approvals")
 			{
 				approvals.GET("", approvalHandler.ListApprovals)
+				approvals.GET("/counts", approvalHandler.GetApprovalCounts)
 				approvals.GET("/:id", approvalHandler.GetApproval)
 				approvals.POST("/:id/review", approvalHandler.ReviewApproval)
 				approvals.POST("/:id/transaction-start", approvalHandler.StartTransaction)

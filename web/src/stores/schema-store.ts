@@ -50,9 +50,21 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
       });
       return schema;
     } catch (error) {
+      // Log but don't crash the UI — datasource may be temporarily unreachable
       const message = error instanceof Error ? error.message : 'Failed to load schema';
-      set({ error: message, isLoading: false });
-      throw error;
+      console.warn(`Schema load failed for ${dataSourceId}:`, message);
+      set({ isLoading: false, error: null }); // clear error so UI keeps working
+      // Return a minimal empty schema so callers don't break
+      const emptySchema: DatabaseSchema = {
+        data_source_id: dataSourceId,
+        data_source_name: '',
+        database_type: '',
+        database_name: '',
+        tables: [],
+        views: [],
+        functions: [],
+      };
+      return emptySchema;
     }
   },
 

@@ -2,18 +2,35 @@ package database
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"time"
 
 	"github.com/yourorg/querybase/internal/config"
 	"github.com/yourorg/querybase/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // NewPostgresConnection creates a new PostgreSQL connection
 func NewPostgresConnection(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	dsn := cfg.GetDatabaseDSN()
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// Only log slow queries (>200ms) and errors — suppress routine SQL noise
+	quietLogger := gormlogger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		gormlogger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  gormlogger.Warn,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  true,
+		},
+	)
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: quietLogger,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}

@@ -26,7 +26,35 @@ interface DataSourceSchemaSelectorProps {
   disabled?: boolean;
 }
 
+type HealthStatus = 'healthy' | 'unhealthy' | 'checking' | 'unknown';
+
 const POLL_INTERVAL = 60000; // 60 seconds
+
+function PgIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12.022 2.1c-5.467 0-9.878 4.41-9.878 9.88 0 5.467 4.411 9.878 9.878 9.878 5.467 0 9.878-4.411 9.878-9.878 0-5.47-4.411-9.88-9.878-9.88zm3.623 14.88c-.5.441-1.294.67-2.323.67H9.255v1.233h-1.97v-8.498h6.143c.97 0 1.705.235 2.176.64.441.41.676.97.676 1.734.025.794-.236 1.352-.647 1.734-.383.353-.941.529-1.646.529h-3.41v1.94h4.41v-3.41h1.56v3.438zM8.344 8.784h4.086c.764 0 1.352.176 1.735.47.382.264.588.675.588 1.146 0 .47-.206.882-.588 1.205-.383.294-.971.47-1.735.47H8.344v-3.29z"/>
+    </svg>
+  );
+}
+
+function MysqlIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12.002 1.357c-5.836 0-10.56 4.721-10.56 10.551 0 5.828 4.724 10.55 10.55 10.55 5.833 0 10.554-4.722 10.554-10.55 0-5.83-4.721-10.551-10.554-10.551zm1.264 6.646c1.373 0 1.956.892 1.956 1.94 0 1.135-.615 1.983-1.897 1.983-.756 0-1.284-.336-1.574-.75h-.06v3.593H9.863V8.11h1.616v.612h.063c.27-.406.804-.719 1.724-.719zm-1.028 1.48c-.68 0-1.042.47-1.042 1.055 0 .564.364 1.026 1.053 1.026.685 0 1.05-.44 1.05-1.042 0-.616-.365-1.038-1.06-1.038zM5.385 15.65h1.83V9.752H5.385v5.898zm.9-8c-.658 0-1.127.47-1.127 1.114 0 .647.469 1.116 1.127 1.116.634 0 1.077-.47 1.077-1.116 0-.645-.443-1.114-1.076-1.114zm11.332 7.822c-1.375 0-1.958-.893-1.958-1.94 0-1.133.616-1.984 1.898-1.984.757 0 1.285.337 1.575.75h.06V8.11h1.828v7.362h-1.616v-.613h-.063c-.27.406-.804.72-1.724.72zm1.028-1.48c.682 0 1.043-.466 1.043-1.053 0-.564-.361-1.027-1.05-1.027-.685 0-1.05.441-1.05 1.043 0 .615.365 1.037 1.058 1.037z"/>
+    </svg>
+  );
+}
+
+function DbIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <ellipse cx="12" cy="5" rx="9" ry="3"/>
+      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+    </svg>
+  );
+}
 
 export default function DataSourceSchemaSelector({
   value,
@@ -42,7 +70,10 @@ export default function DataSourceSchemaSelector({
   const [isPolling, setIsPolling] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [healthStatuses, setHealthStatuses] = useState<Record<string, HealthStatus>>({});
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthStore();
   const hasInitialized = useRef(false);
 
@@ -69,17 +100,42 @@ export default function DataSourceSchemaSelector({
 
         setDataSources(activeSources);
 
-        // Auto-select first data source if none selected
+        // Run health checks first, then auto-select the first healthy datasource
         if (!value && activeSources.length > 0) {
-          const firstSource = activeSources[0];
-          onChange(firstSource.id);
-          setExpandedDataSources(new Set([firstSource.id]));
+          // Check health of all datasources in parallel
+          const healthResults = await Promise.all(
+            activeSources.map(async (ds) => {
+              try {
+                const h = await apiClient.getDataSourceHealth(ds.id);
+                return { id: ds.id, healthy: h.status === 'healthy' || h.status === 'degraded' };
+              } catch {
+                return { id: ds.id, healthy: false };
+              }
+            })
+          );
 
-          // Load schema for it (only if not already loaded)
-          if (!schemas.has(firstSource.id)) {
-            await loadSchema(firstSource.id);
+          // Update health statuses in state
+          const statusMap: Record<string, HealthStatus> = {};
+          healthResults.forEach(({ id, healthy }) => {
+            statusMap[id] = healthy ? 'healthy' : 'unhealthy';
+          });
+          setHealthStatuses(statusMap);
+
+          // Pick first healthy datasource, fall back to first if all are unhealthy
+          const healthyFirst =
+            activeSources.find(ds => statusMap[ds.id] === 'healthy') ?? activeSources[0];
+
+          onChange(healthyFirst.id);
+          setExpandedDataSources(new Set([healthyFirst.id]));
+
+          if (!schemas.has(healthyFirst.id)) {
+            await loadSchema(healthyFirst.id);
           }
+        } else {
+          // Health checks in background when a datasource is already selected
+          fetchHealthStatuses(activeSources);
         }
+
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load data sources');
       } finally {
@@ -90,6 +146,37 @@ export default function DataSourceSchemaSelector({
 
     initializeDataSources();
   }, []); // Empty dependency array - run once on mount
+
+  // Fetch health status for all datasources in parallel
+  const fetchHealthStatuses = async (sources: DataSource[]) => {
+    const checking: Record<string, HealthStatus> = {};
+    sources.forEach(ds => { checking[ds.id] = 'checking'; });
+    setHealthStatuses(prev => ({ ...prev, ...checking }));
+
+    await Promise.all(sources.map(async (ds) => {
+      try {
+        const result = await apiClient.getDataSourceHealth(ds.id);
+        const status: HealthStatus =
+          result?.status === 'healthy' ? 'healthy' :
+          result?.status === 'degraded' ? 'checking' : // yellow = degraded/slow
+          'unhealthy';
+        setHealthStatuses(prev => ({ ...prev, [ds.id]: status }));
+      } catch {
+        setHealthStatuses(prev => ({ ...prev, [ds.id]: 'unhealthy' }));
+      }
+    }));
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Setup polling for schema updates
   useEffect(() => {
@@ -134,6 +221,8 @@ export default function DataSourceSchemaSelector({
 
     try {
       await syncSchema(value);
+      // Also refresh health status on sync
+      fetchHealthStatuses(dataSources);
     } catch (error) {
       console.error('Failed to sync schema:', error);
     }
@@ -207,39 +296,73 @@ export default function DataSourceSchemaSelector({
   return (
     <div className="space-y-2 flex flex-col flex-1 overflow-hidden">
       {/* Data Source Selector */}
-      <div className="flex-shrink-0">
-        <div className="flex items-center justify-between mb-1 px-1">
-          <label
-            htmlFor="datasource-select"
-            className="block text-xs font-medium text-gray-600 dark:text-gray-400"
-          >
-            Data Source
-          </label>
-
-          {/* Sync Now Button */}
+      <div className="flex-shrink-0 mb-1" ref={dropdownRef}>
+        <div className="flex items-center gap-1">
+          {/* Custom Dropdown with Health Indicators */}
+          <div className="relative flex-1">
           <button
-            onClick={handleSyncNow}
-            disabled={!value || isSchemaLoading}
-            className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Force schema refresh from database"
+            type="button"
+            onClick={() => !disabled && setDropdownOpen(!dropdownOpen)}
+            disabled={disabled}
+            className="w-full flex items-center justify-between px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ArrowPathIcon className={`h-3 w-3 ${isSchemaLoading ? 'animate-spin' : ''}`} />
-            Sync
+            <span className="flex items-center gap-1.5 min-w-0 flex-1">
+              {value && <HealthDot status={healthStatuses[value] || 'unknown'} />}
+              <span className="truncate">
+                {value
+                  ? (dataSources.find(ds => ds.id === value)?.name ?? 'Select datasource')
+                  : 'Select a data source'}
+              </span>
+            </span>
+            <ChevronDownIcon className={`h-3 w-3 text-gray-400 flex-shrink-0 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
+
+          {dropdownOpen && (
+            <div className="absolute z-30 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
+              {dataSources.map((ds) => {
+                const status = healthStatuses[ds.id] || 'unknown';
+                const isSelected = ds.id === value;
+                const isPg = ds.type === 'postgresql';
+                const isMysql = ds.type === 'mysql';
+                
+                return (
+                  <button
+                    key={ds.id}
+                    type="button"
+                    onClick={() => {
+                      handleDataSourceChange(ds.id);
+                      setDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                      isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                    }`}
+                  >
+                    <HealthDot status={status} />
+                    <span className="flex-1 truncate font-medium text-gray-800 dark:text-gray-100">{ds.name}</span>
+                    <span className="flex-shrink-0 transition-opacity opacity-80" 
+                          style={{
+                             color: isPg ? '#1D4ED8' : isMysql ? '#166534' : 'inherit'
+                          }}>
+                      {isPg ? <PgIcon /> : isMysql ? <MysqlIcon /> : <DbIcon />}
+                    </span>
+                    <HealthBadge status={status} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-        <select
-          id="datasource-select"
-          value={value}
-          onChange={(e) => handleDataSourceChange(e.target.value)}
-          disabled={disabled}
-          className="block w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+
+        {/* Sync Now Button — also refreshes health */}
+        <button
+          onClick={handleSyncNow}
+          disabled={!value || isSchemaLoading}
+          className="flex-shrink-0 flex items-center justify-center p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded border border-blue-100 dark:border-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Sync schema and re-check datasource health"
         >
-          {dataSources.map((ds) => (
-            <option key={ds.id} value={ds.id}>
-              {ds.name} ({ds.type})
-            </option>
-          ))}
-        </select>
+          <ArrowPathIcon className={`h-4 w-4 ${isSchemaLoading ? 'animate-spin' : ''}`} />
+        </button>
+        </div>
       </div>
 
       {/* Schema Browser for Selected Data Source */}
@@ -522,18 +645,18 @@ export default function DataSourceSchemaSelector({
                       onToggle={() => toggleSection('functions')}
                     >
                       {filteredFunctions.map((func: any) => (
-                        <div key={func.function_name} className="px-6 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <div key={func.function_name} className="px-6 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer group transition-colors">
                           <div className="flex items-center gap-2">
-                            <ServerIcon className="h-4 w-4 text-gray-400" />
-                            <span className="font-mono text-gray-700 dark:text-gray-200">
+                            <ServerIcon className="h-4 w-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
+                            <span className="text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
                               {func.function_name}
                             </span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors">
                               ({func.return_type || 'void'})
                             </span>
                           </div>
                           {func.parameters && (
-                            <div className="ml-6 text-xs text-gray-500 dark:text-gray-400">
+                            <div className="ml-6 text-xs text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
                               {func.parameters}
                             </div>
                           )}
@@ -603,19 +726,19 @@ interface SchemaTableItemProps {
 
 function SchemaTableItem({ table, onTableSelect }: SchemaTableItemProps) {
   return (
-    <div className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+    <div className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer group transition-colors">
       <button
         onClick={() => onTableSelect && onTableSelect(table.table_name)}
-        className="w-full px-3 py-0.5 flex items-center justify-between text-left"
+        className="w-full px-3 py-1 flex items-center justify-between text-left"
         title={`Click to view data: SELECT * FROM ${table.table_name} LIMIT 100`}
       >
         <div className="flex items-center gap-1 flex-1 min-w-0">
-          <TableCellsIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
-          <span className="text-xs text-gray-700 dark:text-gray-200 truncate">
+          <TableCellsIcon className="h-3 w-3 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 flex-shrink-0 transition-colors" />
+          <span className="text-xs text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white truncate transition-colors">
             {table.table_name}
           </span>
           {table.columns && (
-            <span className="text-[9px] text-gray-500 dark:text-gray-400 flex-shrink-0">
+            <span className="text-[9px] text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 flex-shrink-0 transition-colors">
               ({table.columns.length})
             </span>
           )}
@@ -634,22 +757,55 @@ interface SchemaViewItemProps {
 
 function SchemaViewItem({ view, viewName, onTableSelect }: SchemaViewItemProps) {
   return (
-    <div className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+    <div className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer group transition-colors">
       <button
         onClick={() => onTableSelect && onTableSelect(viewName)}
-        className="w-full px-3 py-0.5 flex items-center justify-between text-left"
+        className="w-full px-3 py-1 flex items-center justify-between text-left"
         title={`Click to view data: SELECT * FROM ${viewName} LIMIT 100`}
       >
         <div className="flex items-center gap-1 flex-1 min-w-0">
-          <EyeIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
-          <span className="text-xs text-gray-700 dark:text-gray-200 truncate">
+          <EyeIcon className="h-3 w-3 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 flex-shrink-0 transition-colors" />
+          <span className="text-xs text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white truncate transition-colors">
             {viewName}
           </span>
-          <span className="px-1 py-0 text-[8px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded flex-shrink-0">
+        <span className="px-1 py-0 text-[8px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded flex-shrink-0">
             VIEW
           </span>
         </div>
       </button>
     </div>
+  );
+}
+
+// Health Dot — small colored circle
+function HealthDot({ status }: { status: HealthStatus }) {
+  const colors: Record<HealthStatus, string> = {
+    healthy: 'bg-green-500',
+    unhealthy: 'bg-red-500',
+    checking: 'bg-yellow-400 animate-pulse',
+    unknown: 'bg-gray-300',
+  };
+  return <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${colors[status]}`} />;
+}
+
+// Health Badge — small label pill
+function HealthBadge({ status }: { status: HealthStatus }) {
+  if (status === 'unknown') return null;
+  const styles: Record<HealthStatus, string> = {
+    healthy: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    unhealthy: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    checking: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    unknown: '',
+  };
+  const labels: Record<HealthStatus, string> = {
+    healthy: 'OK',
+    unhealthy: 'Error',
+    checking: '...',
+    unknown: '',
+  };
+  return (
+    <span className={`px-1 py-0 text-[9px] font-semibold rounded flex-shrink-0 ${styles[status]}`}>
+      {labels[status]}
+    </span>
   );
 }

@@ -178,6 +178,17 @@ func (h *WebSocketHandler) handleMessage(ctx context.Context, conn *websocket.Co
 		ackBytes, _ := json.Marshal(ackMsg)
 		conn.WriteMessage(websocket.TextMessage, ackBytes)
 
+	case "subscribe_stats":
+		// Subscribe to global dashboard stat updates
+		ackMsg := WebSocketMessage{
+			Type: "subscribed_stats",
+			Payload: map[string]string{
+				"message": "Subscribed to dashboard stats updates",
+			},
+		}
+		ackBytes, _ := json.Marshal(ackMsg)
+		conn.WriteMessage(websocket.TextMessage, ackBytes)
+
 	default:
 		h.sendError(conn, "Unknown message type: "+msg.Type)
 	}
@@ -186,7 +197,7 @@ func (h *WebSocketHandler) handleMessage(ctx context.Context, conn *websocket.Co
 // sendError sends an error message to the client
 func (h *WebSocketHandler) sendError(conn *websocket.Conn, errMsg string) {
 	errorMsg := WebSocketMessage{
-		Type:    "error",
+		Type: "error",
 		Payload: map[string]string{
 			"error": errMsg,
 		},
@@ -198,16 +209,34 @@ func (h *WebSocketHandler) sendError(conn *websocket.Conn, errMsg string) {
 // BroadcastSchemaUpdate broadcasts a schema update to all connected clients
 func (h *WebSocketHandler) BroadcastSchemaUpdate(dataSourceID string, schema interface{}) {
 	message := WebSocketMessage{
-		Type:    "schema_update",
+		Type: "schema_update",
 		Payload: map[string]interface{}{
 			"data_source_id": dataSourceID,
-			"schema":          schema,
+			"schema":         schema,
 		},
 	}
 
 	messageBytes, err := json.Marshal(message)
 	if err != nil {
 		log.Printf("Error marshaling schema update: %v", err)
+		return
+	}
+
+	h.hub.Broadcast(messageBytes)
+}
+
+// BroadcastStatsChanged broadcasts a notification that stats have changed
+func (h *WebSocketHandler) BroadcastStatsChanged() {
+	message := WebSocketMessage{
+		Type: "stats_changed",
+		Payload: map[string]string{
+			"message": "Dashboard statistics have been updated",
+		},
+	}
+
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("Error marshaling stats_changed: %v", err)
 		return
 	}
 

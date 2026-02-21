@@ -8,13 +8,13 @@ import DataSourceManager from '@/components/admin/DataSourceManager';
 
 export default function DataSourcesPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useAuthStore();
+  const { isAuthenticated, isLoading, user, isHydrating } = useAuthStore();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isHydrating && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isHydrating, router]);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user?.role !== 'admin') {
@@ -22,7 +22,7 @@ export default function DataSourcesPage() {
     }
   }, [isAuthenticated, isLoading, user, router]);
 
-  if (isLoading) {
+  if (isHydrating || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-gray-600 dark:text-gray-400">Loading...</div>

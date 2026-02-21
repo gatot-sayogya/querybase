@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
-import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
 import PageTransition from '@/components/layout/PageTransition';
 
 export default function LoginPage() {
@@ -25,79 +23,83 @@ export default function LoginPage() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 relative overflow-hidden py-12 px-4 sm:px-6 lg:px-8">
-        {/* Background decorations */}
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[80px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-500/5 blur-[80px] pointer-events-none" />
+      <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-slate-50 dark:bg-slate-900">
+        {/* Subtle background glow from login.html body::before */}
+        <div style={{
+          position: 'fixed', top: '-120px', left: '50%', transform: 'translateX(-20%)',
+          width: '640px', height: '640px', background: 'radial-gradient(circle, rgba(37, 99, 235, 0.25) 0%, transparent 70%)',
+          pointerEvents: 'none'
+        }} />
 
-        <div className="w-full max-w-md space-y-8 relative z-10">
-          <div className="text-center animate-slide-down">
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-              Welcome back
-            </h2>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              Sign in to manage your databases
-            </p>
+        <div className="login-card">
+          {/* Logo */}
+          <div className="logo-row">
+            <div className="logo-mark">Q</div>
+            <span className="logo-name">QueryBase</span>
           </div>
 
-          <Card variant="glass" className="p-8 backdrop-blur-xl bg-white/70 dark:bg-gray-800/70 shadow-2xl animate-scale-in border-white/50 dark:border-gray-700/50">
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md text-sm animate-shake">
-                  {error}
-                </div>
-              )}
-              <div className="space-y-4">
-                <div className="group">
-                  <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 group-focus-within:text-blue-600 dark:group-focus-within:text-blue-400 transition-colors">
-                    Username
-                  </label>
-                  <input
-                    id="username"
-                    name="username"
-                    type="text"
-                    required
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm bg-white dark:bg-gray-900/50 dark:text-white transition-all duration-200"
-                    placeholder="Enter your username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
-                </div>
-                <div className="group">
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 group-focus-within:text-blue-600 dark:group-focus-within:text-blue-400 transition-colors">
-                    Password
-                  </label>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm bg-white dark:bg-gray-900/50 dark:text-white transition-all duration-200"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-              </div>
+          {/* Title */}
+          <div className="title-block">
+            <h1>Welcome back</h1>
+            <p>Sign in to your account to continue</p>
+          </div>
 
-              <div>
-                <Button
-                  type="submit"
-                  loading={isLoading}
-                  className="w-full shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30"
-                  size="lg"
-                >
-                  Sign in
-                </Button>
-              </div>
+          {/* Form */}
+          <form className="form-fields" onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="username">Username</label>
+              <input
+                id="username"
+                name="username"
+                className="form-input"
+                type="text"
+                required
+                placeholder="Enter username"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="password">Password</label>
+              <input
+                id="password"
+                name="password"
+                className="form-input"
+                type="password"
+                required
+                placeholder="••••••••"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
 
-              <div className="mt-6 text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 py-2 px-3 rounded-md inline-block border border-gray-100 dark:border-gray-700">
-                  Demo Credentials: <span className="font-mono font-medium text-gray-700 dark:text-gray-300">admin / admin123</span>
-                </p>
+            {/* Error message */}
+            {error && (
+              <div className="error-msg show" id="errorMsg">
+                ⚠ {error}
               </div>
-            </form>
-          </Card>
+            )}
+
+            {/* CTA */}
+            <button 
+              type="submit" 
+              className="signin-btn" 
+              id="signInBtn"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Signing in...' : 'Sign in'}
+            </button>
+            <div className="mt-2 text-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Demo Credentials: <span className="font-mono">admin / admin123</span>
+              </p>
+            </div>
+          </form>
+
+          {/* Footer */}
+          <p className="card-footer">Secure database access for your team</p>
         </div>
       </div>
     </PageTransition>

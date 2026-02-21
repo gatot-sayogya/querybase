@@ -83,98 +83,76 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          {user ? 'Edit User' : 'Add New User'}
-        </h2>
-      </div>
-
-      {/* Email */}
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Email *
-        </label>
+    <form onSubmit={handleSubmit}>
+      <div className="form-group">
+        <label htmlFor="email">Email <span style={{ color: 'var(--accent-red)' }}>*</span></label>
         <input
           type="email"
           id="email"
           name="email"
           value={formData.email}
           onChange={handleChange}
-          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-          }`}
+          className="input-field"
+          style={errors.email ? { borderColor: 'var(--accent-red)' } : {}}
           placeholder="user@example.com"
         />
-        {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
+        {errors.email && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.email}</div>}
       </div>
 
-      {/* Username */}
-      <div>
-        <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Username *
-        </label>
+      <div className="form-group">
+        <label htmlFor="username">Username <span style={{ color: 'var(--accent-red)' }}>*</span></label>
         <input
           type="text"
           id="username"
           name="username"
           value={formData.username}
           onChange={handleChange}
-          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.username ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-          }`}
+          className="input-field"
+          style={errors.username ? { borderColor: 'var(--accent-red)' } : {}}
           placeholder="johndoe"
         />
-        {errors.username && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.username}</p>}
+        {errors.username && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.username}</div>}
       </div>
 
-      {/* Full Name */}
-      <div>
-        <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Full Name *
-        </label>
+      <div className="form-group">
+        <label htmlFor="full_name">Full Name <span style={{ color: 'var(--accent-red)' }}>*</span></label>
         <input
           type="text"
           id="full_name"
           name="full_name"
           value={formData.full_name}
           onChange={handleChange}
-          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.full_name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-          }`}
+          className="input-field"
+          style={errors.full_name ? { borderColor: 'var(--accent-red)' } : {}}
           placeholder="John Doe"
         />
-        {errors.full_name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.full_name}</p>}
+        {errors.full_name && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.full_name}</div>}
       </div>
 
-      {/* Role */}
-      <div>
-        <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Role *
-        </label>
+      <div className="form-group">
+        <label htmlFor="role">Role <span style={{ color: 'var(--accent-red)' }}>*</span></label>
         <select
           id="role"
           name="role"
           value={formData.role}
           onChange={handleChange}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+          className="input-field"
         >
           <option value="user">User</option>
           <option value="admin">Admin</option>
           <option value="viewer">Viewer</option>
         </select>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <div style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
           {formData.role === 'admin' && 'Full access to all features including user management'}
           {formData.role === 'user' && 'Can execute queries and submit approval requests'}
           {formData.role === 'viewer' && 'Read-only access to queries and results'}
-        </p>
+        </div>
       </div>
 
-      {/* Password */}
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Password {!user && '*'}
-          {user && '(leave empty to keep current)'}
+      <div className="form-group">
+        <label htmlFor="password">
+          Password {!user && <span style={{ color: 'var(--accent-red)' }}>*</span>}
+          {user && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(leave empty to keep current)</span>}
         </label>
         <input
           type="password"
@@ -182,50 +160,46 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
           name="password"
           value={formData.password}
           onChange={handleChange}
-          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-          }`}
+          className="input-field"
+          style={errors.password ? { borderColor: 'var(--accent-red)' } : {}}
           placeholder="••••••••••"
         />
-        {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
+        {errors.password && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.password}</div>}
       </div>
 
       {/* Active Status */}
       {user && (
-        <div>
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              name="is_active"
-              checked={formData.is_active}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Active
-            </span>
+        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="checkbox"
+            id="is_active"
+            name="is_active"
+            checked={formData.is_active}
+            onChange={handleChange}
+            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+          />
+          <label htmlFor="is_active" style={{ marginBottom: 0, fontWeight: 500, cursor: 'pointer' }}>
+            Active User
           </label>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Uncheck to disable user login
-          </p>
         </div>
       )}
 
       {/* Actions */}
-      <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-        >
-          Cancel
-        </button>
+      <div style={{ marginTop: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
         <button
           type="submit"
           disabled={saving}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          className="btn btn-primary"
+          style={saving ? { opacity: 0.7, cursor: 'not-allowed' } : {}}
         >
-          {saving ? 'Saving...' : user ? 'Update' : 'Create'}
+          {saving ? 'Saving...' : user ? 'Update User' : 'Save User'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          style={{ marginLeft: 'auto', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}
+        >
+          Cancel
         </button>
       </div>
     </form>

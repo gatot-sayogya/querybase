@@ -12,10 +12,11 @@ import type {
   ReviewApprovalRequest,
   Group,
   ChangePasswordRequest,
-  HealthStatus,
   CreateDataSourceRequest,
   DatabaseSchema,
   TableInfo,
+  DashboardStats,
+  HealthStatus,
 } from '@/types';
 
 class ApiClient {
@@ -61,19 +62,22 @@ class ApiClient {
           // Don't redirect if:
           // 1. Already on login page
           // 2. The failed request was to /auth/login (legitimate failed login)
+          // 3. The request had no Authorization header (race condition on page load)
           const isLoginPage = typeof window !== 'undefined' && window.location.pathname === '/login';
           const isLoginRequest = error.config?.url?.includes('/auth/login');
+          const hadToken = !!error.config?.headers?.Authorization;
           
-          if (!isLoginPage && !isLoginRequest) {
-            // Clear token and redirect to login
+          if (!isLoginPage && !isLoginRequest && hadToken) {
+            // Only clear token and redirect if the request actually sent a token
+            // (meaning the token exists but is invalid/expired, not a race condition)
             this.clearToken();
             if (typeof window !== 'undefined') {
               // Also clear the auth store
               localStorage.removeItem('auth-storage');
               window.location.href = '/login';
             }
-          } else if (!isLoginRequest) {
-            // On login page but got 401 from other request, just clear token
+          } else if (!isLoginRequest && isLoginPage && hadToken) {
+            // On login page but got 401 from other request with valid token, just clear token
             this.clearToken();
             if (typeof window !== 'undefined') {
               localStorage.removeItem('auth-storage');
@@ -97,6 +101,12 @@ class ApiClient {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');
     }
+  }
+
+  // Dashboard Stats
+  async getDashboardStats(): Promise<DashboardStats> {
+    const response = await this.client.get<DashboardStats>('/api/v1/dashboard/stats');
+    return response.data;
   }
 
   // Authentication
@@ -234,9 +244,16 @@ class ApiClient {
     return response.data;
   }
 
-  async getQueryHistory(page = 1, limit = 20): Promise<{ queries: Query[]; total: number }> {
+  async getQueryHistory(page = 1, limit = 20, search = ''): Promise<{ queries: Query[]; total: number }> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    if (search) {
+      params.append('search', search);
+    }
     const response = await this.client.get<{ history: Query[]; limit: number; page: number; total: number }>(
-      `/api/v1/queries/history?page=${page}&limit=${limit}`
+      `/api/v1/queries/history?${params.toString()}`
     );
     return {
       queries: response.data.history,
@@ -263,6 +280,11 @@ class ApiClient {
   }
 
   // Approvals
+  async getApprovalCounts(): Promise<Record<string, number>> {
+    const response = await this.client.get<Record<string, number>>('/api/v1/approvals/counts');
+    return response.data;
+  }
+
   async getApprovals(params?: { status?: string; page?: number }): Promise<ApprovalRequest[]> {
     const queryParams = new URLSearchParams();
     if (params?.status) queryParams.append('status', params.status);

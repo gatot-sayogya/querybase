@@ -37,33 +37,40 @@ export default function DataSourceManager() {
     <div className="space-y-6">
       {view === 'list' && (
         <>
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Data Sources</h1>
+          <div className="page-header">
+            <div>
+              <h1 className="page-title">Data Sources</h1>
+              <p className="page-subtitle">Manage database connections available to users</p>
+            </div>
             <button
               onClick={handleCreateNew}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="btn btn-primary"
             >
-              Add Data Source
+              + Add Data Source
             </button>
           </div>
-          <DataSourceList key={refreshKey} onEditDataSource={handleEditDataSource} selectedId={null} />
+          <div className="-mx-2 sm:mx-0">
+            <DataSourceList key={refreshKey} onEditDataSource={handleEditDataSource} selectedId={null} />
+          </div>
         </>
       )}
 
       {(view === 'create' || view === 'edit') && (
         <>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={handleCancel}
-              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-            >
-              ← Back to List
-            </button>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {view === 'create' ? 'Add Data Source' : 'Edit Data Source'}
-            </h1>
+          <div className="page-header" style={{ marginBottom: '20px' }}>
+            <div>
+              <button
+                onClick={handleCancel}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', cursor: 'pointer', padding: 0, marginBottom: '8px' }}
+              >
+                ← Back to Data Sources
+              </button>
+              <h1 className="page-title">
+                {view === 'create' ? 'Add Data Source' : 'Edit Data Source'}
+              </h1>
+            </div>
           </div>
-          <div className="max-w-2xl">
+          <div className="card card-padded" style={{ maxWidth: '600px' }}>
             <DataSourceForm
               dataSource={selectedDataSource || undefined}
               onSave={handleSave}

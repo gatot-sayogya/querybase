@@ -35,14 +35,16 @@ type QueryService struct {
 	// Key: data_source_id
 	activeTransactions map[uuid.UUID]*ActiveTransaction
 	txMutex            sync.RWMutex
+	statsService       *StatsService
 }
 
 // NewQueryService creates a new query service
-func NewQueryService(db *gorm.DB, encryptionKey string) *QueryService {
+func NewQueryService(db *gorm.DB, encryptionKey string, statsService *StatsService) *QueryService {
 	return &QueryService{
 		db:                 db,
 		encryptionKey:      []byte(encryptionKey),
 		activeTransactions: make(map[uuid.UUID]*ActiveTransaction),
+		statsService:       statsService,
 	}
 }
 
@@ -175,6 +177,11 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 		ExecutedAt:    time.Now(),
 	}
 	s.db.Create(queryHistory)
+
+	// Trigger stats update
+	if s.statsService != nil {
+		s.statsService.TriggerStatsChanged()
+	}
 
 	return queryResult, nil
 }
@@ -659,7 +666,7 @@ func convertDeleteToSelect(queryText string) string {
 }
 
 // ListQueryHistory retrieves query history with pagination
-func (s *QueryService) ListQueryHistory(ctx context.Context, userID string, limit, offset int) ([]models.QueryHistory, int64, error) {
+func (s *QueryService) ListQueryHistory(ctx context.Context, userID string, limit, offset int, search string) ([]models.QueryHistory, int64, error) {
 	var history []models.QueryHistory
 	var total int64
 
@@ -671,6 +678,11 @@ func (s *QueryService) ListQueryHistory(ctx context.Context, userID string, limi
 		if user.Role != models.RoleAdmin {
 			query = query.Where("user_id = ?", userID)
 		}
+	}
+
+	if search != "" {
+		searchParam := "%" + search + "%"
+		query = query.Where("LOWER(query_text) LIKE LOWER(?) OR LOWER(name) LIKE LOWER(?)", searchParam, searchParam)
 	}
 
 	// Get total count

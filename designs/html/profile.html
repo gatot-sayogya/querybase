@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QueryBase – My Profile</title>
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    .profile-grid {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* ── Left column: user card ─────────────────── */
+    .user-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow: hidden;
+    }
+    .user-card-top {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 32px 24px 24px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .avatar-large {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: linear-gradient(135deg, #4F46E5, #2563EB);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; font-weight: 700; color: #fff;
+      letter-spacing: -1px;
+    }
+    .user-name  { font-size: 18px; font-weight: 700; color: var(--text-primary); text-align: center; }
+    .user-email { font-size: 13px; color: var(--text-muted); text-align: center; margin-top: -6px; }
+    .user-role-badge { margin-top: 4px; }
+
+    .user-meta { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+    .meta-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px;
+    }
+    .meta-label { color: var(--text-muted); font-weight: 500; }
+    .meta-value { color: var(--text-primary); font-weight: 500; }
+
+    /* ── Right column ────────────────────────────── */
+    .right-col { display: flex; flex-direction: column; gap: 24px; }
+
+    /* Tab Nav */
+    .tab-nav {
+      display: flex;
+      border-bottom: 1px solid var(--border-light);
+      gap: 0;
+      margin-bottom: 24px;
+    }
+    .tab-btn {
+      padding: 10px 20px;
+      font-size: 14px; font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      background: none; border-top: none; border-left: none; border-right: none;
+      font-family: 'Inter', sans-serif;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+
+    /* Sections */
+    .section { display: none; flex-direction: column; gap: 24px; }
+    .section.active { display: flex; }
+
+    /* Form card */
+    .form-card { padding: 28px; }
+    .form-card-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+    .form-card-sub   { font-size: 13px; color: var(--text-muted); margin-bottom: 22px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-row.single { grid-template-columns: 1fr; }
+    .form-actions {
+      display: flex; justify-content: flex-end; gap: 10px;
+      margin-top: 24px; padding-top: 20px;
+      border-top: 1px solid var(--border-light);
+    }
+
+    /* Password strength */
+    .pw-strength { margin-top: 8px; }
+    .pw-bar-track { height: 4px; background: var(--border-light); border-radius: 99px; overflow: hidden; }
+    .pw-bar-fill  { height: 100%; border-radius: 99px; transition: width 0.3s, background 0.3s; width: 0; }
+    .pw-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    /* Groups section */
+    .group-list { display: flex; flex-direction: column; gap: 10px; }
+    .group-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px;
+      border-radius: var(--r-lg);
+      border: 1px solid var(--border-light);
+      background: var(--card-bg);
+    }
+    .group-item-left { display: flex; align-items: center; gap: 12px; }
+    .group-icon-sm {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .group-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .group-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* DB access list */
+    .db-list { display: flex; flex-direction: column; gap: 10px; }
+    .db-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px;
+      border-radius: var(--r-lg);
+      border: 1px solid var(--border-light);
+      background: var(--card-bg);
+    }
+    .db-item-left { display: flex; align-items: center; gap: 14px; }
+    .db-type-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .db-name   { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .db-host   { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .db-perms  { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* Notif / Toast */
+    .toast {
+      position: fixed; bottom: 28px; right: 28px;
+      background: #0F172A; color: #fff;
+      padding: 14px 20px; border-radius: var(--r-lg);
+      font-size: 13px; display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      opacity: 0; pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: 1000;
+    }
+    .toast.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    .toast-icon { font-size: 16px; }
+  </style>
+  <script>
+    (function() {
+      var saved = localStorage.getItem('qb_theme');
+      var dark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.classList.add('dark');
+    })();
+  </script>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-logo"><div class="sidebar-mark">Q</div></div>
+      <div class="sidebar-nav">
+        <a href="query-editor.html" class="nav-item" data-tooltip="Query Editor"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></a>
+        <a href="history.html" class="nav-item" data-tooltip="History"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></a>
+        <a href="approvals.html" class="nav-item" data-tooltip="Approvals"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></a>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="settings-wrapper" id="settingsWrapper">
+          <button class="nav-item" id="settingsBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+          <div class="settings-menu" id="settingsMenu">
+            <div class="settings-menu-label">Settings</div>
+            <a href="admin-users.html" class="settings-item" id="smi-users">
+              <span class="settings-icon" style="background:#EFF6FF;color:#2563EB"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              Users
+            </a>
+            <a href="admin-groups.html" class="settings-item" id="smi-groups">
+              <span class="settings-icon" style="background:#F5F3FF;color:#7C3AED"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+              Groups
+            </a>
+            <a href="admin-datasources.html" class="settings-item" id="smi-datasources">
+              <span class="settings-icon" style="background:#F0FDF4;color:#059669"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>
+              Data Sources
+            </a>
+          </div>
+        </div>
+        <script>
+          (function() {
+            var btn = document.getElementById("settingsBtn");
+            var menu = document.getElementById("settingsMenu");
+            if (!btn) return;
+            // Mark active page
+            var path = window.location.pathname;
+            if (path.includes("admin-users"))       document.getElementById("smi-users").classList.add("active-page");
+            else if (path.includes("admin-groups")) document.getElementById("smi-groups").classList.add("active-page");
+            else if (path.includes("admin-datasources")) document.getElementById("smi-datasources").classList.add("active-page");
+            if (path.includes("admin-")) btn.classList.add("active");
+            })();
+        </script>
+        <div class="avatar-wrapper" id="avatarWrapper">
+          <div class="avatar-btn open" id="avatarBtn" title="Account">A</div>
+          <div class="avatar-menu" id="avatarMenu">
+            <div class="menu-user-info">
+              <div class="menu-user-name" id="menuUserName">Admin User</div>
+              <div class="menu-user-role" id="menuUserRole">admin</div>
+            </div>
+            <a href="profile.html" class="menu-item">
+              <span class="menu-icon" style="background:#EFF6FF;color:#2563EB">&#x1F464;</span>
+              My Profile
+            </a>
+            <a href="query-editor.html" class="menu-item">
+              <span class="menu-icon" style="background:#F0FDF4;color:#059669">&#x2315;</span>
+              New Query
+            </a>
+            <div class="menu-divider"></div>
+            <button class="menu-item" onclick="toggleTheme()" id="themeToggleBtn">
+              <span class="menu-icon" style="background:#F3F4F6;color:#374151" id="themeToggleIcon">💻</span>
+              <span style="flex:1">Theme</span>
+              <span style="font-size:11px;color:var(--text-muted);text-transform:capitalize" id="themeToggleText">System</span>
+            </button>
+            <script>
+              function updateThemeUI() {
+                var btn = document.getElementById('themeToggleBtn');
+                var icon = document.getElementById('themeToggleIcon');
+                var text = document.getElementById('themeToggleText');
+                if (!btn) return;
+                var theme = localStorage.getItem('qb_theme') || 'system';
+                text.textContent = theme;
+                if (theme === 'dark') {
+                  icon.textContent = '🌙';
+                  icon.style.background = '#374151'; icon.style.color = '#F3F4F6';
+                } else if (theme === 'light') {
+                  icon.textContent = '☀️';
+                  icon.style.background = '#F3F4F6'; icon.style.color = '#374151';
+                } else {
+                  icon.textContent = '💻';
+                  icon.style.background = '#F3F4F6'; icon.style.color = '#374151';
+                }
+              }
+              function toggleTheme() {
+                var current = localStorage.getItem('qb_theme') || 'system';
+                var next = current === 'light' ? 'dark' : current === 'dark' ? 'system' : 'light';
+                if (next === 'system') {
+                  localStorage.removeItem('qb_theme');
+                  if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
+                  else document.documentElement.classList.remove('dark');
+                } else {
+                  localStorage.setItem('qb_theme', next);
+                  if (next === 'dark') document.documentElement.classList.add('dark');
+                  else document.documentElement.classList.remove('dark');
+                }
+                updateThemeUI();
+              }
+              document.addEventListener('DOMContentLoaded', updateThemeUI);
+            </script>
+            <div class="menu-divider"></div>
+            <button class="menu-item danger" onclick="signOut()">
+              <span class="menu-icon">&#x1F6AA;</span>
+              Sign out
+            </button>
+          </div>
+        </div>
+        <script>
+          (function() {
+            var raw = sessionStorage.getItem('qb_user');
+            var user = raw ? JSON.parse(raw) : { username: 'admin', fullName: 'Admin User', role: 'admin' };
+            var btn = document.getElementById('avatarBtn');
+            if (btn) {
+              btn.textContent = (user.fullName || user.username).charAt(0).toUpperCase();
+              document.getElementById('menuUserName').textContent = user.fullName || user.username;
+              document.getElementById('menuUserRole').textContent = user.role;
+            }
+          })();
+          function signOut() {
+            sessionStorage.removeItem('qb_user');
+            window.location.href = 'login.html';
+          }
+        </script>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="main-content">
+      <!-- Page header -->
+      <div class="page-header" style="margin-bottom: 4px;">
+        <div>
+          <h1 class="page-title">My Profile</h1>
+          <p class="page-subtitle">Manage your account settings and view your access permissions</p>
+        </div>
+      </div>
+
+      <div class="profile-grid">
+
+        <!-- ── Left: User card ── -->
+        <div class="card user-card">
+          <div class="user-card-top">
+            <div class="avatar-large">A</div>
+            <div>
+              <div class="user-name">Admin User</div>
+              <div class="user-email">admin@querybase.local</div>
+              <div class="user-role-badge" style="text-align:center; margin-top:8px">
+                <span class="badge badge-purple">admin</span>
+              </div>
+            </div>
+          </div>
+          <div class="user-meta">
+            <div class="meta-row">
+              <span class="meta-label">Username</span>
+              <span class="meta-value">admin</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Member since</span>
+              <span class="meta-value">Jan 15, 2024</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Last login</span>
+              <span class="meta-value">Today, 09:12</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Groups</span>
+              <span class="meta-value">2</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">DB Access</span>
+              <span class="meta-value">3 sources</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Right: Tabs ── -->
+        <div class="right-col">
+
+          <!-- Tab Nav -->
+          <div style="border-bottom: 1px solid var(--border-light);">
+            <nav class="tab-nav" style="border-bottom: none; margin-bottom: 0;">
+              <button class="tab-btn active" onclick="switchTab(this, 'tab-account')">Account</button>
+              <button class="tab-btn" onclick="switchTab(this, 'tab-password')">Password</button>
+              <button class="tab-btn" onclick="switchTab(this, 'tab-groups')">Groups</button>
+              <button class="tab-btn" onclick="switchTab(this, 'tab-databases')">Database Access</button>
+            </nav>
+          </div>
+
+          <!-- Tab: Account -->
+          <div id="tab-account" class="section active">
+            <div class="card form-card">
+              <div class="form-card-title">Account Information</div>
+              <div class="form-card-sub">Update your display name and username</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="firstName">First Name</label>
+                  <input id="firstName" class="form-input" type="text" value="Admin" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="lastName">Last Name</label>
+                  <input id="lastName" class="form-input" type="text" value="User" />
+                </div>
+              </div>
+              <div class="form-row single" style="margin-top:16px">
+                <div class="form-group">
+                  <label class="form-label" for="username">Username</label>
+                  <input id="username" class="form-input" type="text" value="admin" />
+                </div>
+              </div>
+              <div class="form-row single" style="margin-top:16px">
+                <div class="form-group">
+                  <label class="form-label" for="email">Email Address</label>
+                  <input id="email" class="form-input" type="email" value="admin@querybase.local" />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-ghost" onclick="resetForm('account')">Discard</button>
+                <button class="btn btn-primary" onclick="showToast('✓ Account updated successfully')">Save Changes</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab: Password -->
+          <div id="tab-password" class="section">
+            <div class="card form-card">
+              <div class="form-card-title">Change Password</div>
+              <div class="form-card-sub">Use a strong password with at least 8 characters</div>
+              <div class="form-row single">
+                <div class="form-group">
+                  <label class="form-label" for="currPw">Current Password</label>
+                  <input id="currPw" class="form-input" type="password" placeholder="Enter current password" />
+                </div>
+              </div>
+              <div class="form-row single" style="margin-top:16px">
+                <div class="form-group">
+                  <label class="form-label" for="newPw">New Password</label>
+                  <input id="newPw" class="form-input" type="password" placeholder="At least 8 characters"
+                         oninput="updateStrength(this.value)" />
+                  <div class="pw-strength">
+                    <div class="pw-bar-track"><div class="pw-bar-fill" id="pwBar"></div></div>
+                    <div class="pw-hint" id="pwHint">Enter a new password</div>
+                  </div>
+                </div>
+              </div>
+              <div class="form-row single" style="margin-top:16px">
+                <div class="form-group">
+                  <label class="form-label" for="confirmPw">Confirm New Password</label>
+                  <input id="confirmPw" class="form-input" type="password" placeholder="Re-enter new password" />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-ghost">Cancel</button>
+                <button class="btn btn-primary" onclick="showToast('✓ Password changed successfully')">Update Password</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab: Groups -->
+          <div id="tab-groups" class="section">
+            <div class="card" style="padding: 20px 24px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div>
+                  <div class="form-card-title" style="margin-bottom:2px">Group Memberships</div>
+                  <div class="form-card-sub" style="margin-bottom:0">Groups determine which data sources you can access</div>
+                </div>
+                <span class="badge badge-slate">2 groups</span>
+              </div>
+              <div class="group-list">
+                <div class="group-item">
+                  <div class="group-item-left">
+                    <div class="group-icon-sm" style="background:#EDE9FE;color:#4F46E5">⛾</div>
+                    <div>
+                      <div class="group-name">Administrators</div>
+                      <div class="group-desc">Full system access — all data sources, all operations</div>
+                    </div>
+                  </div>
+                  <span class="badge badge-purple">admin</span>
+                </div>
+                <div class="group-item">
+                  <div class="group-item-left">
+                    <div class="group-icon-sm" style="background:#EFF6FF;color:#2563EB">⛾</div>
+                    <div>
+                      <div class="group-name">Engineering</div>
+                      <div class="group-desc">Full access to production and analytics databases</div>
+                    </div>
+                  </div>
+                  <span class="badge badge-blue">member</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab: Database Access -->
+          <div id="tab-databases" class="section">
+            <div class="card" style="padding: 20px 24px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div>
+                  <div class="form-card-title" style="margin-bottom:2px">Accessible Databases</div>
+                  <div class="form-card-sub" style="margin-bottom:0">These are the data sources your groups grant you access to</div>
+                </div>
+                <span class="badge badge-slate">3 sources</span>
+              </div>
+              <div class="db-list">
+                <!-- DB 1 -->
+                <div class="db-item">
+                  <div class="db-item-left">
+                    <div class="db-type-icon" style="background:#DBEAFE;color:#1D4ED8">◉</div>
+                    <div>
+                      <div class="db-name">Production DB</div>
+                      <div class="db-host">PostgreSQL · db.prod.internal:5432</div>
+                    </div>
+                  </div>
+                  <div class="db-perms">
+                    <span class="badge badge-green">SELECT</span>
+                    <span class="badge badge-amber">INSERT</span>
+                    <span class="badge badge-red">DELETE (approval)</span>
+                  </div>
+                </div>
+                <!-- DB 2 -->
+                <div class="db-item">
+                  <div class="db-item-left">
+                    <div class="db-type-icon" style="background:#DCFCE7;color:#166534">◉</div>
+                    <div>
+                      <div class="db-name">Analytics DB</div>
+                      <div class="db-host">MySQL · analytics.internal:3306</div>
+                    </div>
+                  </div>
+                  <div class="db-perms">
+                    <span class="badge badge-green">SELECT</span>
+                  </div>
+                </div>
+                <!-- DB 3 -->
+                <div class="db-item">
+                  <div class="db-item-left">
+                    <div class="db-type-icon" style="background:#FEE2E2;color:#B91C1C">◉</div>
+                    <div>
+                      <div class="db-name">Redis Cache</div>
+                      <div class="db-host">Redis · redis.internal:6379</div>
+                    </div>
+                  </div>
+                  <div class="db-perms">
+                    <span class="badge badge-green">READ</span>
+                    <span class="badge badge-amber">WRITE</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast">
+    <span class="toast-icon">✓</span>
+    <span id="toastMsg">Saved</span>
+  </div>
+
+  <script>
+    /* ── Tab switching ── */
+    function switchTab(btn, tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    /* ── Password strength meter ── */
+    function updateStrength(val) {
+      const bar  = document.getElementById('pwBar');
+      const hint = document.getElementById('pwHint');
+      if (!val) { bar.style.width='0'; bar.style.background=''; hint.textContent='Enter a new password'; return; }
+      let score = 0;
+      if (val.length >= 8)  score++;
+      if (/[A-Z]/.test(val)) score++;
+      if (/[0-9]/.test(val)) score++;
+      if (/[^A-Za-z0-9]/.test(val)) score++;
+      const levels = [
+        { w:'20%', c:'#EF4444', t:'Too weak' },
+        { w:'45%', c:'#F97316', t:'Weak' },
+        { w:'70%', c:'#EAB308', t:'Fair' },
+        { w:'100%',c:'#22C55E', t:'Strong' },
+      ];
+      const l = levels[Math.min(score, levels.length) - 1] || levels[0];
+      bar.style.width = l.w;
+      bar.style.background = l.c;
+      hint.textContent = l.t;
+      hint.style.color = l.c;
+    }
+
+    /* ── Toast ── */
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    /* ── Discard ── */
+    function resetForm(section) {
+      if (section === 'account') {
+        document.getElementById('firstName').value = 'Admin';
+        document.getElementById('lastName').value  = 'User';
+        document.getElementById('username').value  = 'admin';
+        document.getElementById('email').value     = 'admin@querybase.local';
+      }
+    }
+  </script>
+</body>
+</html>

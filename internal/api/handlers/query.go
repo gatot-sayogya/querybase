@@ -18,8 +18,8 @@ import (
 
 // QueryHandler handles query endpoints
 type QueryHandler struct {
-	db            *gorm.DB
-	queryService  *service.QueryService
+	db           *gorm.DB
+	queryService *service.QueryService
 }
 
 // NewQueryHandler creates a new query handler
@@ -125,12 +125,12 @@ func (h *QueryHandler) ExecuteQuery(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.ExecuteQueryResponse{
-		QueryID:       query.ID.String(),
-		Status:        "completed",
-		RowCount:      &result.RowCount,
-		ExecutionTime: &executionTime,
-		Data:          data,
-		Columns:       columns,
+		QueryID:          query.ID.String(),
+		Status:           "completed",
+		RowCount:         &result.RowCount,
+		ExecutionTime:    &executionTime,
+		Data:             data,
+		Columns:          columns,
 		RequiresApproval: false,
 	})
 }
@@ -256,13 +256,13 @@ func (h *QueryHandler) ListQueries(c *gin.Context) {
 	response := make([]gin.H, len(queries))
 	for i, query := range queries {
 		response[i] = gin.H{
-			"id":              query.ID.String(),
-			"name":            query.Name,
-			"description":     query.Description,
-			"data_source_id":  query.DataSourceID.String(),
-			"operation_type":  string(query.OperationType),
-			"status":          string(query.Status),
-			"created_at":      query.CreatedAt,
+			"id":             query.ID.String(),
+			"name":           query.Name,
+			"description":    query.Description,
+			"data_source_id": query.DataSourceID.String(),
+			"operation_type": string(query.OperationType),
+			"status":         string(query.Status),
+			"created_at":     query.CreatedAt,
 		}
 	}
 
@@ -313,7 +313,7 @@ func (h *QueryHandler) createApprovalForQuery(c *gin.Context, req dto.ExecuteQue
 	// Step 1: Validate SQL syntax
 	if err := service.ValidateSQL(req.QueryText); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid SQL syntax",
+			"error":   "Invalid SQL syntax",
 			"details": err.Error(),
 		})
 		return
@@ -323,7 +323,7 @@ func (h *QueryHandler) createApprovalForQuery(c *gin.Context, req dto.ExecuteQue
 	// This prevents approvers from reviewing queries with non-existent tables
 	if err := h.queryService.ValidateQuerySchema(c, req.QueryText, &dataSource); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Schema validation failed",
+			"error":   "Schema validation failed",
 			"details": err.Error(),
 		})
 		return
@@ -355,10 +355,10 @@ func (h *QueryHandler) createApprovalForQuery(c *gin.Context, req dto.ExecuteQue
 	// This will be implemented when we add the notification service
 
 	c.JSON(http.StatusAccepted, dto.ExecuteQueryResponse{
-		QueryID:         uuid.New().String(),
-		Status:          "pending_approval",
+		QueryID:          uuid.New().String(),
+		Status:           "pending_approval",
 		RequiresApproval: true,
-		ApprovalID:      approval.ID.String(),
+		ApprovalID:       approval.ID.String(),
 	})
 }
 
@@ -424,8 +424,9 @@ func (h *QueryHandler) ListQueryHistory(c *gin.Context) {
 	dataSourceID := c.Query("data_source_id")
 	status := c.Query("status")
 	operationType := c.Query("operation_type")
+	search := c.Query("search")
 
-	history, total, err := h.queryService.ListQueryHistory(c, userID, limit, offset)
+	history, total, err := h.queryService.ListQueryHistory(c, userID, limit, offset, search)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch query history"})
 		return
@@ -452,18 +453,18 @@ func (h *QueryHandler) ListQueryHistory(c *gin.Context) {
 	response := make([]gin.H, len(history))
 	for i, entry := range history {
 		response[i] = gin.H{
-			"id":               entry.ID.String(),
-			"query_id":         entry.QueryID,
-			"user_id":          entry.UserID.String(),
-			"data_source_id":   entry.DataSourceID.String(),
-			"data_source_name": entry.DataSource.Name,
-			"query_text":       entry.QueryText,
-			"operation_type":   string(entry.OperationType),
-			"status":           string(entry.Status),
-			"row_count":        entry.RowCount,
+			"id":                entry.ID.String(),
+			"query_id":          entry.QueryID,
+			"user_id":           entry.UserID.String(),
+			"data_source_id":    entry.DataSourceID.String(),
+			"data_source_name":  entry.DataSource.Name,
+			"query_text":        entry.QueryText,
+			"operation_type":    string(entry.OperationType),
+			"status":            string(entry.Status),
+			"row_count":         entry.RowCount,
 			"execution_time_ms": entry.ExecutionTimeMs,
-			"error_message":    entry.ErrorMessage,
-			"executed_at":      entry.ExecutedAt,
+			"error_message":     entry.ErrorMessage,
+			"executed_at":       entry.ExecutedAt,
 		}
 	}
 
@@ -629,10 +630,10 @@ func (h *QueryHandler) GetQueryResults(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.PaginatedResultDTO{
-		QueryID:       queryID,
-		RowCount:      len(rows),
-		Columns:       columns,
-		Data:          rows,
+		QueryID:  queryID,
+		RowCount: len(rows),
+		Columns:  columns,
+		Data:     rows,
 		Metadata: dto.PaginationMeta{
 			Page:       metadata.Page,
 			PerPage:    metadata.PerPage,

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QueryBase – Query Editor</title>
+  <link rel="stylesheet" href="shared.css" />
+  <style>
+    body { overflow: hidden; }
+    .app-shell { height: 100vh; }
+
+    /* Schema panel – light white/gray theme */
+    .schema-panel {
+      width: 240px;
+      background: #FFFFFF;
+      border-right: 1px solid var(--border-light);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      height: 100%;
+    }
+    .schema-title {
+      display: flex; align-items: center; gap: 10px;
+      height: 56px; padding: 0 16px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .schema-title span { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+    .schema-icon { font-size: 16px; color: var(--text-muted); }
+
+    .ds-dropdown {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: var(--bg-page);
+      font-size: 13px; color: var(--text-primary); cursor: pointer;
+      border: 1px solid var(--border); border-radius: var(--r-md);
+      margin: 10px 10px 4px;
+      transition: border-color 0.12s;
+    }
+    .ds-dropdown:hover { border-color: #94A3B8; }
+
+    .table-list { padding: 8px; display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; }
+    .table-item {
+      display: flex; align-items: center; gap: 10px;
+      height: 36px; padding: 0 10px;
+      border-radius: 8px; cursor: pointer; transition: background 0.12s;
+    }
+    .table-item:hover { background: var(--bg-page); }
+    .table-item.active { background: var(--blue-bg); }
+    .table-icon { font-size: 14px; }
+    .table-icon.active { color: var(--accent-blue); }
+    .table-icon.muted   { color: #CBD5E1; }
+    .table-name { font-size: 13px; color: var(--text-primary); }
+    .table-name.muted   { color: var(--text-muted); }
+
+    /* Editor panel */
+    .editor-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .editor-toolbar {
+      height: 52px; padding: 0 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: #fff; border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .toolbar-left { display: flex; gap: 10px; align-items: center; }
+    .toolbar-right { display: flex; gap: 8px; align-items: center; }
+
+    .db-chip {
+      display: flex; align-items: center; gap: 6px;
+      height: 30px; padding: 0 10px;
+      background: var(--blue-bg); border: 1px solid #BFDBFE;
+      border-radius: 8px; font-size: 12px; font-weight: 500; color: var(--blue-text);
+      cursor: pointer;
+    }
+
+    .limit-select {
+      display: flex; align-items: center; gap: 4px;
+      height: 30px; padding: 0 10px;
+      background: var(--bg-page); border: 1px solid var(--border);
+      border-radius: 8px; font-size: 12px; color: #374151; cursor: pointer;
+    }
+
+    .run-btn {
+      display: flex; align-items: center; gap: 6px;
+      height: 32px; padding: 0 14px;
+      background: var(--accent-blue); color: #fff;
+      border: none; border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: background 0.12s;
+    }
+    .run-btn:hover { background: #1D4ED8; }
+
+    /* Code editor area – contenteditable, auto horizontal expand */
+    .code-editor-wrap {
+      flex-shrink: 0;
+      background: #0F172A;
+      height: 260px;
+      overflow: auto;          /* scrolls both axes if content overflows */
+      display: flex;
+    }
+    /* Gutter with line numbers */
+    .line-gutter {
+      padding: 20px 12px 20px 20px;
+      display: flex; flex-direction: column; gap: 0;
+      user-select: none;
+      color: #475569;
+      font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.8;
+      text-align: right;
+      min-width: 40px;
+      flex-shrink: 0;
+      border-right: 1px solid #1E293B;
+    }
+    /* Actual editable code area */
+    .code-editor {
+      flex: 1;
+      padding: 20px 20px 20px 16px;
+      outline: none;
+      caret-color: #60A5FA;
+      font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.8;
+      color: #E2E8F0;
+      white-space: pre;         /* no word-wrap; grows horizontally */
+      min-width: max-content;  /* container expands to fit content width */
+      tab-size: 4;
+      -moz-tab-size: 4;
+    }
+    .kw { color: #93C5FD; }
+    .fn { color: #86EFAC; }
+
+    /* Results area */
+    .results-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .results-toolbar {
+      height: 44px; padding: 0 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--bg-page); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .results-meta { font-size: 12px; color: var(--text-muted); }
+    .results-table-wrap { flex: 1; overflow: auto; background: #fff; }
+
+    .export-btn {
+      display: flex; align-items: center; gap: 4px;
+      height: 28px; padding: 0 10px;
+      background: var(--slate-bg); border: 1px solid var(--border);
+      border-radius: 6px; font-size: 12px; color: #374151; cursor: pointer;
+    }
+  </style>
+  <script>
+    (function() {
+      var saved = localStorage.getItem('qb_theme');
+      var dark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.classList.add('dark');
+    })();
+  </script>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-mark">Q</div>
+      </div>
+      <div class="sidebar-nav">
+        <a href="query-editor.html" class="nav-item active" title="Query Editor">⌕</a>
+        <a href="history.html" class="nav-item" data-tooltip="History"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></a>
+        <a href="approvals.html" class="nav-item" data-tooltip="Approvals"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></a>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="settings-wrapper" id="settingsWrapper">
+          <button class="nav-item" id="settingsBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+          <div class="settings-menu" id="settingsMenu">
+            <div class="settings-menu-label">Settings</div>
+            <a href="admin-users.html" class="settings-item" id="smi-users">
+              <span class="settings-icon" style="background:#EFF6FF;color:#2563EB"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              Users
+            </a>
+            <a href="admin-groups.html" class="settings-item" id="smi-groups">
+              <span class="settings-icon" style="background:#F5F3FF;color:#7C3AED"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+              Groups
+            </a>
+            <a href="admin-datasources.html" class="settings-item" id="smi-datasources">
+              <span class="settings-icon" style="background:#F0FDF4;color:#059669"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>
+              Data Sources
+            </a>
+          </div>
+        </div>
+        <script>
+          (function() {
+            var btn = document.getElementById("settingsBtn");
+            var menu = document.getElementById("settingsMenu");
+            if (!btn) return;
+            // Mark active page
+            var path = window.location.pathname;
+            if (path.includes("admin-users"))       document.getElementById("smi-users").classList.add("active-page");
+            else if (path.includes("admin-groups")) document.getElementById("smi-groups").classList.add("active-page");
+            else if (path.includes("admin-datasources")) document.getElementById("smi-datasources").classList.add("active-page");
+            if (path.includes("admin-")) btn.classList.add("active");
+            })();
+        </script>
+        <div class="avatar-wrapper" id="avatarWrapper">
+          <div class="avatar-btn" id="avatarBtn" title="Account">A</div>
+          <div class="avatar-menu" id="avatarMenu">
+            <div class="menu-user-info">
+              <div class="menu-user-name" id="menuUserName">Admin User</div>
+              <div class="menu-user-role" id="menuUserRole">admin</div>
+            </div>
+            <a href="profile.html" class="menu-item">
+              <span class="menu-icon" style="background:#EFF6FF;color:#2563EB">&#x1F464;</span>
+              My Profile
+            </a>
+            <a href="query-editor.html" class="menu-item">
+              <span class="menu-icon" style="background:#F0FDF4;color:#059669">&#x2315;</span>
+              New Query
+            </a>
+            <div class="menu-divider"></div>
+            <button class="menu-item" onclick="toggleTheme()" id="themeToggleBtn">
+              <span class="menu-icon" style="background:#F3F4F6;color:#374151" id="themeToggleIcon">💻</span>
+              <span style="flex:1">Theme</span>
+              <span style="font-size:11px;color:var(--text-muted);text-transform:capitalize" id="themeToggleText">System</span>
+            </button>
+            <script>
+              function updateThemeUI() {
+                var btn = document.getElementById('themeToggleBtn');
+                var icon = document.getElementById('themeToggleIcon');
+                var text = document.getElementById('themeToggleText');
+                if (!btn) return;
+                var theme = localStorage.getItem('qb_theme') || 'system';
+                text.textContent = theme;
+                if (theme === 'dark') {
+                  icon.textContent = '🌙';
+                  icon.style.background = '#374151'; icon.style.color = '#F3F4F6';
+                } else if (theme === 'light') {
+                  icon.textContent = '☀️';
+                  icon.style.background = '#F3F4F6'; icon.style.color = '#374151';
+                } else {
+                  icon.textContent = '💻';
+                  icon.style.background = '#F3F4F6'; icon.style.color = '#374151';
+                }
+              }
+              function toggleTheme() {
+                var current = localStorage.getItem('qb_theme') || 'system';
+                var next = current === 'light' ? 'dark' : current === 'dark' ? 'system' : 'light';
+                if (next === 'system') {
+                  localStorage.removeItem('qb_theme');
+                  if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
+                  else document.documentElement.classList.remove('dark');
+                } else {
+                  localStorage.setItem('qb_theme', next);
+                  if (next === 'dark') document.documentElement.classList.add('dark');
+                  else document.documentElement.classList.remove('dark');
+                }
+                updateThemeUI();
+              }
+              document.addEventListener('DOMContentLoaded', updateThemeUI);
+            </script>
+            <div class="menu-divider"></div>
+            <button class="menu-item danger" onclick="signOut()">
+              <span class="menu-icon">&#x1F6AA;</span>
+              Sign out
+            </button>
+          </div>
+        </div>
+        <script>
+          (function() {
+            var raw = sessionStorage.getItem('qb_user');
+            var user = raw ? JSON.parse(raw) : { username: 'admin', fullName: 'Admin User', role: 'admin' };
+            var btn = document.getElementById('avatarBtn');
+            if (btn) {
+              btn.textContent = (user.fullName || user.username).charAt(0).toUpperCase();
+              document.getElementById('menuUserName').textContent = user.fullName || user.username;
+              document.getElementById('menuUserRole').textContent = user.role;
+            }
+          })();
+          function signOut() {
+            sessionStorage.removeItem('qb_user');
+            window.location.href = 'login.html';
+          }
+        </script>
+      </div>
+    </nav>
+
+    <!-- Schema Panel -->
+    <div class="schema-panel">
+      <div class="schema-title">
+        <span class="schema-icon">⊞</span>
+        <span>Schema Browser</span>
+      </div>
+      <div class="ds-dropdown">
+        <span>production-db</span>
+        <span style="color:#94A3B8">▾</span>
+      </div>
+      <div class="table-list">
+        <div class="table-item active">
+          <span class="table-icon active">▤</span>
+          <span class="table-name">users</span>
+        </div>
+        <div class="table-item">
+          <span class="table-icon muted">▤</span>
+          <span class="table-name muted">products</span>
+        </div>
+        <div class="table-item">
+          <span class="table-icon muted">▤</span>
+          <span class="table-name muted">orders</span>
+        </div>
+        <div class="table-item">
+          <span class="table-icon muted">▤</span>
+          <span class="table-name muted">sessions</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor Panel -->
+    <div class="editor-panel">
+      <!-- Toolbar -->
+      <div class="editor-toolbar">
+        <div class="toolbar-left">
+          <div class="db-chip">
+            <span>◉</span>
+            <span>production-db</span>
+          </div>
+        </div>
+        <div class="toolbar-right">
+          <div class="limit-select">
+            <span>1,000 rows</span>
+            <span>▾</span>
+          </div>
+          <button class="run-btn">
+            <span>▶</span>
+            Run Query
+          </button>
+        </div>
+      </div>
+
+      <!-- Code editor: auto-expands horizontally as you type -->
+      <div class="code-editor-wrap" id="editorWrap">
+        <!-- Line numbers gutter -->
+        <div class="line-gutter" id="lineGutter">
+          <div>1</div>
+          <div>2</div>
+          <div>3</div>
+          <div>4</div>
+        </div>
+        <!-- Editable SQL area (white-space:pre → grows right without wrapping) -->
+        <div
+          id="codeEditor"
+          class="code-editor"
+          contenteditable="true"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+        >SELECT  id, email, created_at
+FROM    users
+WHERE   is_active = true
+LIMIT   1000;</div>
+      </div>
+
+      <script>
+        (function() {
+          const editor = document.getElementById('codeEditor');
+          const gutter = document.getElementById('lineGutter');
+
+          function updateLineNumbers() {
+            const lines = editor.innerText.split('\n');
+            gutter.innerHTML = lines.map((_, i) => `<div>${i + 1}</div>`).join('');
+          }
+
+          editor.addEventListener('input', updateLineNumbers);
+          editor.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              document.execCommand('insertText', false, '    ');
+            }
+          });
+        })();
+      </script>
+
+      <!-- Results -->
+      <div class="results-panel">
+        <div class="results-toolbar">
+          <span class="results-meta">24 rows returned &middot; 0.38s</span>
+          <button class="export-btn">↓ Export</button>
+        </div>
+        <div class="results-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>EMAIL</th>
+                <th>CREATED_AT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td>admin@querybase.local</td><td>2024-01-15 09:23:10</td></tr>
+              <tr><td>2</td><td>testuser@example.com</td><td>2024-01-18 14:05:32</td></tr>
+              <tr><td>3</td><td>alice@company.com</td><td>2024-02-01 11:00:00</td></tr>
+              <tr><td>4</td><td>bob@company.com</td><td>2024-02-03 16:45:19</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

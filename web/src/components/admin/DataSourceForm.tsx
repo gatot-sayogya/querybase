@@ -161,17 +161,11 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          {dataSource ? 'Edit Data Source' : 'Add New Data Source'}
-        </h2>
-      </div>
-
+    <form onSubmit={handleSubmit}>
       {/* Connection Status Banner */}
       {connectionStatus.type && (
         <div
-          className={`p-4 rounded-md ${
+          className={`p-4 rounded-md mb-6 ${
             connectionStatus.type === 'success'
               ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
               : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
@@ -180,48 +174,20 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
           <div className="flex items-start">
             <div className="flex-shrink-0">
               {connectionStatus.type === 'success' ? (
-                <svg
-                  className="h-5 w-5 text-green-600 dark:text-green-400"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               ) : (
-                <svg
-                  className="h-5 w-5 text-red-600 dark:text-red-400"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <svg className="h-5 w-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               )}
             </div>
             <div className="ml-3 flex-1">
-              <h3
-                className={`text-sm font-medium ${
-                  connectionStatus.type === 'success'
-                    ? 'text-green-800 dark:text-green-200'
-                    : 'text-red-800 dark:text-red-200'
-                }`}
-              >
+              <h3 className={`text-sm font-medium ${connectionStatus.type === 'success' ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
                 {connectionStatus.type === 'success' ? 'Connection Successful' : 'Connection Failed'}
               </h3>
-              <p
-                className={`mt-1 text-sm ${
-                  connectionStatus.type === 'success'
-                    ? 'text-green-700 dark:text-green-300'
-                    : 'text-red-700 dark:text-red-300'
-                }`}
-              >
+              <p className={`mt-1 text-sm ${connectionStatus.type === 'success' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
                 {connectionStatus.message}
               </p>
             </div>
@@ -229,165 +195,138 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
         </div>
       )}
 
-      {/* Name */}
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Name *
-        </label>
+      <div className="form-group">
+        <label htmlFor="name">Name <span style={{ color: 'var(--accent-red)' }}>*</span></label>
         <input
           type="text"
           id="name"
           name="name"
           value={formData.name}
           onChange={handleChange}
-          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-          }`}
+          className="input-field"
+          style={errors.name ? { borderColor: 'var(--accent-red)' } : {}}
           placeholder="Production Database"
         />
-        {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
+        {errors.name && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.name}</div>}
       </div>
 
-      {/* Type */}
-      <div>
-        <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Database Type *
-        </label>
+      <div className="form-group">
+        <label htmlFor="type">Database Type <span style={{ color: 'var(--accent-red)' }}>*</span></label>
         <select
           id="type"
           name="type"
           value={formData.type}
           onChange={handleChange}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+          className="input-field"
         >
           <option value="postgresql">PostgreSQL</option>
           <option value="mysql">MySQL</option>
         </select>
       </div>
 
-      {/* Host */}
-      <div>
-        <label htmlFor="host" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Host *
-        </label>
-        <input
-          type="text"
-          id="host"
-          name="host"
-          value={formData.host}
-          onChange={handleChange}
-          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.host ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-          }`}
-          placeholder="localhost or db.example.com"
-        />
-        {errors.host && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.host}</p>}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+        <div className="form-group" style={{ flex: 2, marginBottom: 0 }}>
+          <label htmlFor="host">Host <span style={{ color: 'var(--accent-red)' }}>*</span></label>
+          <input
+            type="text"
+            id="host"
+            name="host"
+            value={formData.host}
+            onChange={handleChange}
+            className="input-field"
+            style={errors.host ? { borderColor: 'var(--accent-red)' } : {}}
+            placeholder="db.example.com"
+          />
+          {errors.host && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.host}</div>}
+        </div>
+        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+          <label htmlFor="port">Port <span style={{ color: 'var(--accent-red)' }}>*</span></label>
+          <input
+            type="number"
+            id="port"
+            name="port"
+            value={formData.port || ''}
+            onChange={handleNumberChange}
+            min={1}
+            max={65535}
+            className="input-field"
+            style={errors.port ? { borderColor: 'var(--accent-red)' } : {}}
+            placeholder="5432"
+          />
+          {errors.port && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.port}</div>}
+        </div>
       </div>
 
-      {/* Port */}
-      <div>
-        <label htmlFor="port" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Port *
-        </label>
-        <input
-          type="number"
-          id="port"
-          name="port"
-          value={formData.port}
-          onChange={handleNumberChange}
-          min={1}
-          max={65535}
-          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.port ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-          }`}
-          placeholder="5432"
-        />
-        {errors.port && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.port}</p>}
-      </div>
-
-      {/* Database Name */}
-      <div>
-        <label htmlFor="database_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Database Name *
-        </label>
+      <div className="form-group">
+        <label htmlFor="database_name">Database Name <span style={{ color: 'var(--accent-red)' }}>*</span></label>
         <input
           type="text"
           id="database_name"
           name="database_name"
           value={formData.database_name}
           onChange={handleChange}
-          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.database_name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-          }`}
+          className="input-field"
+          style={errors.database_name ? { borderColor: 'var(--accent-red)' } : {}}
           placeholder="querybase"
         />
-        {errors.database_name && (
-          <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.database_name}</p>
-        )}
+        {errors.database_name && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.database_name}</div>}
       </div>
 
-      {/* Username */}
-      <div>
-        <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Username *
-        </label>
+      <div className="form-group">
+        <label htmlFor="username">Username <span style={{ color: 'var(--accent-red)' }}>*</span></label>
         <input
           type="text"
           id="username"
           name="username"
           value={formData.username}
           onChange={handleChange}
-          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.username ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-          }`}
+          className="input-field"
+          style={errors.username ? { borderColor: 'var(--accent-red)' } : {}}
           placeholder="dbuser"
         />
-        {errors.username && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.username}</p>}
+        {errors.username && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.username}</div>}
       </div>
 
-      {/* Password */}
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Password {!dataSource && '*'}
-          {dataSource && '(leave empty to keep current)'}
+      <div className="form-group">
+        <label htmlFor="password">
+          Password {!dataSource && <span style={{ color: 'var(--accent-red)' }}>*</span>}
+          {dataSource && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(leave empty to keep current)</span>}
         </label>
         <input
           type="password"
           id="password"
           name="password"
-          value={formData.password}
+          value={formData.password || ''}
           onChange={handleChange}
-          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-          }`}
+          className="input-field"
+          style={errors.password ? { borderColor: 'var(--accent-red)' } : {}}
           placeholder="••••••••••"
         />
-        {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
+        {errors.password && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.password}</div>}
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex space-x-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : dataSource ? 'Update' : 'Create'}
-          </button>
-          <button
-            type="button"
-            onClick={handleTestConnection}
-            disabled={testing}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
-          >
-            {testing ? 'Testing...' : 'Test Connection'}
-          </button>
-        </div>
+      <div style={{ marginTop: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <button
+          type="submit"
+          disabled={saving}
+          className="btn btn-primary"
+          style={saving ? { opacity: 0.7, cursor: 'not-allowed' } : {}}
+        >
+          {saving ? 'Saving...' : dataSource ? 'Update Connection' : 'Save Connection'}
+        </button>
+        <button
+          type="button"
+          onClick={handleTestConnection}
+          disabled={testing}
+          className="btn btn-ghost"
+          style={testing ? { opacity: 0.7, cursor: 'not-allowed' } : {}}
+        >
+          {testing ? 'Testing...' : 'Test Connection'}
+        </button>
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+          style={{ marginLeft: 'auto', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}
         >
           Cancel
         </button>

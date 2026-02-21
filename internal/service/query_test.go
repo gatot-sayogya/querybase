@@ -13,7 +13,9 @@ import (
 
 // TestExtractTableNames tests table name extraction from SQL queries
 func TestExtractTableNames(t *testing.T) {
-	queryService := &QueryService{} // We only need the struct, no initialization needed
+	// For extractTableNames, we don't need a real database connection,
+	// so we can pass nil for the database and logger.
+	queryService := NewQueryService(nil, "test-encryption-key-32-chars-long!", nil)
 
 	tests := []struct {
 		name           string

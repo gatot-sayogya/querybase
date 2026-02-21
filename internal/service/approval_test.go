@@ -81,7 +81,7 @@ func TestApprovalService_CreateApprovalRequest(t *testing.T) {
 
 	db := setupTestDB(t)
 	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
 	dataSource := createTestDataSource(t, db)
@@ -152,7 +152,7 @@ func TestApprovalService_GetApproval(t *testing.T) {
 	}
 	db := setupTestDB(t)
 	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
 	dataSource := createTestDataSource(t, db)
@@ -214,7 +214,7 @@ func TestApprovalService_ListApprovals(t *testing.T) {
 	}
 	db := setupTestDB(t)
 	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
 	dataSource := createTestDataSource(t, db)
@@ -324,7 +324,7 @@ func TestApprovalService_ReviewApproval(t *testing.T) {
 	}
 	db := setupTestDB(t)
 	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
 	reviewer := createTestUser(t, db, models.RoleAdmin)
@@ -435,7 +435,7 @@ func TestApprovalService_GetEligibleApprovers(t *testing.T) {
 	}
 	db := setupTestDB(t)
 	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	approvalService := NewApprovalService(db, queryService, nil)
 
 	// Create users and data source
 	user2 := createTestUser(t, db, models.RoleAdmin)
@@ -489,7 +489,7 @@ func TestApprovalService_StartTransaction(t *testing.T) {
 	}
 	db := setupTestDB(t)
 	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
 	dataSource := createTestDataSource(t, db)
@@ -553,7 +553,7 @@ func TestApprovalService_UpdateApprovalStatus(t *testing.T) {
 	}
 	db := setupTestDB(t)
 	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
 	reviewer := createTestUser(t, db, models.RoleAdmin)
@@ -625,7 +625,7 @@ func TestApprovalService_DuplicateReview(t *testing.T) {
 	}
 	db := setupTestDB(t)
 	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
 	reviewer := createTestUser(t, db, models.RoleAdmin)
@@ -674,7 +674,7 @@ func TestApprovalService_ReviewNonPendingApproval(t *testing.T) {
 	}
 	db := setupTestDB(t)
 	queryService := &QueryService{}
-	approvalService := NewApprovalService(db, queryService)
+	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
 	reviewer := createTestUser(t, db, models.RoleAdmin)
