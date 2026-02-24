@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api-client';
 import type { User } from '@/types';
 import UserList from './UserList';
 import UserForm from './UserForm';
+import Modal from '../Modal';
 
 export default function UserManager() {
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
@@ -64,50 +65,33 @@ export default function UserManager() {
 
   return (
     <div className="space-y-6">
-      {view === 'list' && (
-        <>
-          <div className="page-header">
-            <div>
-              <h1 className="page-title">Users</h1>
-              <p className="page-subtitle">Manage user access and permissions</p>
-            </div>
-            <button
-              onClick={handleCreateNew}
-              className="btn btn-primary"
-            >
-              + Add User
-            </button>
-          </div>
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <UserList key={refreshKey} onEditUser={handleEditUser} selectedId={null} />
-          </div>
-        </>
-      )}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Users</h1>
+          <p className="page-subtitle">Manage user access and permissions</p>
+        </div>
+        <button
+          onClick={handleCreateNew}
+          className="btn btn-primary"
+        >
+          + Add User
+        </button>
+      </div>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <UserList key={refreshKey} onEditUser={handleEditUser} selectedId={null} />
+      </div>
 
-      {(view === 'create' || view === 'edit') && (
-        <>
-          <div className="page-header" style={{ marginBottom: '20px' }}>
-            <div>
-              <button
-                onClick={handleCancel}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', cursor: 'pointer', padding: 0, marginBottom: '8px' }}
-              >
-                ← Back to Users
-              </button>
-              <h1 className="page-title">
-                {view === 'create' ? 'Add User' : 'Edit User'}
-              </h1>
-            </div>
-          </div>
-          <div className="card card-padded" style={{ maxWidth: '600px' }}>
-            <UserForm
-              user={selectedUser || undefined}
-              onSave={handleSave}
-              onCancel={handleCancel}
-            />
-          </div>
-        </>
-      )}
+      <Modal 
+        isOpen={view === 'create' || view === 'edit'} 
+        onClose={handleCancel}
+        title={view === 'create' ? 'Add User' : 'Edit User'}
+      >
+        <UserForm
+          user={selectedUser || undefined}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
+      </Modal>
     </div>
   );
 }

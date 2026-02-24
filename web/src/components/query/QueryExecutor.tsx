@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/auth-store';
 import { apiClient } from '@/lib/api-client';
-import SQLEditor from './SQLEditor';
 import DataSourceSchemaSelector from './DataSourceSchemaSelector';
 import QueryResults from './QueryResults';
 import Button from '@/components/ui/Button';
 import Loading from '@/components/ui/Loading';
 import { QueryError } from '@/components/ui/Alert';
 import type { QueryResult } from '@/types';
+import dynamic from 'next/dynamic';
+
+const SQLEditor = dynamic(() => import('./SQLEditor'), { ssr: false });
 
 export default function QueryExecutor() {
   const router = useRouter();

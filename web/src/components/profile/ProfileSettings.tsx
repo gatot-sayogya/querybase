@@ -116,310 +116,195 @@ export default function ProfileSettings() {
   if (!user) return null;
 
   return (
-    <>
-      <style>{`
-        .profile-grid {
-          display: grid;
-          grid-template-columns: 300px 1fr;
-          gap: 24px;
-          align-items: start;
-        }
-
-        /* ── Left column: user card ─────────────────── */
-        .user-card {
-          display: flex;
-          flex-direction: column;
-          gap: 0;
-          overflow: hidden;
-          padding: 0;
-        }
-        .user-card-top {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 14px;
-          padding: 32px 24px 24px;
-          border-bottom: 1px solid var(--border-light);
-        }
-        .avatar-large {
-          width: 80px; height: 80px; border-radius: 50%;
-          background: linear-gradient(135deg, #4F46E5, #2563EB);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 32px; font-weight: 700; color: #fff;
-          letter-spacing: -1px;
-        }
-        .user-name  { font-size: 18px; font-weight: 700; color: var(--text-primary); text-align: center; }
-        .user-email { font-size: 13px; color: var(--text-muted); text-align: center; margin-top: -6px; }
-        .user-role-badge { margin-top: 4px; }
-
-        .user-meta { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
-        .meta-row {
-          display: flex; justify-content: space-between; align-items: center;
-          font-size: 13px;
-        }
-        .meta-label { color: var(--text-muted); font-weight: 500; }
-        .meta-value { color: var(--text-primary); font-weight: 500; }
-
-        /* ── Right column ────────────────────────────── */
-        .right-col { display: flex; flex-direction: column; gap: 24px; }
-
-        /* Tab Nav */
-        .tab-nav {
-          display: flex;
-          border-bottom: 1px solid var(--border-light);
-          gap: 0;
-          margin-bottom: 24px;
-        }
-        .tab-btn {
-          padding: 10px 20px;
-          font-size: 14px; font-weight: 500;
-          color: var(--text-muted);
-          cursor: pointer;
-          border-bottom: 2px solid transparent;
-          background: none; border-top: none; border-left: none; border-right: none;
-          font-family: 'Inter', sans-serif;
-          transition: color 0.15s, border-color 0.15s;
-        }
-        .tab-btn:hover { color: var(--text-primary); }
-        .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
-
-        /* Form card */
-        .form-card { padding: 28px; }
-        .form-card-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-        .form-card-sub   { font-size: 13px; color: var(--text-muted); margin-bottom: 22px; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-        .form-row.single { grid-template-columns: 1fr; }
-        
-        .pw-strength { margin-top: 8px; }
-        .pw-bar-track { height: 4px; background: var(--border-light); border-radius: 99px; overflow: hidden; }
-        .pw-bar-fill  { height: 100%; border-radius: 99px; transition: width 0.3s, background 0.3s; width: 0; }
-        .pw-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
-
-        /* Groups section */
-        .group-list { display: flex; flex-direction: column; gap: 10px; }
-        .group-item {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 14px 20px;
-          border-radius: var(--r-lg);
-          border: 1px solid var(--border-light);
-          background: var(--bg-hover);
-        }
-        .group-item-left { display: flex; align-items: center; gap: 12px; }
-        .group-icon-sm {
-          width: 38px; height: 38px; border-radius: 10px;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 15px; flex-shrink: 0;
-        }
-        .group-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-        .group-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-
-        /* DB access list */
-        .db-list { display: flex; flex-direction: column; gap: 10px; }
-        .db-item {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 14px 20px;
-          border-radius: var(--r-lg);
-          border: 1px solid var(--border-light);
-          background: var(--bg-hover);
-        }
-        .db-item-left { display: flex; align-items: center; gap: 14px; }
-        .db-type-icon {
-          width: 38px; height: 38px; border-radius: 10px;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 15px; flex-shrink: 0;
-        }
-        .db-name   { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-        .db-host   { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-        .db-perms  { display: flex; gap: 6px; flex-wrap: wrap; }
-      `}</style>
-      
-      <div className="page-header" style={{ marginBottom: '24px' }}>
-        <div>
-          <h1 className="page-title">My Profile</h1>
-          <p className="page-subtitle">Manage your account settings and view your access permissions</p>
+    <div className="max-w-6xl mx-auto pt-8 pb-20 w-full">
+      {/* Massive Typographic Hero */}
+      <div className="mb-16 md:mb-24">
+        <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-[var(--text-primary)] mb-6 leading-none">
+          {user.full_name || user.username}
+        </h1>
+        <div className="flex flex-wrap items-center gap-4 text-xs md:text-sm font-bold tracking-[0.15em] uppercase text-[var(--text-muted)]">
+          <span className="text-[var(--text-primary)]">@{user.username}</span>
+          <span className="w-1.5 h-1.5 rounded-none bg-[var(--text-faint)]"></span>
+          <span>{user.email}</span>
+          <span className="w-1.5 h-1.5 rounded-none bg-[var(--text-faint)]"></span>
+          <span className={`px-3 py-1 text-[var(--bg-page)] text-xs font-black rounded-sm ${user.role === 'admin' ? 'bg-[var(--purple-text)]' : user.role === 'viewer' ? 'bg-[var(--text-faint)]' : 'bg-[var(--accent-blue)]'}`}>{user.role}</span>
+          <span className="w-1.5 h-1.5 rounded-none bg-[var(--text-faint)]"></span>
+          <span>Since {new Date(user.created_at).toLocaleDateString()}</span>
         </div>
       </div>
 
-      <div className="profile-grid">
-        {/* ── Left: User card ── */}
-        <div className="card user-card">
-          <div className="user-card-top">
-            <div className="avatar-large">
-              {(user.full_name || user.username || '?').charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <div className="user-name">{user.full_name || user.username}</div>
-              <div className="user-email">{user.email}</div>
-              <div className="user-role-badge" style={{ textAlign: 'center', marginTop: '8px' }}>
-                <span className={`badge ${user.role === 'admin' ? 'badge-purple' : user.role === 'viewer' ? 'badge-slate' : 'badge-blue'}`}>
-                  {user.role}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="user-meta">
-            <div className="meta-row">
-              <span className="meta-label">Username</span>
-              <span className="meta-value">@{user.username}</span>
-            </div>
-            <div className="meta-row">
-              <span className="meta-label">Member since</span>
-              <span className="meta-value">{new Date(user.created_at).toLocaleDateString()}</span>
-            </div>
-            <div className="meta-row">
-              <span className="meta-label">Groups</span>
-              <span className="meta-value">{loading ? '-' : groups.length}</span>
-            </div>
-            <div className="meta-row">
-              <span className="meta-label">DB Access</span>
-              <span className="meta-value">{loading ? '-' : dataSources.length} sources</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Right: Tabs ── */}
-        <div className="right-col">
-          <div style={{ borderBottom: '1px solid var(--border-light)' }}>
-            <nav className="tab-nav" style={{ borderBottom: 'none', marginBottom: 0 }}>
-              <button className={`tab-btn ${activeTab === 'account' ? 'active' : ''}`} onClick={() => setActiveTab('account')}>Account</button>
-              <button className={`tab-btn ${activeTab === 'password' ? 'active' : ''}`} onClick={() => setActiveTab('password')}>Password</button>
-              <button className={`tab-btn ${activeTab === 'groups' ? 'active' : ''}`} onClick={() => setActiveTab('groups')}>Groups</button>
-              <button className={`tab-btn ${activeTab === 'databases' ? 'active' : ''}`} onClick={() => setActiveTab('databases')}>Database Access</button>
-            </nav>
-          </div>
-
-          {/* Tab: Account */}
-          {activeTab === 'account' && (
-            <div className="card form-card">
-              <div className="form-card-title">Account Information</div>
-              <div className="form-card-sub">Update your display name and username</div>
-              <form onSubmit={handleAccountSubmit}>
-                <div className="form-row single">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="full_name">Full Name</label>
-                    <input id="full_name" className="input-field" type="text" value={accountForm.full_name} onChange={e => setAccountForm({...accountForm, full_name: e.target.value})} />
-                  </div>
-                </div>
-                <div className="form-row single">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="username">Username</label>
-                    <input id="username" className="input-field" type="text" value={accountForm.username} onChange={e => setAccountForm({...accountForm, username: e.target.value})} disabled />
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>Username cannot be changed.</div>
-                  </div>
-                </div>
-                <div className="form-row single">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="email">Email Address</label>
-                    <input id="email" className="input-field" type="email" value={accountForm.email} onChange={e => setAccountForm({...accountForm, email: e.target.value})} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border-light)' }}>
-                  <button type="button" className="btn btn-ghost" onClick={() => setAccountForm({ username: user.username, email: user.email, full_name: user.full_name })}>Discard</button>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Tab: Password */}
-          {activeTab === 'password' && (
-            <div className="card form-card">
-              <div className="form-card-title">Change Password</div>
-              <div className="form-card-sub">Use a strong password with at least 8 characters</div>
-              <form onSubmit={handlePasswordSubmit}>
-                <div className="form-row single">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="currPw">Current Password</label>
-                    <input id="currPw" className="input-field" type="password" placeholder="Enter current password" value={passwordForm.currPw} onChange={e => setPasswordForm({...passwordForm, currPw: e.target.value})} required />
-                  </div>
-                </div>
-                <div className="form-row single">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="newPw">New Password</label>
-                    <input id="newPw" className="input-field" type="password" placeholder="At least 8 characters" value={passwordForm.newPw} onChange={e => setPasswordForm({...passwordForm, newPw: e.target.value})} required />
-                    <div className="pw-strength">
-                      <div className="pw-bar-track"><div className="pw-bar-fill" style={{ width: str.w, background: str.c }}></div></div>
-                      <div className="pw-hint" style={{ color: str.c }}>{str.t}</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="form-row single">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="confirmPw">Confirm New Password</label>
-                    <input id="confirmPw" className="input-field" type="password" placeholder="Re-enter new password" value={passwordForm.confirmPw} onChange={e => setPasswordForm({...passwordForm, confirmPw: e.target.value})} required />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border-light)' }}>
-                  <button type="button" className="btn btn-ghost" onClick={() => setPasswordForm({ currPw: '', newPw: '', confirmPw: '' })}>Clear</button>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Updating...' : 'Update Password'}</button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Tab: Groups */}
-          {activeTab === 'groups' && (
-            <div className="card" style={{ padding: '20px 24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div>
-                  <div className="form-card-title" style={{ marginBottom: '2px' }}>Group Memberships</div>
-                  <div className="form-card-sub" style={{ marginBottom: 0 }}>Groups determine which data sources you can access</div>
-                </div>
-                <span className="badge badge-slate">{groups.length} groups</span>
-              </div>
-              <div className="group-list">
-                {groups.map(group => (
-                  <div key={group.id} className="group-item">
-                    <div className="group-item-left">
-                      <div className="group-icon-sm" style={{ background: '#EDE9FE', color: '#4F46E5' }}>⛾</div>
-                      <div>
-                        <div className="group-name">{group.name}</div>
-                        <div className="group-desc">{group.description || '-'}</div>
-                      </div>
-                    </div>
-                    <span className="badge badge-slate">member</span>
-                  </div>
-                ))}
-                {groups.length === 0 && !loading && (
-                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>You are not a member of any groups yet.</div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Tab: Database Access */}
-          {activeTab === 'databases' && (
-            <div className="card" style={{ padding: '20px 24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div>
-                  <div className="form-card-title" style={{ marginBottom: '2px' }}>Accessible Databases</div>
-                  <div className="form-card-sub" style={{ marginBottom: 0 }}>These are the data sources your groups grant you access to</div>
-                </div>
-                <span className="badge badge-slate">{dataSources.length} sources</span>
-              </div>
-              <div className="db-list">
-                {dataSources.map(db => (
-                  <div key={db.id} className="db-item">
-                    <div className="db-item-left">
-                      <div className="db-type-icon" style={{ background: db.type === 'postgresql' ? '#DBEAFE' : '#FFFBEB', color: db.type === 'postgresql' ? '#1D4ED8' : '#D97706' }}>◉</div>
-                      <div>
-                        <div className="db-name">{db.name}</div>
-                        <div className="db-host">{db.type} · {db.host}:{db.port}</div>
-                      </div>
-                    </div>
-                    <div className="db-perms">
-                      <span className="badge badge-slate">{db.database_name}</span>
-                    </div>
-                  </div>
-                ))}
-                {dataSources.length === 0 && !loading && (
-                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>No databases available.</div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+      {/* Tab Navigation */}
+      <div className="border-b border-[var(--border-light)] mb-16 overflow-x-auto hide-scrollbar">
+        <nav className="flex gap-10 min-w-max">
+          <button className={`pb-4 text-xs font-bold tracking-[0.15em] uppercase transition-colors whitespace-nowrap ${activeTab === 'account' ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] border-b-2 border-transparent'}`} onClick={() => setActiveTab('account')}>Account Identity</button>
+          <button className={`pb-4 text-xs font-bold tracking-[0.15em] uppercase transition-colors whitespace-nowrap ${activeTab === 'password' ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] border-b-2 border-transparent'}`} onClick={() => setActiveTab('password')}>Security</button>
+          <button className={`pb-4 text-xs font-bold tracking-[0.15em] uppercase transition-colors whitespace-nowrap ${activeTab === 'groups' ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] border-b-2 border-transparent'}`} onClick={() => setActiveTab('groups')}>Group Memberships ({loading ? '-' : groups.length})</button>
+          <button className={`pb-4 text-xs font-bold tracking-[0.15em] uppercase transition-colors whitespace-nowrap ${activeTab === 'databases' ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] border-b-2 border-transparent'}`} onClick={() => setActiveTab('databases')}>Database Access ({loading ? '-' : dataSources.length})</button>
+        </nav>
       </div>
-    </>
+
+      <div className="flex flex-col gap-12 max-w-4xl">
+        {/* Tab: Account */}
+        {activeTab === 'account' && (
+          <form onSubmit={handleAccountSubmit} className="flex flex-col gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
+              <div className="md:mt-2">
+                <label className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1" htmlFor="full_name">
+                  Full Name
+                </label>
+                <p className="text-xs text-[var(--text-faint)] leading-relaxed">Your primary display identity.</p>
+              </div>
+              <div className="relative">
+                <input id="full_name" className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-xl text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]" type="text" value={accountForm.full_name} onChange={e => setAccountForm({...accountForm, full_name: e.target.value})} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
+              <div className="md:mt-2">
+                <label className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1" htmlFor="username">
+                  Username
+                </label>
+                <p className="text-xs text-[var(--text-faint)] leading-relaxed text-red-400">Cannot be modified.</p>
+              </div>
+              <div className="relative">
+                <input id="username" className="w-full bg-transparent border-b border-[var(--border-light)] pb-3 text-xl text-[var(--text-faint)] focus:outline-none transition-colors rounded-none cursor-not-allowed" type="text" value={accountForm.username} disabled />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
+              <div className="md:mt-2">
+                <label className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1" htmlFor="email">
+                  Email Address
+                </label>
+                <p className="text-xs text-[var(--text-faint)] leading-relaxed">Used for notifications.</p>
+              </div>
+              <div className="relative">
+                <input id="email" className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-xl text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]" type="email" value={accountForm.email} onChange={e => setAccountForm({...accountForm, email: e.target.value})} />
+              </div>
+            </div>
+
+            <div className="mt-12 pt-8 border-t border-[var(--border-light)] grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8">
+              <div className="hidden md:block"></div>
+              <div className="flex gap-6 items-center">
+                <button type="submit" className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50" style={{ borderRadius: '2px' }} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button type="button" className="h-12 px-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" onClick={() => setAccountForm({ username: user.username, email: user.email, full_name: user.full_name })}>
+                  Discard
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+
+        {/* Tab: Password */}
+        {activeTab === 'password' && (
+          <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
+              <div className="md:mt-2">
+                <label className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1" htmlFor="currPw">
+                  Current Password
+                </label>
+              </div>
+              <div className="relative">
+                <input id="currPw" className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-xl text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]" type="password" placeholder="Enter current password" value={passwordForm.currPw} onChange={e => setPasswordForm({...passwordForm, currPw: e.target.value})} required />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
+              <div className="md:mt-2">
+                <label className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1" htmlFor="newPw">
+                  New Password
+                </label>
+                <p className="text-xs text-[var(--text-faint)] leading-relaxed">At least 8 characters</p>
+              </div>
+              <div className="relative">
+                <input id="newPw" className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-xl text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]" type="password" placeholder="Enter new password" value={passwordForm.newPw} onChange={e => setPasswordForm({...passwordForm, newPw: e.target.value})} required />
+                <div className="mt-4 flex flex-col gap-2">
+                  <div className="h-1 bg-[var(--border-light)] w-full overflow-hidden" style={{ borderRadius: '2px' }}>
+                    <div className="h-full transition-all duration-300" style={{ width: str.w, background: str.c }}></div>
+                  </div>
+                  <div className="text-xs font-bold uppercase tracking-widest text-right" style={{ color: str.c }}>{str.t}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
+              <div className="md:mt-2">
+                <label className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1" htmlFor="confirmPw">
+                  Confirm Password
+                </label>
+              </div>
+              <div className="relative">
+                <input id="confirmPw" className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-xl text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]" type="password" placeholder="Re-enter new password" value={passwordForm.confirmPw} onChange={e => setPasswordForm({...passwordForm, confirmPw: e.target.value})} required />
+              </div>
+            </div>
+
+            <div className="mt-12 pt-8 border-t border-[var(--border-light)] grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8">
+              <div className="hidden md:block"></div>
+              <div className="flex gap-6 items-center">
+                <button type="submit" className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50" style={{ borderRadius: '2px' }} disabled={saving}>
+                  {saving ? 'Updating...' : 'Update Password'}
+                </button>
+                <button type="button" className="h-12 px-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" onClick={() => setPasswordForm({ currPw: '', newPw: '', confirmPw: '' })}>
+                  Clear
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+
+        {/* Tab: Groups */}
+        {activeTab === 'groups' && (
+          <div className="flex flex-col gap-6">
+            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-4 border-l-4 border-[var(--accent-blue)] pl-4">Security Groups</h3>
+            <div className="flex flex-col gap-4">
+              {groups.map(group => (
+                <div key={group.id} className="flex flex-col md:flex-row md:items-center justify-between p-6 border border-[var(--border-light)] bg-transparent hover:bg-[var(--bg-hover)] transition-colors" style={{ borderRadius: '2px' }}>
+                  <div className="flex flex-col mb-4 md:mb-0">
+                    <div className="text-lg font-bold text-[var(--text-primary)]">{group.name}</div>
+                    <div className="text-sm text-[var(--text-muted)] mt-1">{group.description || 'No description assigned.'}</div>
+                  </div>
+                  <span className="self-start md:self-auto px-4 py-1.5 border border-[var(--border)] text-xs font-bold tracking-widest uppercase text-[var(--text-faint)]" style={{ borderRadius: '2px' }}>member</span>
+                </div>
+              ))}
+              {groups.length === 0 && !loading && (
+                <div className="p-8 border border-dashed border-[var(--border)] text-center" style={{ borderRadius: '2px' }}>
+                  <p className="text-sm text-[var(--text-muted)] uppercase tracking-wide font-bold">You are not a member of any groups yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Database Access */}
+        {activeTab === 'databases' && (
+          <div className="flex flex-col gap-6">
+            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-4 border-l-4 border-[var(--accent-blue)] pl-4">Accessible Databases</h3>
+            <div className="flex flex-col gap-4">
+              {dataSources.map(db => (
+                <div key={db.id} className="flex flex-col md:flex-row md:items-center justify-between p-6 border border-[var(--border-light)] bg-transparent hover:bg-[var(--bg-hover)] transition-colors" style={{ borderRadius: '2px' }}>
+                  <div className="flex items-center gap-6 mb-4 md:mb-0">
+                    <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center border font-bold text-lg" style={{ borderRadius: '2px', borderColor: db.type === 'postgresql' ? '#DBEAFE' : '#FFFBEB', backgroundColor: db.type === 'postgresql' ? 'rgba(219,234,254,0.1)' : 'rgba(255,251,235,0.1)', color: db.type === 'postgresql' ? '#1D4ED8' : '#D97706' }}>
+                      {db.type === 'postgresql' ? 'PG' : 'MY'}
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="text-lg font-bold text-[var(--text-primary)]">{db.name}</div>
+                      <div className="text-xs tracking-wide text-[var(--text-muted)] mt-1">{db.type} · {db.host}:{db.port}</div>
+                    </div>
+                  </div>
+                  <span className="self-start md:self-auto px-4 py-1.5 bg-[var(--bg-page)] border border-[var(--border-light)] text-xs font-bold tracking-widest uppercase text-[var(--text-primary)]" style={{ borderRadius: '2px' }}>{db.database_name}</span>
+                </div>
+              ))}
+              {dataSources.length === 0 && !loading && (
+                <div className="p-8 border border-dashed border-[var(--border)] text-center" style={{ borderRadius: '2px' }}>
+                  <p className="text-sm text-[var(--text-muted)] uppercase tracking-wide font-bold">No databases available.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

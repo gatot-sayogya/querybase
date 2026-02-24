@@ -5,7 +5,7 @@ import type { Group } from '@/types';
 
 interface GroupFormProps {
   group?: Group;
-  onSave: () => void;
+  onSave: (data: { name: string; description: string }) => void;
   onCancel: () => void;
 }
 
@@ -48,79 +48,88 @@ export default function GroupForm({ group, onSave, onCancel }: GroupFormProps) {
     setSaving(true);
     // The actual API call will be handled by the parent component
     // Pass the form data back to parent
-    onSave();
+    onSave(formData);
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="form-group">
-        <label htmlFor="name">Group Name <span style={{ color: 'var(--accent-red)' }}>*</span></label>
-        <input
-          type="text"
-          id="name"
-          name="name"
-          value={formData.name}
-          onChange={handleChange}
-          className="input-field"
-          style={errors.name ? { borderColor: 'var(--accent-red)' } : {}}
-          placeholder="Data Analysts"
-        />
-        {errors.name && <div style={{ color: 'var(--accent-red)', fontSize: '13px', marginTop: '4px' }}>{errors.name}</div>}
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="description">Description</label>
-        <textarea
-          id="description"
-          name="description"
-          value={formData.description}
-          onChange={handleChange}
-          className="input-field"
-          rows={3}
-          style={{ resize: 'vertical' }}
-          placeholder="Users who can access and analyze data"
-        />
-      </div>
-
-      {/* Info message */}
-      <div style={{ backgroundColor: 'var(--bg-hover)', padding: '16px', borderRadius: '8px', display: 'flex', gap: '12px', marginBottom: '24px' }}>
-        <svg
-          style={{ flexShrink: 0, color: 'var(--accent-blue)', width: '20px', height: '20px' }}
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path
-            fillRule="evenodd"
-            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 102 0 1 0 2 0 1 0 00-2z"
-            clipRule="evenodd"
+    <form onSubmit={handleSubmit} className="flex flex-col gap-10 mt-6 md:max-w-3xl">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start relative group">
+        <div className="md:sticky md:top-4 md:mt-2">
+          <label htmlFor="name" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
+            Group Name <span className="text-[var(--accent-red)]">*</span>
+          </label>
+          <p className="text-xs text-[var(--text-faint)] max-w-[200px] leading-relaxed">Unique identifier for this group of users.</p>
+        </div>
+        <div className="relative">
+          <input
+            type="text"
+            id="name"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-xl text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
+            style={errors.name ? { borderBottomColor: 'var(--red-text)' } : {}}
+            placeholder="e.g. Data Analysts"
           />
-        </svg>
-        <div style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-          {group ? (
-            <>After updating the group, you can manage users from the group detail page.</>
-          ) : (
-            <>After creating the group, you can add users from the group detail page.</>
-          )}
+          {errors.name && <div className="text-[var(--red-text)] text-xs mt-2">{errors.name}</div>}
         </div>
       </div>
 
-      {/* Actions */}
-      <div style={{ marginTop: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <button
-          type="submit"
-          disabled={saving}
-          className="btn btn-primary"
-          style={saving ? { opacity: 0.7, cursor: 'not-allowed' } : {}}
-        >
-          {saving ? 'Saving...' : group ? 'Update Group' : 'Save Group'}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          style={{ marginLeft: 'auto', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}
-        >
-          Cancel
-        </button>
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start group">
+        <div className="md:mt-2">
+          <label htmlFor="description" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
+            Description
+          </label>
+          <p className="text-xs text-[var(--text-faint)] max-w-[200px] leading-relaxed">What is the primary purpose of this group?</p>
+        </div>
+        <div className="relative">
+          <textarea
+            id="description"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            rows={3}
+            className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)] resize-y"
+            placeholder="Users who can access and analyze data..."
+          />
+        </div>
+      </div>
+
+      {/* Info message & Actions separated from grid */}
+      <div className="mt-12 pt-8 border-t border-[var(--border-light)] grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8">
+        <div className="hidden md:block"></div>
+        <div className="flex flex-col gap-10">
+          <div className="flex gap-4 p-5 bg-[var(--bg-page)] border border-[var(--border-light)] shadow-sm" style={{ borderRadius: '2px' }}>
+            <svg className="shrink-0 text-[var(--accent-blue)] w-5 h-5 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-[var(--text-muted)] leading-relaxed">
+              {group ? (
+                <>After updating the group, you can manage users from the group detail page.</>
+              ) : (
+                <>After creating the group, you can add users from the group detail page.</>
+              )}
+            </p>
+          </div>
+
+          <div className="flex gap-6 items-center">
+            <button
+              type="submit"
+              disabled={saving}
+              className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50"
+              style={{ borderRadius: '2px' }}
+            >
+              {saving ? 'Saving...' : group ? 'Update Group' : 'Save Group'}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="h-12 px-4 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       </div>
     </form>
   );
