@@ -131,11 +131,18 @@ graph TD
 
 ### 🔒 Security
 
-- **JWT Authentication:** Token-based auth with configurable expiration
-- **Password Encryption:** Bcrypt hashing
-- **Data Source Encryption:** Passwords encrypted with AES
-- **CORS:** Configurable allowed origins
-- **Rate Limiting:** Token bucket (query execution only)
+QueryBase implements a hardened security architecture designed for global deployment:
+
+- **Dual-Token Strategy:** Short-lived access tokens (memory) and `HttpOnly/Secure` refresh tokens (cookie).
+- **Token Revocation:** Redis-backed blacklisting for immediate session invalidation.
+- **Middleware Protection:**
+  - **Security Headers:** HSTS, CSP, X-Frame-Options, etc.
+  - **Sanitization:** Automatic input validation and cleansing.
+- **Intelligent Rate Limiting:** Per-path throttling with prefix matching to prevent UI lag.
+- **Encryption:** AES-256 for data source credentials; Bcrypt for passwords.
+- **CORS:** Strict origin reflection with credential support.
+
+For detailed information, see **[docs/architecture/security.md](docs/architecture/security.md)**.
 
 ### 📝 Approval Workflow
 

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-28
+
+### Added
+
+- **Hardened Security Architecture**:
+  - **Dual-Token Authentication**: Implemented short-lived access tokens (memory-only) and long-lived `HttpOnly/Secure/SameSite=Strict` refresh tokens (cookie-based).
+  - **Token Revocation System**: Added Redis-based `TokenBlacklistService` for immediate session invalidation and access token revocation (JTI-based).
+  - **Security Middleware Suite**: Added `SecurityHeadersMiddleware` (HSTS, CSP, XFO, etc.) and `SanitizationMiddleware` for automatic input cleansing.
+  - **Intelligent Rate Limiting**: Upgraded rate limiter with prefix matching and generous burst support (300 req/min, burst 30) for normal navigation, while keeping strict limits (5 req/min) for authentication endpoints.
+  - **Automatic Token Refresh**: Frontend `ApiClient` now handles 401 errors by seamlessly refreshing tokens using the rotated refresh token cookie.
+
+### Changed
+
+- **Frontend Auth Storage**: Removed `localStorage` persistence for sensitive tokens to mitigate persistent XSS vulnerabilities.
+- **API CORS Configuration**: Strict origin reflection instead of wildcards when credentials are enabled.
+- **Middleware Chain**: Reordered middleware for optimal security-first processing.
+
+### Fixed
+
+- **CORS Preflight Issues**: Resolved 403/Blocked-by-CORS errors during browser login by correctly reflecting origins and setting credential headers before preflight abort.
+- **Navigation Throttling (429 Regression)**: Fixed aggressive rate limiting that blocked rapid menu switching by implementing prefix-based skip paths and increasing general burst capacity.
+- **Token Leakage**: Prevented token exposure in browser history and local storage.
+
 ## [0.3.0] - 2026-02-21
 
 ### Added
