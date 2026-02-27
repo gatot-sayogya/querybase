@@ -98,18 +98,18 @@ func CORSMiddleware(config *Config) gin.HandlerFunc {
 		origin := c.Request.Header.Get("Origin")
 
 		// Check if origin is allowed
-		allowedOrigin := ""
+		isAllowed := false
 		if len(config.AllowedOrigins) > 0 {
 			for _, allowed := range config.AllowedOrigins {
 				if allowed == "*" || allowed == origin {
-					allowedOrigin = allowed
+					isAllowed = true
 					break
 				}
 			}
 		}
 
-		// If origin is not allowed, return error
-		if allowedOrigin == "" && origin != "" {
+		// If request has an Origin but it's not allowed, reject it
+		if !isAllowed && origin != "" {
 			c.AbortWithStatusJSON(403, gin.H{
 				"error": "Origin not allowed",
 			})
@@ -117,15 +117,22 @@ func CORSMiddleware(config *Config) gin.HandlerFunc {
 		}
 
 		// Set CORS headers
-		if allowedOrigin != "" {
-			c.Header("Access-Control-Allow-Origin", allowedOrigin)
+		if origin != "" && isAllowed {
+			// When credentials are involved, we MUST NOT use *.
+			// Always reflect back the actual request origin.
+			c.Header("Access-Control-Allow-Origin", origin)
+			// Prevent caching this for different origins
+			c.Header("Vary", "Origin")
 		}
 
 		// Expose headers
 		if len(config.ExposedHeaders) > 0 {
-			for _, header := range config.ExposedHeaders {
-				c.Header("Access-Control-Expose-Headers", header)
-			}
+			c.Header("Access-Control-Expose-Headers", strings.Join(config.ExposedHeaders, ", "))
+		}
+
+		// Allow credentials
+		if config.AllowCredentials {
+			c.Header("Access-Control-Allow-Credentials", "true")
 		}
 
 		// Handle preflight requests
@@ -135,11 +142,6 @@ func CORSMiddleware(config *Config) gin.HandlerFunc {
 			c.Header("Access-Control-Max-Age", strconv.Itoa(config.MaxAge))
 			c.AbortWithStatus(204)
 			return
-		}
-
-		// Allow credentials
-		if config.AllowCredentials {
-			c.Header("Access-Control-Allow-Credentials", "true")
 		}
 
 		c.Next()
