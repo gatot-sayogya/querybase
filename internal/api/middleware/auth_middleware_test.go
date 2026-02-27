@@ -31,7 +31,7 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 	require.NoError(t, err)
 
 	// Setup middleware
-	router.Use(AuthMiddleware(jwtManager))
+	router.Use(AuthMiddleware(jwtManager, nil))
 	router.GET("/protected", func(c *gin.Context) {
 		userID := c.GetString("user_id")
 		email := c.GetString("email")
@@ -69,7 +69,7 @@ func TestAuthMiddleware_NoToken(t *testing.T) {
 	router := gin.New()
 
 	jwtManager := auth.NewJWTManager("test-secret", 24*time.Hour, "querybase")
-	router.Use(AuthMiddleware(jwtManager))
+	router.Use(AuthMiddleware(jwtManager, nil))
 	router.GET("/protected", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
@@ -93,7 +93,7 @@ func TestAuthMiddleware_InvalidTokenFormat(t *testing.T) {
 	router := gin.New()
 
 	jwtManager := auth.NewJWTManager("test-secret", 24*time.Hour, "querybase")
-	router.Use(AuthMiddleware(jwtManager))
+	router.Use(AuthMiddleware(jwtManager, nil))
 	router.GET("/protected", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
@@ -151,7 +151,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 	router := gin.New()
 
 	jwtManager := auth.NewJWTManager("test-secret", 24*time.Hour, "querybase")
-	router.Use(AuthMiddleware(jwtManager))
+	router.Use(AuthMiddleware(jwtManager, nil))
 	router.GET("/protected", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
@@ -328,7 +328,7 @@ func TestMiddleware_Chain(t *testing.T) {
 
 	router.Use(middleware1)
 	router.Use(middleware2)
-	router.Use(AuthMiddleware(jwtManager))
+	router.Use(AuthMiddleware(jwtManager, nil))
 	router.Use(RequireAdmin())
 	router.GET("/admin", func(c *gin.Context) {
 		executionOrder = append(executionOrder, "handler")

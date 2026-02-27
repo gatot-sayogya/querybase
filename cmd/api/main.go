@@ -79,6 +79,7 @@ func main() {
 
 	// Initialize services
 	statsService := service.NewStatsService(db, redisClient)
+	blacklistService := service.NewTokenBlacklistService(redisClient)
 	queryService := service.NewQueryService(db, cfg.JWT.Secret, statsService)
 	approvalService := service.NewApprovalService(db, queryService, statsService)
 	dataSourceService := service.NewDataSourceService(db, cfg.JWT.Secret)
@@ -89,7 +90,7 @@ func main() {
 	go wsHub.Run()
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(db, jwtManager)
+	authHandler := handlers.NewAuthHandler(db, jwtManager, blacklistService)
 	queryHandler := handlers.NewQueryHandler(db, queryService)
 	approvalHandler := handlers.NewApprovalHandler(db, approvalService)
 	dataSourceHandler := handlers.NewDataSourceHandler(db, dataSourceService)
@@ -112,6 +113,8 @@ func main() {
 	// Add custom middleware
 	router.Use(middleware.ErrorRecoveryMiddleware())
 	router.Use(middleware.LoggingMiddleware())
+	router.Use(middleware.SecurityHeadersMiddleware())
+	router.Use(middleware.SanitizationMiddleware())
 
 	// Add CORS middleware
 	// CORS configuration is now loaded from config.yaml and environment variables
@@ -120,11 +123,9 @@ func main() {
 
 	// Add rate limiting middleware
 	// Uses default config: 60 requests/minute, burst of 10
-	// Skips health check and login endpoints
 	// For production, you may want to use stricter limits
-	// Rate limiting
-	// rateLimitConfig := middleware.DefaultRateLimitConfig()
-	// router.Use(middleware.RateLimiterMiddleware(rateLimitConfig))
+	rateLimitConfig := middleware.DefaultRateLimitConfig()
+	router.Use(middleware.RateLimiterMiddleware(rateLimitConfig))
 
 	// Health check endpoint (no auth required)
 	router.GET("/health", func(c *gin.Context) {
@@ -135,7 +136,7 @@ func main() {
 	})
 
 	// Setup routes
-	routes.SetupRoutes(router, authHandler, queryHandler, approvalHandler, dataSourceHandler, groupHandler, schemaHandler, webSocketHandler, statsHandler, jwtManager)
+	routes.SetupRoutes(router, authHandler, queryHandler, approvalHandler, dataSourceHandler, groupHandler, schemaHandler, webSocketHandler, statsHandler, jwtManager, blacklistService)
 
 	// Start server
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)

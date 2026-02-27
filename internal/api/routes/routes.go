@@ -10,10 +10,11 @@ import (
 	"github.com/yourorg/querybase/internal/api/handlers"
 	"github.com/yourorg/querybase/internal/api/middleware"
 	"github.com/yourorg/querybase/internal/auth"
+	"github.com/yourorg/querybase/internal/service"
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHandler *handlers.QueryHandler, approvalHandler *handlers.ApprovalHandler, dataSourceHandler *handlers.DataSourceHandler, groupHandler *handlers.GroupHandler, schemaHandler *handlers.SchemaHandler, webSocketHandler *handlers.WebSocketHandler, statsHandler *handlers.StatsHandler, jwtManager *auth.JWTManager) {
+func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHandler *handlers.QueryHandler, approvalHandler *handlers.ApprovalHandler, dataSourceHandler *handlers.DataSourceHandler, groupHandler *handlers.GroupHandler, schemaHandler *handlers.SchemaHandler, webSocketHandler *handlers.WebSocketHandler, statsHandler *handlers.StatsHandler, jwtManager *auth.JWTManager, blacklist *service.TokenBlacklistService) {
 	// Serve static files from the "web/out" directory
 	// This assumes the frontend has been built to this directory
 	router.Use(func(c *gin.Context) {
@@ -91,20 +92,22 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 	api := router.Group("/api/v1")
 	{
 		// Public routes
-		auth := api.Group("/auth")
+		authGroup := api.Group("/auth")
 		{
-			auth.POST("/login", authHandler.Login)
+			authGroup.POST("/login", authHandler.Login)
+			authGroup.POST("/refresh", authHandler.Refresh)
 		}
 
 		// Protected routes
 		protected := api.Group("")
-		protected.Use(middleware.AuthMiddleware(jwtManager))
+		protected.Use(middleware.AuthMiddleware(jwtManager, blacklist))
 		{
 			// User routes
-			auth := protected.Group("/auth")
+			authGroupProtected := protected.Group("/auth")
 			{
-				auth.GET("/me", authHandler.GetMe)
-				auth.POST("/change-password", authHandler.ChangePassword)
+				authGroupProtected.GET("/me", authHandler.GetMe)
+				authGroupProtected.POST("/change-password", authHandler.ChangePassword)
+				authGroupProtected.POST("/logout", authHandler.Logout)
 			}
 
 			// Dashboard Stats
@@ -117,14 +120,18 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 			admin := protected.Group("")
 			admin.Use(middleware.RequireAdmin())
 			{
-				auth.POST("/users", authHandler.CreateUser)
-				auth.GET("/users", authHandler.ListUsers)
-				auth.GET("/users/:id", authHandler.GetUser)
-				auth.PUT("/users/:id", authHandler.UpdateUser)
-				auth.DELETE("/users/:id", authHandler.DeleteUser)
-				auth.POST("/users/:id/reset-password", authHandler.ResetUserPassword)
-				auth.GET("/users/:id/groups", authHandler.GetUserGroups)
-				auth.PUT("/users/:id/groups", authHandler.AssignUserGroups)
+				// Admin auth routes
+				authAdminGroup := protected.Group("/auth")
+				{
+					authAdminGroup.POST("/users", authHandler.CreateUser)
+					authAdminGroup.GET("/users", authHandler.ListUsers)
+					authAdminGroup.GET("/users/:id", authHandler.GetUser)
+					authAdminGroup.PUT("/users/:id", authHandler.UpdateUser)
+					authAdminGroup.DELETE("/users/:id", authHandler.DeleteUser)
+					authAdminGroup.POST("/users/:id/reset-password", authHandler.ResetUserPassword)
+					authAdminGroup.GET("/users/:id/groups", authHandler.GetUserGroups)
+					authAdminGroup.PUT("/users/:id/groups", authHandler.AssignUserGroups)
+				}
 
 				// Group routes
 				groups := admin.Group("/groups")

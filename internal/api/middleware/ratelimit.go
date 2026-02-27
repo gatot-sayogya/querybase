@@ -34,12 +34,11 @@ func DefaultRateLimitConfig() *RateLimiterConfig {
 			"/health",
 			"/favicon.ico",
 			"/static",
-			"/api/v1/auth",        // Don't rate limit auth endpoints
 			"/ws",                 // Don't rate limit WebSocket endpoint
 			"/api/v1/datasources", // Don't rate limit data source/schema endpoints
-			"/api/v1/approvals",    // Don't rate limit approval endpoints
-			"/api/v1/groups",       // Don't rate limit group endpoints
-			// Note: /api/v1/queries is NOT skipped - query execution IS rate limited
+			"/api/v1/approvals",   // Don't rate limit approval endpoints
+			"/api/v1/groups",      // Don't rate limit group endpoints
+			// Note: /api/v1/queries and /api/v1/auth/login ARE rate limited
 		},
 	}
 }
@@ -161,9 +160,9 @@ func RateLimiterMiddleware(config *RateLimiterConfig) gin.HandlerFunc {
 
 // RateLimiterByPath creates rate limiters for different paths with different configurations
 type RateLimiterByPath struct {
-	limiters map[string]*inMemoryRateLimiter
+	limiters       map[string]*inMemoryRateLimiter
 	defaultLimiter *inMemoryRateLimiter
-	mu sync.RWMutex
+	mu             sync.RWMutex
 }
 
 // NewRateLimiterByPath creates a new rate limiter that can have different limits per path
@@ -173,7 +172,7 @@ func NewRateLimiterByPath(defaultConfig *RateLimiterConfig) *RateLimiterByPath {
 	}
 
 	return &RateLimiterByPath{
-		limiters: make(map[string]*inMemoryRateLimiter),
+		limiters:       make(map[string]*inMemoryRateLimiter),
 		defaultLimiter: newInMemoryRateLimiter(defaultConfig),
 	}
 }

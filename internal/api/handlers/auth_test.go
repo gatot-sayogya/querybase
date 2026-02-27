@@ -52,14 +52,14 @@ func setupTestRouter(db *gorm.DB) (*gin.Engine, *auth.JWTManager) {
 	router := gin.New()
 
 	jwtManager := auth.NewJWTManager("test-secret", 24*time.Hour, "querybase")
-	authHandler := NewAuthHandler(db, jwtManager)
+	authHandler := NewAuthHandler(db, jwtManager, nil)
 
 	// Setup routes
 	// Setup routes
 	router.POST("/login", authHandler.Login)
 
 	protected := router.Group("/")
-	protected.Use(middleware.AuthMiddleware(jwtManager))
+	protected.Use(middleware.AuthMiddleware(jwtManager, nil))
 	{
 		protected.GET("/me", authHandler.GetMe)
 		protected.POST("/change-password", authHandler.ChangePassword)

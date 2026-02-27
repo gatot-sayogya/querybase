@@ -22,7 +22,7 @@ func TestAuthMiddleware_Simple(t *testing.T) {
 	jwtManager := auth.NewJWTManager("test-secret", 24*time.Hour, "querybase")
 
 	// Create a protected route
-	router.GET("/protected", AuthMiddleware(jwtManager), func(c *gin.Context) {
+	router.GET("/protected", AuthMiddleware(jwtManager, nil), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
 
@@ -89,7 +89,7 @@ func TestAuthMiddleware_Simple(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a handler that reads context values
-		router.GET("/context", AuthMiddleware(jwtManager), func(c *gin.Context) {
+		router.GET("/context", AuthMiddleware(jwtManager, nil), func(c *gin.Context) {
 			userID := c.GetString("user_id")
 			email := c.GetString("email")
 			role := c.GetString("role")

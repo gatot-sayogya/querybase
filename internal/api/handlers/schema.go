@@ -15,14 +15,14 @@ import (
 
 // SchemaHandler handles schema inspection endpoints
 type SchemaHandler struct {
-	db           *gorm.DB
+	db            *gorm.DB
 	schemaService *service.SchemaService
 }
 
 // NewSchemaHandler creates a new schema handler
 func NewSchemaHandler(db *gorm.DB, schemaService *service.SchemaService) *SchemaHandler {
 	return &SchemaHandler{
-		db:           db,
+		db:            db,
 		schemaService: schemaService,
 	}
 }
@@ -41,7 +41,7 @@ func (h *SchemaHandler) GetDatabaseSchema(c *gin.Context) {
 	// Check if schema is fresh (synced within last 5 minutes)
 	isCached := false
 	if dataSource.LastSchemaSync != nil {
-		isCached = time.Now().Sub(*dataSource.LastSchemaSync) < 5*time.Minute
+		isCached = time.Since(*dataSource.LastSchemaSync) < 5*time.Minute
 	}
 
 	// Fetch schema (may use cache if fresh)
@@ -62,9 +62,9 @@ func (h *SchemaHandler) GetDatabaseSchema(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"schema":    schema,
-		"last_sync": dataSource.LastSchemaSync,
-		"is_cached": isCached,
+		"schema":     schema,
+		"last_sync":  dataSource.LastSchemaSync,
+		"is_cached":  isCached,
 		"is_healthy": dataSource.IsHealthy,
 		"data_source": gin.H{
 			"id":   dataSource.ID,

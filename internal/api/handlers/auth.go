@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +11,7 @@ import (
 	"github.com/yourorg/querybase/internal/api/dto"
 	"github.com/yourorg/querybase/internal/auth"
 	"github.com/yourorg/querybase/internal/models"
+	"github.com/yourorg/querybase/internal/service"
 	"gorm.io/gorm"
 )
 
@@ -16,13 +19,15 @@ import (
 type AuthHandler struct {
 	db         *gorm.DB
 	jwtManager *auth.JWTManager
+	blacklist  *service.TokenBlacklistService
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(db *gorm.DB, jwtManager *auth.JWTManager) *AuthHandler {
+func NewAuthHandler(db *gorm.DB, jwtManager *auth.JWTManager, blacklist *service.TokenBlacklistService) *AuthHandler {
 	return &AuthHandler{
 		db:         db,
 		jwtManager: jwtManager,
+		blacklist:  blacklist,
 	}
 }
 
@@ -68,13 +73,30 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := h.jwtManager.GenerateToken(user.ID, user.Email, string(user.Role))
+	accessToken, err := h.jwtManager.GenerateToken(user.ID, user.Email, string(user.Role))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Unable to complete login. Please try again or contact support if the problem persists.",
 		})
 		return
 	}
+
+	refreshToken, err := h.jwtManager.GenerateRefreshToken()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate refresh token"})
+		return
+	}
+
+	// Store refresh token in Redis (7 days)
+	err = h.blacklist.StoreRefreshToken(c.Request.Context(), refreshToken, user.ID.String(), 7*24*time.Hour)
+	if err != nil {
+		log.Printf("Failed to store refresh token: %v", err)
+		// We can still proceed with login, but refresh won't work
+	}
+
+	// Set refresh token in HttpOnly cookie
+	// In production, Secure should be true (requires HTTPS)
+	c.SetCookie("refresh_token", refreshToken, int(7*24*time.Hour.Seconds()), "/api/v1/auth", "", false, true)
 
 	// Extract group IDs
 	groupIDs := make([]string, len(user.Groups))
@@ -83,7 +105,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.LoginResponse{
-		Token: token,
+		Token: accessToken,
 		User: dto.UserResponse{
 			ID:       user.ID.String(),
 			Email:    user.Email,
@@ -93,6 +115,80 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			Groups:   groupIDs,
 		},
 	})
+}
+
+// Refresh handles token refresh
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	cookie, err := c.Cookie("refresh_token")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token required"})
+		return
+	}
+
+	// 1. Get user ID from Redis
+	userID, err := h.blacklist.GetUserByRefreshToken(c.Request.Context(), cookie)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
+		return
+	}
+
+	// 2. Fetch user to get latest info
+	var user models.User
+	if err := h.db.Preload("Groups").Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		return
+	}
+
+	// 3. Generate new tokens
+	accessToken, err := h.jwtManager.GenerateToken(user.ID, user.Email, string(user.Role))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate access token"})
+		return
+	}
+
+	newRefreshToken, err := h.jwtManager.GenerateRefreshToken()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate refresh token"})
+		return
+	}
+
+	// 4. Token Rotation: Delete old and store new
+	h.blacklist.DeleteRefreshToken(c.Request.Context(), cookie)
+	h.blacklist.StoreRefreshToken(c.Request.Context(), newRefreshToken, user.ID.String(), 7*24*time.Hour)
+
+	// 5. Update cookie
+	c.SetCookie("refresh_token", newRefreshToken, int(7*24*time.Hour.Seconds()), "/api/v1/auth", "", false, true)
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": accessToken,
+	})
+}
+
+// Logout handles user logout
+func (h *AuthHandler) Logout(c *gin.Context) {
+	// 1. Blacklist the current access token
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		claims, err := h.jwtManager.ValidateToken(tokenString)
+		if err == nil {
+			// Blacklist for remaining duration (or default 24h if already expired)
+			expiration := time.Until(claims.ExpiresAt.Time)
+			if expiration < 0 {
+				expiration = 1 * time.Minute
+			}
+			h.blacklist.BlacklistToken(c.Request.Context(), claims.ID, expiration)
+		}
+	}
+
+	// 2. Clear refresh token from Redis and Cookie
+	cookie, err := c.Cookie("refresh_token")
+	if err == nil {
+		h.blacklist.DeleteRefreshToken(c.Request.Context(), cookie)
+	}
+	c.SetCookie("refresh_token", "", -1, "/api/v1/auth", "", false, true)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }
 
 // GetMe returns the current user

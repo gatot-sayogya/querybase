@@ -23,11 +23,11 @@ func TestResetUserPassword_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	jwtManager := auth.NewJWTManager("test-secret", 24*3600, "querybase")
-	authHandler := NewAuthHandler(db, jwtManager)
+	authHandler := NewAuthHandler(db, jwtManager, nil)
 
 	// Setup admin route
 	admin := router.Group("/")
-	admin.Use(middleware.AuthMiddleware(jwtManager))
+	admin.Use(middleware.AuthMiddleware(jwtManager, nil))
 	admin.Use(middleware.RequireAdmin())
 	{
 		admin.POST("/users/:id/reset-password", authHandler.ResetUserPassword)
@@ -93,11 +93,11 @@ func TestResetUserPassword_NonAdmin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	jwtManager := auth.NewJWTManager("test-secret", 24*3600, "querybase")
-	authHandler := NewAuthHandler(db, jwtManager)
+	authHandler := NewAuthHandler(db, jwtManager, nil)
 
 	// Setup route with admin middleware
 	admin := router.Group("/")
-	admin.Use(middleware.AuthMiddleware(jwtManager))
+	admin.Use(middleware.AuthMiddleware(jwtManager, nil))
 	admin.Use(middleware.RequireAdmin())
 	{
 		admin.POST("/users/:id/reset-password", authHandler.ResetUserPassword)
@@ -143,11 +143,11 @@ func TestResetUserPassword_OwnPassword(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	jwtManager := auth.NewJWTManager("test-secret", 24*3600, "querybase")
-	authHandler := NewAuthHandler(db, jwtManager)
+	authHandler := NewAuthHandler(db, jwtManager, nil)
 
 	// Setup admin route
 	admin := router.Group("/")
-	admin.Use(middleware.AuthMiddleware(jwtManager))
+	admin.Use(middleware.AuthMiddleware(jwtManager, nil))
 	admin.Use(middleware.RequireAdmin())
 	{
 		admin.POST("/users/:id/reset-password", authHandler.ResetUserPassword)
@@ -197,11 +197,11 @@ func TestResetUserPassword_UserNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	jwtManager := auth.NewJWTManager("test-secret", 24*3600, "querybase")
-	authHandler := NewAuthHandler(db, jwtManager)
+	authHandler := NewAuthHandler(db, jwtManager, nil)
 
 	// Setup admin route
 	admin := router.Group("/")
-	admin.Use(middleware.AuthMiddleware(jwtManager))
+	admin.Use(middleware.AuthMiddleware(jwtManager, nil))
 	admin.Use(middleware.RequireAdmin())
 	{
 		admin.POST("/users/:id/reset-password", authHandler.ResetUserPassword)
@@ -247,11 +247,11 @@ func TestResetUserPassword_ShortPassword(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	jwtManager := auth.NewJWTManager("test-secret", 24*3600, "querybase")
-	authHandler := NewAuthHandler(db, jwtManager)
+	authHandler := NewAuthHandler(db, jwtManager, nil)
 
 	// Setup admin route
 	admin := router.Group("/")
-	admin.Use(middleware.AuthMiddleware(jwtManager))
+	admin.Use(middleware.AuthMiddleware(jwtManager, nil))
 	admin.Use(middleware.RequireAdmin())
 	{
 		admin.POST("/users/:id/reset-password", authHandler.ResetUserPassword)

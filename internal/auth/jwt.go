@@ -17,9 +17,9 @@ type JWTManager struct {
 
 // Claims represents JWT claims
 type Claims struct {
-	UserID   uuid.UUID `json:"user_id"`
-	Email    string    `json:"email"`
-	Role     string    `json:"role"`
+	UserID uuid.UUID `json:"user_id"`
+	Email  string    `json:"email"`
+	Role   string    `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -32,13 +32,14 @@ func NewJWTManager(secret string, expireTime time.Duration, issuer string) *JWTM
 	}
 }
 
-// GenerateToken generates a JWT token for a user
+// GenerateToken generates a JWT token for a user (Access Token)
 func (j *JWTManager) GenerateToken(userID uuid.UUID, email string, role string) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		Email:  email,
 		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.New().String(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.expireTime)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    j.issuer,
@@ -47,6 +48,11 @@ func (j *JWTManager) GenerateToken(userID uuid.UUID, email string, role string) 
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(j.secret))
+}
+
+// GenerateRefreshToken generates an opaque refresh token
+func (j *JWTManager) GenerateRefreshToken() (string, error) {
+	return uuid.New().String(), nil
 }
 
 // ValidateToken validates a JWT token and returns the claims

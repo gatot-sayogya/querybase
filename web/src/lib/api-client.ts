@@ -25,24 +25,19 @@ import type {
 class ApiClient {
   private client: AxiosInstance;
   private token: string | null = null;
+  private isRefreshing = false;
+  private refreshSubscribers: ((token: string) => void)[] = [];
 
   constructor() {
     const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
     this.client = axios.create({
       baseURL,
+      withCredentials: true, // Crucial for HttpOnly cookies
       headers: {
         'Content-Type': 'application/json',
       },
     });
-
-    // Load token from localStorage on client side
-    if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('token');
-      if (this.token) {
-        this.setAuthToken(this.token);
-      }
-    }
 
     // Request interceptor
     this.client.interceptors.request.use(
@@ -60,31 +55,47 @@ class ApiClient {
     // Response interceptor
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          // Don't redirect if:
-          // 1. Already on login page
-          // 2. The failed request was to /auth/login (legitimate failed login)
-          // 3. The request had no Authorization header (race condition on page load)
-          const isLoginPage = typeof window !== 'undefined' && window.location.pathname === '/login';
-          const isLoginRequest = error.config?.url?.includes('/auth/login');
-          const hadToken = !!error.config?.headers?.Authorization;
+      async (error) => {
+        const originalRequest = error.config;
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          // If already on login page or it was a login/refresh request, give up
+          const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh');
           
-          if (!isLoginPage && !isLoginRequest && hadToken) {
-            // Only clear token and redirect if the request actually sent a token
-            // (meaning the token exists but is invalid/expired, not a race condition)
+          if (isAuthEndpoint) {
+            this.clearToken();
+            return Promise.reject(error);
+          }
+
+          if (this.isRefreshing) {
+            return new Promise((resolve) => {
+              this.refreshSubscribers.push((token: string) => {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+                resolve(this.client(originalRequest));
+              });
+            });
+          }
+
+          originalRequest._retry = true;
+          this.isRefreshing = true;
+
+          try {
+            const res = await this.client.post<{ token: string }>('/api/v1/auth/refresh');
+            const newToken = res.data.token;
+            this.setAuthToken(newToken);
+            this.isRefreshing = false;
+            this.onRefreshed(newToken);
+            
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return this.client(originalRequest);
+          } catch (refreshError) {
+            this.isRefreshing = false;
             this.clearToken();
             if (typeof window !== 'undefined') {
-              // Also clear the auth store
               localStorage.removeItem('auth-storage');
               window.location.href = '/login';
             }
-          } else if (!isLoginRequest && isLoginPage && hadToken) {
-            // On login page but got 401 from other request with valid token, just clear token
-            this.clearToken();
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('auth-storage');
-            }
+            return Promise.reject(refreshError);
           }
         }
         return Promise.reject(error);
@@ -92,19 +103,20 @@ class ApiClient {
     );
   }
 
-  setAuthToken(token: string) {
+  private onRefreshed(token: string) {
+    this.refreshSubscribers.forEach((cb) => cb(token));
+    this.refreshSubscribers = [];
+  }
+
+
+  setAuthToken(token: string | null) {
     this.token = token;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', token);
-    }
   }
 
   clearToken() {
     this.token = null;
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-    }
   }
+
 
   // Dashboard Stats
   async getDashboardStats(): Promise<DashboardStats> {
@@ -120,8 +132,18 @@ class ApiClient {
   }
 
   async logout(): Promise<void> {
-    this.clearToken();
+    try {
+      await this.client.post('/api/v1/auth/logout');
+    } catch (error) {
+      console.error('Logout request failed', error);
+    } finally {
+      this.clearToken();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth-storage');
+      }
+    }
   }
+
 
   async getCurrentUser(): Promise<User> {
     const response = await this.client.get<User>('/api/v1/auth/me');
