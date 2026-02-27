@@ -10,9 +10,9 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 
-	"github.com/yourorg/querybase/internal/models"
-	_ "github.com/lib/pq"
 	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+	"github.com/yourorg/querybase/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -67,38 +67,38 @@ func (s *SchemaService) decryptPassword(encryptedPassword string) (string, error
 
 // TableInfo represents information about a database table
 type TableInfo struct {
-	TableName  string        `json:"table_name"`
-	Schema     string        `json:"schema"`
-	Columns    []ColumnInfo `json:"columns"`
-	Indexes    []IndexInfo   `json:"indexes,omitempty"`
+	TableName string       `json:"table_name"`
+	Schema    string       `json:"schema"`
+	Columns   []ColumnInfo `json:"columns"`
+	Indexes   []IndexInfo  `json:"indexes,omitempty"`
 }
 
 // ColumnInfo represents information about a column
 type ColumnInfo struct {
-	ColumnName     string  `json:"column_name"`
-	DataType       string  `json:"data_type"`
-	IsNullable     bool    `json:"is_nullable"`
-	ColumnDefault  *string `json:"column_default,omitempty"`
-	IsPrimaryKey   bool    `json:"is_primary_key"`
-	IsForeignKey   bool    `json:"is_foreign_key"`
+	ColumnName    string  `json:"column_name"`
+	DataType      string  `json:"data_type"`
+	IsNullable    bool    `json:"is_nullable"`
+	ColumnDefault *string `json:"column_default,omitempty"`
+	IsPrimaryKey  bool    `json:"is_primary_key"`
+	IsForeignKey  bool    `json:"is_foreign_key"`
 }
 
 // IndexInfo represents information about an index
 type IndexInfo struct {
-	IndexName  string   `json:"index_name"`
-	Columns    []string `json:"columns"`
-	IsUnique   bool     `json:"is_unique"`
-	IsPrimary  bool     `json:"is_primary"`
+	IndexName string   `json:"index_name"`
+	Columns   []string `json:"columns"`
+	IsUnique  bool     `json:"is_unique"`
+	IsPrimary bool     `json:"is_primary"`
 }
 
 // DatabaseSchema represents the complete schema of a database
 type DatabaseSchema struct {
-	DataSourceID string       `json:"data_source_id"`
-	DataSourceName string     `json:"data_source_name"`
-	DatabaseType string       `json:"database_type"`
-	DatabaseName string       `json:"database_name"`
-	Tables       []TableInfo  `json:"tables"`
-	Schemas      []string     `json:"schemas,omitempty"`
+	DataSourceID   string      `json:"data_source_id"`
+	DataSourceName string      `json:"data_source_name"`
+	DatabaseType   string      `json:"database_type"`
+	DatabaseName   string      `json:"database_name"`
+	Tables         []TableInfo `json:"tables"`
+	Schemas        []string    `json:"schemas,omitempty"`
 }
 
 // GetSchema fetches the complete schema for a data source
@@ -249,10 +249,10 @@ func (s *SchemaService) getPostgreSQLSchema(db *sql.DB, databaseName string) ([]
 		}
 
 		column := ColumnInfo{
-			ColumnName:    columnName,
-			DataType:      dataType,
-			IsNullable:    isNullable == "YES",
-			IsPrimaryKey:  isPrimaryKey == "PRIMARY KEY",
+			ColumnName:   columnName,
+			DataType:     dataType,
+			IsNullable:   isNullable == "YES",
+			IsPrimaryKey: isPrimaryKey == "PRIMARY KEY",
 		}
 
 		if columnDefault.Valid {
@@ -313,10 +313,10 @@ func (s *SchemaService) getPostgreSQLTableDetails(db *sql.DB, tableName string) 
 		}
 
 		column := ColumnInfo{
-			ColumnName:    name,
-			DataType:      dataType,
-			IsNullable:    isNullable == "YES",
-			IsPrimaryKey:  isPrimaryKey == "PRIMARY KEY",
+			ColumnName:   name,
+			DataType:     dataType,
+			IsNullable:   isNullable == "YES",
+			IsPrimaryKey: isPrimaryKey == "PRIMARY KEY",
 		}
 
 		if columnDefault.Valid {
@@ -616,7 +616,7 @@ func (s *SchemaService) connectToDataSource(dataSource *models.DataSource) (*sql
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt password: %w", err)
 		}
-		dsn = fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable",
+		dsn = fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable connect_timeout=5",
 			dataSource.Host,
 			dataSource.Port,
 			dataSource.DatabaseName,
@@ -630,7 +630,7 @@ func (s *SchemaService) connectToDataSource(dataSource *models.DataSource) (*sql
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt password: %w", err)
 		}
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&timeout=5s&readTimeout=15s&writeTimeout=15s",
 			dataSource.Username,
 			password,
 			dataSource.Host,

@@ -31,10 +31,18 @@ type User struct {
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
-	Groups           []Group        `gorm:"many2many:user_groups;" json:"groups,omitempty"`
+	Groups           []Group        `gorm:"many2many:user_groups;joinForeignKey:UserID;joinReferences:GroupID" json:"groups,omitempty"`
 }
 
 // TableName specifies the table name for User
 func (User) TableName() string {
 	return "users"
+}
+
+// BeforeCreate will set a UUID rather than numeric ID.
+func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
+	if u.ID == uuid.Nil {
+		u.ID = uuid.New()
+	}
+	return
 }

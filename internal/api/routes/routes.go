@@ -123,6 +123,8 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 				auth.PUT("/users/:id", authHandler.UpdateUser)
 				auth.DELETE("/users/:id", authHandler.DeleteUser)
 				auth.POST("/users/:id/reset-password", authHandler.ResetUserPassword)
+				auth.GET("/users/:id/groups", authHandler.GetUserGroups)
+				auth.PUT("/users/:id/groups", authHandler.AssignUserGroups)
 
 				// Group routes
 				groups := admin.Group("/groups")
@@ -132,9 +134,14 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 					groups.GET("/:id", groupHandler.GetGroup)
 					groups.PUT("/:id", groupHandler.UpdateGroup)
 					groups.DELETE("/:id", groupHandler.DeleteGroup)
-					groups.POST("/:id/users", groupHandler.AddUserToGroup)
-					groups.DELETE("/:id/users", groupHandler.RemoveUserFromGroup)
-					groups.GET("/:id/users", groupHandler.ListGroupUsers)
+					groups.POST("/:id/members", groupHandler.AddUserToGroup)
+					groups.PUT("/:id/members/:uid", groupHandler.UpdateGroupMemberRole)
+					groups.DELETE("/:id/members/:uid", groupHandler.RemoveUserFromGroup)
+					groups.GET("/:id/members", groupHandler.ListGroupUsers)
+
+					// Group logic policies
+					groups.GET("/:id/policies", groupHandler.GetRolePolicies)
+					groups.PUT("/:id/policies", groupHandler.SetRolePolicy)
 				}
 			}
 

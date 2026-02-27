@@ -6,21 +6,25 @@ import { apiClient } from '@/lib/api-client';
 import type { User } from '@/types';
 import UserList from './UserList';
 import UserForm from './UserForm';
+import UserGroupsTab from './UserGroupsTab';
 import Modal from '../Modal';
 
 export default function UserManager() {
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
+  const [activeTab, setActiveTab] = useState<'details' | 'groups'>('details');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleCreateNew = () => {
     setSelectedUser(null);
     setView('create');
+    setActiveTab('details');
   };
 
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
     setView('edit');
+    setActiveTab('details');
   };
 
   const handleSave = async (data: {
@@ -86,11 +90,40 @@ export default function UserManager() {
         onClose={handleCancel}
         title={view === 'create' ? 'Add User' : 'Edit User'}
       >
-        <UserForm
-          user={selectedUser || undefined}
-          onSave={handleSave}
-          onCancel={handleCancel}
-        />
+        {view === 'edit' && (
+          <div className="flex border-b border-[var(--border)] mb-4">
+            <button
+              className={`px-4 py-2 text-sm font-medium ${
+                activeTab === 'details'
+                  ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              }`}
+              onClick={() => setActiveTab('details')}
+            >
+              Details
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${
+                activeTab === 'groups'
+                  ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              }`}
+              onClick={() => setActiveTab('groups')}
+            >
+              Groups
+            </button>
+          </div>
+        )}
+        
+        {activeTab === 'details' ? (
+          <UserForm
+            user={selectedUser || undefined}
+            onSave={handleSave}
+            onCancel={handleCancel}
+          />
+        ) : (
+          selectedUser && <UserGroupsTab user={selectedUser} />
+        )}
       </Modal>
     </div>
   );

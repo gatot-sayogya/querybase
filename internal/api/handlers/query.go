@@ -52,7 +52,7 @@ func (h *QueryHandler) ExecuteQuery(c *gin.Context) {
 	}
 
 	// Check user permissions
-	if !h.checkReadPermission(userID, dataSource.ID.String()) {
+	if !h.checkReadPermission(c, userID, dataSource.ID.String()) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions to read from this data source"})
 		return
 	}
@@ -305,7 +305,7 @@ func (h *QueryHandler) DeleteQuery(c *gin.Context) {
 // createApprovalForQuery creates an approval request for write operations
 func (h *QueryHandler) createApprovalForQuery(c *gin.Context, req dto.ExecuteQueryRequest, dataSource models.DataSource, userID string, operationType models.OperationType) {
 	// Check if user has write permission
-	if !h.checkWritePermission(userID, dataSource.ID.String()) {
+	if !h.checkWritePermission(c, userID, dataSource.ID.String()) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions to submit write operations"})
 		return
 	}
@@ -363,49 +363,39 @@ func (h *QueryHandler) createApprovalForQuery(c *gin.Context, req dto.ExecuteQue
 }
 
 // checkReadPermission checks if user has read permission on data source
-func (h *QueryHandler) checkReadPermission(userID, dataSourceID string) bool {
-	var user models.User
-	if err := h.db.Preload("Groups").First(&user, "id = ?", userID).Error; err != nil {
+func (h *QueryHandler) checkReadPermission(c *gin.Context, userID, dataSourceID string) bool {
+	uID, err := uuid.Parse(userID)
+	if err != nil {
+		return false
+	}
+	dsID, err := uuid.Parse(dataSourceID)
+	if err != nil {
 		return false
 	}
 
-	// Admin has all permissions
-	if user.Role == models.RoleAdmin {
-		return true
+	perms, err := h.queryService.GetEffectivePermissions(c.Request.Context(), uID, dsID)
+	if err != nil {
+		return false
 	}
-
-	// Check group permissions
-	var count int64
-	h.db.Table("data_source_permissions").
-		Joins("JOIN user_groups ON user_groups.group_id = data_source_permissions.group_id").
-		Where("user_groups.user_id = ? AND data_source_permissions.data_source_id = ?", userID, dataSourceID).
-		Where("data_source_permissions.can_read = ?", true).
-		Count(&count)
-
-	return count > 0
+	return perms.CanRead
 }
 
 // checkWritePermission checks if user has write permission on data source
-func (h *QueryHandler) checkWritePermission(userID, dataSourceID string) bool {
-	var user models.User
-	if err := h.db.Preload("Groups").First(&user, "id = ?", userID).Error; err != nil {
+func (h *QueryHandler) checkWritePermission(c *gin.Context, userID, dataSourceID string) bool {
+	uID, err := uuid.Parse(userID)
+	if err != nil {
+		return false
+	}
+	dsID, err := uuid.Parse(dataSourceID)
+	if err != nil {
 		return false
 	}
 
-	// Admin has all permissions
-	if user.Role == models.RoleAdmin {
-		return true
+	perms, err := h.queryService.GetEffectivePermissions(c.Request.Context(), uID, dsID)
+	if err != nil {
+		return false
 	}
-
-	// Check group permissions
-	var count int64
-	h.db.Table("data_source_permissions").
-		Joins("JOIN user_groups ON user_groups.group_id = data_source_permissions.group_id").
-		Where("user_groups.user_id = ? AND data_source_permissions.data_source_id = ?", userID, dataSourceID).
-		Where("data_source_permissions.can_write = ?", true).
-		Count(&count)
-
-	return count > 0
+	return perms.CanWrite
 }
 
 // ListQueryHistory retrieves query execution history
@@ -498,7 +488,7 @@ func (h *QueryHandler) ExplainQuery(c *gin.Context) {
 	}
 
 	// Check user permissions
-	if !h.checkReadPermission(userID, dataSource.ID.String()) {
+	if !h.checkReadPermission(c, userID, dataSource.ID.String()) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions to read from this data source"})
 		return
 	}
@@ -536,7 +526,7 @@ func (h *QueryHandler) DryRunDelete(c *gin.Context) {
 	}
 
 	// Check user permissions (require write permission for dry run)
-	if !h.checkWritePermission(userID, dataSource.ID.String()) {
+	if !h.checkWritePermission(c, userID, dataSource.ID.String()) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions to write to this data source"})
 		return
 	}

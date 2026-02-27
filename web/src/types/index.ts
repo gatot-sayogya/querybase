@@ -149,6 +149,31 @@ export interface Group {
   data_sources?: DataSource[];
 }
 
+export interface UserGroupDetail {
+  group_id: string;
+  group_name: string;
+  role_in_group: string;
+}
+
+export interface GroupMember {
+  id: string;
+  email: string;
+  username: string;
+  full_name: string;
+  role_in_group: string;
+}
+
+export interface GroupRolePolicy {
+  id: string;
+  group_id: string;
+  data_source_id: string | null;
+  role_in_group: string;
+  allow_select: boolean;
+  allow_insert: boolean;
+  allow_update: boolean;
+  allow_delete: boolean;
+}
+
 // API Response Types
 export interface ApiResponse<T = unknown> {
   data?: T;

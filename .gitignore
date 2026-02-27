@@ -83,3 +83,9 @@ pprof/
 /querybase
 /worker
 
+# Root-level node artifacts
+/node_modules/
+/package-lock.json
+/package.json
+/test-results/
+

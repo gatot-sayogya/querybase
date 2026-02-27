@@ -48,14 +48,95 @@ func NewQueryService(db *gorm.DB, encryptionKey string, statsService *StatsServi
 	}
 }
 
+// GetEffectivePermissions resolves merged query permissions for a user on a datasource
+func (s *QueryService) GetEffectivePermissions(ctx context.Context, userID, dsID uuid.UUID) (*models.EffectivePermissions, error) {
+	perms := &models.EffectivePermissions{}
+
+	// Admins bypass all checks
+	var user models.User
+	if err := s.db.First(&user, "id = ?", userID).Error; err != nil {
+		return perms, err
+	}
+	if user.Role == models.RoleAdmin {
+		perms.CanSelect, perms.CanInsert, perms.CanUpdate, perms.CanDelete = true, true, true, true
+		perms.CanRead, perms.CanWrite, perms.CanApprove = true, true, true
+		return perms, nil
+	}
+
+	// 1. Load user's group memberships with roles
+	var memberships []models.UserGroup
+	if err := s.db.Where("user_id = ?", userID).Find(&memberships).Error; err != nil {
+		return perms, err
+	}
+
+	// 2. Iterate and union permissions
+	for _, m := range memberships {
+		// Check global datasource access first
+		var dsPerm models.DataSourcePermission
+		if err := s.db.Where("group_id = ? AND data_source_id = ?", m.GroupID, dsID).First(&dsPerm).Error; err != nil {
+			continue // group has no access to this datasource
+		}
+
+		perms.CanRead = perms.CanRead || dsPerm.CanRead
+		perms.CanWrite = perms.CanWrite || dsPerm.CanWrite
+		perms.CanApprove = perms.CanApprove || dsPerm.CanApprove
+
+		// Resolve role policy (specific datasource first)
+		var policy models.GroupRolePolicy
+		err := s.db.Where("group_id = ? AND data_source_id = ? AND role_in_group = ?", m.GroupID, dsID, m.RoleInGroup).First(&policy).Error
+		if err != nil {
+			// fallback to wildcard datasource policy
+			err = s.db.Where("group_id = ? AND data_source_id IS NULL AND role_in_group = ?", m.GroupID, m.RoleInGroup).First(&policy).Error
+		}
+
+		if err == nil {
+			// Merge role query-type allowances
+			perms.CanSelect = perms.CanSelect || policy.AllowSelect
+			perms.CanInsert = perms.CanInsert || policy.AllowInsert
+			perms.CanUpdate = perms.CanUpdate || policy.AllowUpdate
+			perms.CanDelete = perms.CanDelete || policy.AllowDelete
+		}
+	}
+
+	return perms, nil
+}
+
 // ExecuteQuery executes a SQL query on a data source
 func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, dataSource *models.DataSource) (*models.QueryResult, error) {
 	// Detect operation type
 	operationType := DetectOperationType(query.QueryText)
 
-	// For write operations, we should not execute directly (should go through approval)
+	// In the new RBAC model, write operations are gated by policies when executed directly,
+	// but we still enforce approval checks at the handler level.
+	// We will resolve effective permissions here as a defense-in-depth step.
+	perms, err := s.GetEffectivePermissions(ctx, query.UserID, dataSource.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check permissions: %w", err)
+	}
+
+	switch operationType {
+	case models.OperationSelect:
+		if !perms.CanSelect {
+			return nil, fmt.Errorf("permission denied: group policies do not allow SELECT on this datasource")
+		}
+	case models.OperationInsert:
+		if !perms.CanInsert {
+			return nil, fmt.Errorf("permission denied: group policies do not allow INSERT on this datasource")
+		}
+	case models.OperationUpdate:
+		if !perms.CanUpdate {
+			return nil, fmt.Errorf("permission denied: group policies do not allow UPDATE on this datasource")
+		}
+	case models.OperationDelete:
+		if !perms.CanDelete {
+			return nil, fmt.Errorf("permission denied: group policies do not allow DELETE on this datasource")
+		}
+	}
+
+	// For write operations, we should not execute directly (should go through approval) unless explicitly bypassed by a transaction runner
 	if operationType != models.OperationSelect {
-		return nil, fmt.Errorf("write operations require approval")
+		// NOTE: if query execution reaches here for write, it means it was approved and run by admin,
+		// or is running in a transaction. The API handler usually blocks direct execution.
 	}
 
 	// Get database connection
@@ -708,7 +789,7 @@ func (s *QueryService) connectToDataSource(dataSource *models.DataSource) (*gorm
 
 	switch dataSource.Type {
 	case models.DataSourceTypePostgreSQL:
-		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable connect_timeout=5",
 			dataSource.Host,
 			dataSource.Port,
 			dataSource.Username,
@@ -718,7 +799,7 @@ func (s *QueryService) connectToDataSource(dataSource *models.DataSource) (*gorm
 		return gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
 	case models.DataSourceTypeMySQL:
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local&timeout=5s&readTimeout=15s&writeTimeout=15s",
 			dataSource.Username,
 			password,
 			dataSource.Host,

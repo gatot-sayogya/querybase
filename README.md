@@ -109,14 +109,16 @@ graph TD
 - **Export Results:** CSV and JSON export
 - **Row Limiting:** Configurable limits for safety
 
-### 👥 User & Group Management
+### 👥 User & Group Management (Plan C)
 
 - **User Roles:** Admin, User, Viewer
-- **Groups:** Organize users into teams
-- **Group-Based Permissions:** Assign data source access by group
-- **Three Permission Levels:**
-  - `can_read`: Execute SELECT queries
-  - `can_write`: Submit write operation requests
+- **Groups:** Organize users into functional teams
+- **Per-User Group Roles:** Assign specific roles (`viewer`, `member`, `analyst`) to users within each group.
+- **Granular RBAC:** Define exact SQL verb permissions (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) per group role for each data source.
+- **Permission Merging:** Dynamic resolution of permissions when a user belongs to multiple groups with overlapping access.
+- **Three Core Permission Levels:**
+  - `can_read`: Execute SELECT queries (governed by role policy)
+  - `can_write`: Submit write operation requests (governed by role policy)
   - `can_approve`: Approve/reject write operations
 
 ### 📊 Schema Management
@@ -402,8 +404,12 @@ make clean              # Clean build artifacts
 - `GET /api/v1/groups/:id` - Get group details
 - `PUT /api/v1/groups/:id` - Update group
 - `DELETE /api/v1/groups/:id` - Delete group
-- `POST /api/v1/groups/:id/users` - Add user to group
-- `DELETE /api/v1/groups/:id/users` - Remove user from group
+- `GET /api/v1/groups/:id/members` - List group members
+- `POST /api/v1/groups/:id/members` - Add/Update user role in group
+- `DELETE /api/v1/groups/:id/members/:user_id` - Remove user from group
+- `GET /api/v1/groups/:id/policies` - List group role policies
+- `PUT /api/v1/groups/:id/policies` - Set group role policy
+- `GET /api/v1/auth/user/groups` - Get current user's groups and roles
 
 ### Health
 

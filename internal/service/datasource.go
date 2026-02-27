@@ -228,6 +228,7 @@ func (s *DataSourceService) SetPermissions(ctx context.Context, dataSourceID str
 	if err == gorm.ErrRecordNotFound {
 		// Create new permission
 		perm = models.DataSourcePermission{
+			ID:           uuid.New(),
 			DataSourceID: uuid.MustParse(dataSourceID),
 			GroupID:      uuid.MustParse(groupID),
 			CanRead:      permissions.CanRead,

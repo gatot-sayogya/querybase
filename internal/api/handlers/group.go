@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/yourorg/querybase/internal/api/dto"
 	"github.com/yourorg/querybase/internal/models"
 	"gorm.io/gorm"
@@ -178,7 +179,7 @@ func (h *GroupHandler) DeleteGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Group deleted successfully"})
 }
 
-// AddUserToGroup adds a user to a group
+// AddUserToGroup adds a user to a group with an optional role
 func (h *GroupHandler) AddUserToGroup(c *gin.Context) {
 	groupID := c.Param("id")
 
@@ -188,34 +189,38 @@ func (h *GroupHandler) AddUserToGroup(c *gin.Context) {
 		return
 	}
 
-	// Check if group exists
-	var group models.Group
-	if err := h.db.Where("id = ?", groupID).First(&group).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Group not found"})
+	gID, err := uuid.Parse(groupID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid group ID"})
+		return
+	}
+	uID, err := uuid.Parse(req.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
-	// Check if user exists
-	var user models.User
-	if err := h.db.Where("id = ?", req.UserID).First(&user).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
+	role := req.RoleInGroup
+	if role == "" {
+		role = "viewer" // default
 	}
 
-	// Check if user is already in group
+	// Check if already in group
 	var count int64
-	h.db.Table("user_groups").
-		Where("group_id = ? AND user_id = ?", groupID, req.UserID).
-		Count(&count)
-
+	h.db.Model(&models.UserGroup{}).Where("group_id = ? AND user_id = ?", gID, uID).Count(&count)
 	if count > 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": "User is already in this group"})
 		return
 	}
 
-	// Add user to group
-	if err := h.db.Model(&group).Association("Users").Append(&user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add user to group"})
+	userGroup := models.UserGroup{
+		UserID:      uID,
+		GroupID:     gID,
+		RoleInGroup: role,
+	}
+
+	if err := h.db.Create(&userGroup).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add user to group: " + err.Error()})
 		return
 	}
 
@@ -226,28 +231,17 @@ func (h *GroupHandler) AddUserToGroup(c *gin.Context) {
 func (h *GroupHandler) RemoveUserFromGroup(c *gin.Context) {
 	groupID := c.Param("id")
 	userID := c.Query("user_id")
+	// Support parameter extraction for cleanly mapped routes
+	if userIDFromParam := c.Param("uid"); userIDFromParam != "" {
+		userID = userIDFromParam
+	}
 
 	if userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id query parameter is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
 		return
 	}
 
-	// Check if group exists
-	var group models.Group
-	if err := h.db.Where("id = ?", groupID).First(&group).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Group not found"})
-		return
-	}
-
-	// Check if user exists
-	var user models.User
-	if err := h.db.Where("id = ?", userID).First(&user).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
-
-	// Remove user from group
-	if err := h.db.Model(&group).Association("Users").Delete(&user); err != nil {
+	if err := h.db.Where("group_id = ? AND user_id = ?", groupID, userID).Delete(&models.UserGroup{}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove user from group"})
 		return
 	}
@@ -259,19 +253,20 @@ func (h *GroupHandler) RemoveUserFromGroup(c *gin.Context) {
 func (h *GroupHandler) ListGroupUsers(c *gin.Context) {
 	groupID := c.Param("id")
 
-	var group models.Group
-	if err := h.db.Preload("Users").Where("id = ?", groupID).First(&group).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Group not found"})
+	var userGroups []models.UserGroup
+	if err := h.db.Preload("User").Where("group_id = ?", groupID).Find(&userGroups).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Group members not found"})
 		return
 	}
 
-	users := make([]dto.UserInGroupResp, len(group.Users))
-	for i, user := range group.Users {
+	users := make([]dto.UserInGroupResp, len(userGroups))
+	for i, ug := range userGroups {
 		users[i] = dto.UserInGroupResp{
-			ID:       user.ID.String(),
-			Email:    user.Email,
-			Username: user.Username,
-			FullName: user.FullName,
+			ID:          ug.UserID.String(),
+			Email:       ug.User.Email,
+			Username:    ug.User.Username,
+			FullName:    ug.User.FullName,
+			RoleInGroup: ug.RoleInGroup,
 		}
 	}
 
@@ -279,4 +274,124 @@ func (h *GroupHandler) ListGroupUsers(c *gin.Context) {
 		"users": users,
 		"total": len(users),
 	})
+}
+
+// UpdateGroupMemberRole updates a user's role in a group
+func (h *GroupHandler) UpdateGroupMemberRole(c *gin.Context) {
+	groupID := c.Param("id")
+	userID := c.Param("uid")
+
+	var req dto.UpdateGroupMemberRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.db.Model(&models.UserGroup{}).
+		Where("group_id = ? AND user_id = ?", groupID, userID).
+		Update("role_in_group", req.RoleInGroup).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update member role"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Member role updated successfully"})
+}
+
+// GetRolePolicies retrieves all role policies for a group
+func (h *GroupHandler) GetRolePolicies(c *gin.Context) {
+	groupID := c.Param("id")
+
+	var policies []models.GroupRolePolicy
+	if err := h.db.Where("group_id = ?", groupID).Find(&policies).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch policies"})
+		return
+	}
+
+	response := make([]dto.GroupRolePolicyResponse, len(policies))
+	for i, p := range policies {
+		var dsID *string
+		if p.DataSourceID != nil {
+			id := p.DataSourceID.String()
+			dsID = &id
+		}
+		response[i] = dto.GroupRolePolicyResponse{
+			ID:           p.ID.String(),
+			GroupID:      p.GroupID.String(),
+			DataSourceID: dsID,
+			RoleInGroup:  p.RoleInGroup,
+			AllowSelect:  p.AllowSelect,
+			AllowInsert:  p.AllowInsert,
+			AllowUpdate:  p.AllowUpdate,
+			AllowDelete:  p.AllowDelete,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"policies": response,
+		"total":    len(response),
+	})
+}
+
+// SetRolePolicy sets a role policy for a group
+func (h *GroupHandler) SetRolePolicy(c *gin.Context) {
+	groupID := c.Param("id")
+
+	var req dto.GroupRolePolicyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	gID, err := uuid.Parse(groupID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid group ID"})
+		return
+	}
+
+	var dsID *uuid.UUID
+	if req.DataSourceID != nil && *req.DataSourceID != "" {
+		id, err := uuid.Parse(*req.DataSourceID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data source ID"})
+			return
+		}
+		dsID = &id
+	}
+
+	// Upsert policy
+	policy := models.GroupRolePolicy{
+		ID:           uuid.New(),
+		GroupID:      gID,
+		DataSourceID: dsID,
+		RoleInGroup:  req.RoleInGroup,
+		AllowSelect:  req.AllowSelect,
+		AllowInsert:  req.AllowInsert,
+		AllowUpdate:  req.AllowUpdate,
+		AllowDelete:  req.AllowDelete,
+	}
+
+	query := h.db.Where("group_id = ? AND role_in_group = ?", gID, req.RoleInGroup)
+	if dsID != nil {
+		query = query.Where("data_source_id = ?", dsID)
+	} else {
+		query = query.Where("data_source_id IS NULL")
+	}
+
+	var existing models.GroupRolePolicy
+	if err := query.First(&existing).Error; err == nil {
+		// Update
+		policy.ID = existing.ID
+		if err := h.db.Save(&policy).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update role policy"})
+			return
+		}
+	} else {
+		// Create
+		if err := h.db.Create(&policy).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create role policy"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Role policy saved successfully"})
 }

@@ -5,9 +5,12 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** 'md' ~max-w-2xl (default), 'lg' ~max-w-4xl */
+  size?: 'md' | 'lg';
 }
 
-export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+  const maxW = size === 'lg' ? 'max-w-4xl' : 'max-w-2xl';
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -28,7 +31,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
         onClick={onClose}
       />
       
-      <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col bg-[var(--bg-page)] shadow-2xl overflow-hidden border border-[var(--border-light)]" style={{ borderRadius: '2px' }}>
+      <div className={`relative w-full ${maxW} max-h-[90vh] flex flex-col bg-[var(--bg-page)] shadow-2xl overflow-hidden border border-[var(--border-light)]`} style={{ borderRadius: '2px' }}>
         <div className="flex items-center justify-between px-8 py-6 border-b border-[var(--border-light)] bg-transparent">
           <h2 className="text-xl font-black tracking-widest uppercase text-[var(--text-primary)]">
             {title}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/yourorg/querybase/internal/api/dto"
 	"github.com/yourorg/querybase/internal/auth"
 	"github.com/yourorg/querybase/internal/models"
@@ -160,7 +161,9 @@ func (h *AuthHandler) CreateUser(c *gin.Context) {
 // ListUsers returns all users
 func (h *AuthHandler) ListUsers(c *gin.Context) {
 	var users []models.User
-	if err := h.db.Find(&users).Error; err != nil {
+	// Exclude users with a zero/nil UUID — these are corrupted records created before
+	// the BeforeCreate UUID hook was added.
+	if err := h.db.Where("id != ?", "00000000-0000-0000-0000-000000000000").Find(&users).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 		return
 	}
@@ -234,10 +237,21 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 		return
 	}
 
-	// Get group IDs
-	groupIDs := make([]string, len(user.Groups))
+	// Get group roles
+	var userGroups []models.UserGroup
+	h.db.Where("user_id = ?", userID).Find(&userGroups)
+	roleMap := make(map[string]string)
+	for _, ug := range userGroups {
+		roleMap[ug.GroupID.String()] = ug.RoleInGroup
+	}
+
+	groupDetails := make([]dto.UserGroupDetail, len(user.Groups))
 	for i, group := range user.Groups {
-		groupIDs[i] = group.ID.String()
+		groupDetails[i] = dto.UserGroupDetail{
+			GroupID:     group.ID.String(),
+			GroupName:   group.Name,
+			RoleInGroup: roleMap[group.ID.String()],
+		}
 	}
 
 	c.JSON(http.StatusOK, dto.UserDetailResponse{
@@ -250,7 +264,7 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 		IsActive:  user.IsActive,
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
-		Groups:    groupIDs,
+		Groups:    groupDetails,
 	})
 }
 
@@ -355,4 +369,84 @@ func (h *AuthHandler) ResetUserPassword(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset successfully"})
+}
+
+// GetUserGroups retrieves groups for a specific user
+func (h *AuthHandler) GetUserGroups(c *gin.Context) {
+	userID := c.Param("id")
+
+	var userGroups []models.UserGroup
+	if err := h.db.Preload("Group").Where("user_id = ?", userID).Find(&userGroups).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user groups"})
+		return
+	}
+
+	response := make([]dto.UserGroupDetail, len(userGroups))
+	for i, ug := range userGroups {
+		response[i] = dto.UserGroupDetail{
+			GroupID:     ug.GroupID.String(),
+			GroupName:   ug.Group.Name,
+			RoleInGroup: ug.RoleInGroup,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"groups": response,
+		"total":  len(response),
+	})
+}
+
+// AssignUserGroups updates the groups for a user
+func (h *AuthHandler) AssignUserGroups(c *gin.Context) {
+	userID := c.Param("id")
+
+	var req dto.AssignUserGroupsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	uID, err := uuid.Parse(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	// Begin transaction
+	tx := h.db.Begin()
+
+	// 1. Delete existing memberships
+	if err := tx.Where("user_id = ?", uID).Delete(&models.UserGroup{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear existing groups"})
+		return
+	}
+
+	// 2. Insert new memberships
+	if len(req.Groups) > 0 {
+		userGroups := make([]models.UserGroup, len(req.Groups))
+		for i, gDetail := range req.Groups {
+			gID, err := uuid.Parse(gDetail.GroupID)
+			if err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid group ID: " + gDetail.GroupID})
+				return
+			}
+			userGroups[i] = models.UserGroup{
+				UserID:      uID,
+				GroupID:     gID,
+				RoleInGroup: gDetail.RoleInGroup,
+			}
+		}
+
+		if err := tx.Create(&userGroups).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign groups"})
+			return
+		}
+	}
+
+	tx.Commit()
+
+	c.JSON(http.StatusOK, gin.H{"message": "User groups assigned successfully"})
 }

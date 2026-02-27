@@ -17,6 +17,9 @@ import type {
   TableInfo,
   DashboardStats,
   HealthStatus,
+  UserGroupDetail,
+  GroupMember,
+  GroupRolePolicy,
 } from '@/types';
 
 class ApiClient {
@@ -330,12 +333,42 @@ class ApiClient {
     await this.client.delete(`/api/v1/groups/${id}`);
   }
 
-  async addUserToGroup(groupId: string, userId: string): Promise<void> {
-    await this.client.post(`/api/v1/groups/${groupId}/users`, { user_id: userId });
+  // --- Group Members & Roles ---
+  async getGroupMembers(groupId: string): Promise<GroupMember[]> {
+    const response = await this.client.get<{ users: GroupMember[] }>(`/api/v1/groups/${groupId}/members`);
+    return response.data.users;
   }
 
-  async removeUserFromGroup(groupId: string, userId: string): Promise<void> {
-    await this.client.delete(`/api/v1/groups/${groupId}/users`, { data: { user_id: userId } });
+  async addGroupMember(groupId: string, userId: string, roleInGroup: string = 'viewer'): Promise<void> {
+    await this.client.post(`/api/v1/groups/${groupId}/members`, { user_id: userId, role_in_group: roleInGroup });
+  }
+
+  async updateGroupMemberRole(groupId: string, userId: string, roleInGroup: string): Promise<void> {
+    await this.client.put(`/api/v1/groups/${groupId}/members/${userId}`, { role_in_group: roleInGroup });
+  }
+
+  async removeGroupMember(groupId: string, userId: string): Promise<void> {
+    await this.client.delete(`/api/v1/groups/${groupId}/members/${userId}`);
+  }
+
+  // --- Group Policies ---
+  async getGroupPolicies(groupId: string): Promise<GroupRolePolicy[]> {
+    const response = await this.client.get<{ policies: GroupRolePolicy[] }>(`/api/v1/groups/${groupId}/policies`);
+    return response.data.policies;
+  }
+
+  async setGroupPolicy(groupId: string, policy: Omit<GroupRolePolicy, 'id' | 'group_id'>): Promise<void> {
+    await this.client.put(`/api/v1/groups/${groupId}/policies`, policy);
+  }
+
+  // --- User Group Memberships ---
+  async getUserGroups(userId: string): Promise<UserGroupDetail[]> {
+    const response = await this.client.get<{ groups: UserGroupDetail[] }>(`/api/v1/auth/users/${userId}/groups`);
+    return response.data.groups;
+  }
+
+  async assignUserGroups(userId: string, groups: { group_id: string; role_in_group: string }[]): Promise<void> {
+    await this.client.put(`/api/v1/auth/users/${userId}/groups`, { groups });
   }
 
   // Schema Inspection
