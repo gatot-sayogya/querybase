@@ -94,7 +94,9 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 		// Public routes
 		authGroup := api.Group("/auth")
 		{
-			authGroup.POST("/login", authHandler.Login)
+			// Strict brute-force protection: 5 req/min per IP, burst of 3
+			loginLimiter := middleware.RateLimiterMiddleware(middleware.StrictAuthRateLimitConfig())
+			authGroup.POST("/login", loginLimiter, authHandler.Login)
 			authGroup.POST("/refresh", authHandler.Refresh)
 		}
 

@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,22 +25,37 @@ type RateLimiterConfig struct {
 	SkipPaths []string
 }
 
-// DefaultRateLimitConfig returns the default rate limiting configuration
+// DefaultRateLimitConfig returns the default rate limiting configuration.
+// These are generous limits for normal app usage. Login has its own strict limiter.
 func DefaultRateLimitConfig() *RateLimiterConfig {
 	return &RateLimiterConfig{
-		RequestsPerMinute:      60, // 60 requests per minute = 1 request per second
-		BurstSize:              10, // Allow bursts of up to 10 requests
+		// 300 req/min = 5 req/sec average, burst of 30 to handle multi-request page loads
+		RequestsPerMinute:      300,
+		BurstSize:              30,
 		SkipSuccessfulRequests: false,
+		// Paths are matched by PREFIX — /api/v1/datasources also covers /api/v1/datasources/:id/schema
 		SkipPaths: []string{
 			"/health",
 			"/favicon.ico",
 			"/static",
-			"/ws",                 // Don't rate limit WebSocket endpoint
-			"/api/v1/datasources", // Don't rate limit data source/schema endpoints
-			"/api/v1/approvals",   // Don't rate limit approval endpoints
-			"/api/v1/groups",      // Don't rate limit group endpoints
-			// Note: /api/v1/queries and /api/v1/auth/login ARE rate limited
+			"/ws",
+			"/api/v1/datasources", // covers all datasource + schema endpoints
+			"/api/v1/approvals",
+			"/api/v1/groups",
+			"/api/v1/auth/me",
+			"/api/v1/auth/users",
+			"/api/v1/dashboard",
+			"/api/v1/queries",
 		},
+	}
+}
+
+// StrictAuthRateLimitConfig returns a strict rate limit config for authentication endpoints (login)
+func StrictAuthRateLimitConfig() *RateLimiterConfig {
+	return &RateLimiterConfig{
+		RequestsPerMinute: 5, // Max 5 login attempts per minute per IP
+		BurstSize:         3, // Allow small burst before throttling
+		SkipPaths:         []string{},
 	}
 }
 
@@ -132,9 +148,9 @@ func RateLimiterMiddleware(config *RateLimiterConfig) gin.HandlerFunc {
 	limiter := newInMemoryRateLimiter(config)
 
 	return func(c *gin.Context) {
-		// Check if path should be skipped
+		// Check if path should be skipped (prefix match so /api/v1/datasources/:id/schema is covered)
 		for _, skipPath := range config.SkipPaths {
-			if c.Request.URL.Path == skipPath {
+			if strings.HasPrefix(c.Request.URL.Path, skipPath) {
 				c.Next()
 				return
 			}

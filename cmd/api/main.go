@@ -121,11 +121,9 @@ func main() {
 	// Set CORS_ALLOWED_ORIGINS in .env or config.yaml to control allowed origins
 	router.Use(middleware.CORSMiddlewareFromConfig(cfg.CORS))
 
-	// Add rate limiting middleware
-	// Uses default config: 60 requests/minute, burst of 10
-	// For production, you may want to use stricter limits
-	rateLimitConfig := middleware.DefaultRateLimitConfig()
-	router.Use(middleware.RateLimiterMiddleware(rateLimitConfig))
+	// Rate limiting: generous defaults for normal navigation (300 req/min, burst 30).
+	// Brute-force protection for /auth/login is applied at the route level in routes.go.
+	router.Use(middleware.RateLimiterMiddleware(middleware.DefaultRateLimitConfig()))
 
 	// Health check endpoint (no auth required)
 	router.GET("/health", func(c *gin.Context) {
