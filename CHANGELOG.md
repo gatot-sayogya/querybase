@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Google Chat Interactive Plugin**:
+  - **Interactive Approvals**: Review, approve, and reject queries directly from Google Chat notifications using interactive buttons.
+  - **Threaded Conversations**: All plugin replies and user interactions are kept within a single Google Chat thread.
+  - **Comment Syncing**: Text messages sent in the Google Chat thread are automatically synced to the QueryBase approval request history.
+  - **Transaction Preview**: After approval, the plugin posts a preview of the started transaction (e.g., rows affected) with buttons to Commit or Rollback.
+  - **Dual Mode**: Supports the new interactive `app` mode (via Google Chat API + webhook events) and falls back to simple `webhook` mode.
+
 - **Hardened Security Architecture**:
   - **Dual-Token Authentication**: Implemented short-lived access tokens (memory-only) and long-lived `HttpOnly/Secure/SameSite=Strict` refresh tokens (cookie-based).
   - **Token Revocation System**: Added Redis-based `TokenBlacklistService` for immediate session invalidation and access token revocation (JTI-based).

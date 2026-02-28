@@ -68,3 +68,21 @@ type Notification struct {
 func (Notification) TableName() string {
 	return "notifications"
 }
+
+// ChatThread tracks Google Chat thread ↔ approval request mapping
+// Used for: threaded replies, comment syncing from Google Chat messages
+type ChatThread struct {
+	ID         uuid.UUID `gorm:"type:uuid;primary_key" json:"id"`
+	ApprovalID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex" json:"approval_id"`
+	SpaceName  string    `gorm:"type:text;not null" json:"space_name"`  // e.g., "spaces/AAAA"
+	ThreadName string    `gorm:"type:text;not null" json:"thread_name"` // e.g., "spaces/AAAA/threads/BBBB"
+	CreatedAt  time.Time `json:"created_at"`
+
+	// Foreign key relationships
+	ApprovalRequest ApprovalRequest `gorm:"foreignKey:ApprovalID;references:ID" json:"-"`
+}
+
+// TableName specifies the table name for ChatThread
+func (ChatThread) TableName() string {
+	return "chat_threads"
+}

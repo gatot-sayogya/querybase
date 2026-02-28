@@ -13,6 +13,7 @@ import (
 	"github.com/yourorg/querybase/internal/auth"
 	"github.com/yourorg/querybase/internal/config"
 	"github.com/yourorg/querybase/internal/database"
+	"github.com/yourorg/querybase/internal/plugins/googlechat"
 	"github.com/yourorg/querybase/internal/service"
 	"gorm.io/gorm"
 )
@@ -132,6 +133,25 @@ func main() {
 			"message": "QueryBase API is running",
 		})
 	})
+
+	// Initialize Google Chat plugin (app mode with interactive buttons)
+	notificationService := service.NewNotificationService(db)
+	if cfg.GoogleChat.Enabled && cfg.GoogleChat.Mode == "app" {
+		chatPlugin, err := googlechat.NewChatPlugin(db, approvalService, &cfg.GoogleChat)
+		if err != nil {
+			log.Printf("Warning: Failed to initialize Google Chat plugin: %v. Falling back to webhook mode.", err)
+		} else {
+			// Register plugin routes (for receiving button clicks and messages)
+			chatPlugin.RegisterRoutes(router.Group("/api/v1/integrations"))
+			// Inject plugin into notification service
+			notificationService.SetChatPlugin(chatPlugin)
+			log.Println("Google Chat App plugin initialized (interactive mode)")
+		}
+	} else if cfg.GoogleChat.Enabled {
+		log.Println("Google Chat integration enabled (webhook mode — one-way notifications)")
+	}
+	// Suppress unused variable warning
+	_ = notificationService
 
 	// Setup routes
 	routes.SetupRoutes(router, authHandler, queryHandler, approvalHandler, dataSourceHandler, groupHandler, schemaHandler, webSocketHandler, statsHandler, jwtManager, blacklistService)

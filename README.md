@@ -57,7 +57,7 @@ graph TD
     Queue[("📬 Redis (Job Queue)")]:::storage
     Worker["⚙️ Background Worker"]:::backend
     Sources[("🗄️ Data Sources (PG/MySQL)")]:::storage
-    Chat["💬 Google Chat Webhooks"]:::external
+    Chat["💬 Google Chat App & Webhooks"]:::external
 
     FE <--> API
     API <--> DB
@@ -148,11 +148,12 @@ For detailed information, see **[docs/architecture/security.md](docs/architectur
 
 1. User submits write operation query
 2. System creates approval request
-3. Approvers receive Google Chat notification
-4. Approvers review query in dashboard
-5. On approval: Background worker executes query
-6. Results cached and displayed
-7. On rejection: User notified with reason
+3. Approvers receive an interactive Google Chat notification
+4. Approvers review query (in dashboard or directly via Chat buttons)
+5. On approval: System starts DB transaction
+6. Google Chat card updates with transaction preview (Commit/Rollback buttons)
+7. On execution: Results cached and displayed
+8. On rejection: User notified with reason
 
 ### 🎨 SQL Editor Features
 
@@ -302,6 +303,14 @@ JWT_EXPIRE_HOURS=24h
 # CORS
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 CORS_ALLOW_CREDENTIALS=true
+
+# Google Chat App (Interactive Mode)
+GOOGLE_CHAT_ENABLED=true
+GOOGLE_CHAT_MODE=app
+GOOGLE_CHAT_SERVICE_ACCOUNT_FILE=./config/google-chat-key.json
+GOOGLE_CHAT_SPACE_ID=spaces/YOUR_SPACE_ID
+GOOGLE_CHAT_PROJECT_NUMBER=1234567890
+GOOGLE_CHAT_APP_URL=https://your-public-url.com
 ```
 
 **Frontend (web/.env.local):**

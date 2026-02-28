@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -12,10 +13,17 @@ import (
 	"gorm.io/gorm"
 )
 
+// ChatPluginInterface defines the interface for Google Chat App plugin
+// This allows the NotificationService to use the Chat API for interactive notifications
+type ChatPluginInterface interface {
+	SendApprovalCard(ctx context.Context, approval *models.ApprovalRequest) error
+}
+
 // NotificationService handles notification logic
 type NotificationService struct {
-	db        *gorm.DB
+	db         *gorm.DB
 	httpClient *http.Client
+	chatPlugin ChatPluginInterface
 }
 
 // NewNotificationService creates a new notification service
@@ -28,23 +36,38 @@ func NewNotificationService(db *gorm.DB) *NotificationService {
 	}
 }
 
+// SetChatPlugin injects a Google Chat App plugin for interactive notifications
+func (s *NotificationService) SetChatPlugin(plugin ChatPluginInterface) {
+	s.chatPlugin = plugin
+	log.Println("[NotificationService] Chat plugin set — approval notifications will use Chat API")
+}
+
 // SendApprovalNotification sends a notification for approval requests
+// When chatPlugin is set, uses the Chat API for interactive cards (app mode)
+// Otherwise falls back to webhook (one-way notifications)
 func (s *NotificationService) SendApprovalNotification(ctx context.Context, approval *models.ApprovalRequest) error {
-	// Get active notification configs
+	// If Chat plugin is available, use it for interactive notifications
+	if s.chatPlugin != nil {
+		if err := s.chatPlugin.SendApprovalCard(ctx, approval); err != nil {
+			log.Printf("[NotificationService] Chat plugin failed, falling back to webhook: %v", err)
+			// Fall through to webhook
+		} else {
+			return nil
+		}
+	}
+
+	// Webhook fallback: one-way notification
 	var configs []models.NotificationConfig
 	err := s.db.Where("is_active = ?", true).Find(&configs).Error
 	if err != nil {
 		return fmt.Errorf("failed to get notification configs: %w", err)
 	}
 
-	// For now, we'll use a simple message format
 	message := s.formatApprovalMessage(approval)
 
-	// Send to each config
 	for _, config := range configs {
 		if err := s.sendGoogleChatNotification(&config, message); err != nil {
-			// Log error but continue trying other configs
-			fmt.Printf("Failed to send notification to %s: %v\n", config.WebhookURL, err)
+			log.Printf("Failed to send notification to %s: %v", config.WebhookURL, err)
 		}
 	}
 
@@ -136,7 +159,7 @@ func (s *NotificationService) formatApprovalMessage(approval *models.ApprovalReq
 						Buttons: []ButtonWidget{
 							{
 								TextButton: &TextButton{
-									Text:   "View Details",
+									Text: "View Details",
 									OnClick: &OnClick{
 										OpenLink: &OpenLink{
 											URL: approvalURL,
@@ -203,7 +226,7 @@ type GoogleChatMessage struct {
 
 // Card represents a Google Chat card
 type Card struct {
-	Header  *CardHeader   `json:"header,omitempty"`
+	Header   *CardHeader   `json:"header,omitempty"`
 	Sections []CardSection `json:"sections,omitempty"`
 }
 
@@ -222,12 +245,12 @@ type CardSection struct {
 
 // Widget represents a card widget
 type Widget struct {
-	KeyValue        *KeyValueWidget        `json:"keyValue,omitempty"`
-	TextParagraph   *TextWidget            `json:"textParagraph,omitempty"`
-	Image           *ImageWidget           `json:"image,omitempty"`
-	Buttons         []ButtonWidget         `json:"buttons,omitempty"`
-	TextButton      *TextButton            `json:"textButton,omitempty"`
-	DecoratedText   *DecoratedTextWidget   `json:"decoratedText,omitempty"`
+	KeyValue      *KeyValueWidget      `json:"keyValue,omitempty"`
+	TextParagraph *TextWidget          `json:"textParagraph,omitempty"`
+	Image         *ImageWidget         `json:"image,omitempty"`
+	Buttons       []ButtonWidget       `json:"buttons,omitempty"`
+	TextButton    *TextButton          `json:"textButton,omitempty"`
+	DecoratedText *DecoratedTextWidget `json:"decoratedText,omitempty"`
 }
 
 // KeyValueWidget represents a key-value widget
@@ -246,7 +269,7 @@ type TextWidget struct {
 
 // ImageWidget represents an image widget
 type ImageWidget struct {
-	ImageURL string `json:"imageUrl,omitempty"`
+	ImageURL string   `json:"imageUrl,omitempty"`
 	OnClick  *OnClick `json:"onClick,omitempty"`
 }
 
@@ -257,7 +280,7 @@ type ButtonWidget struct {
 
 // TextButton represents a text button
 type TextButton struct {
-	Text    string  `json:"text"`
+	Text    string   `json:"text"`
 	OnClick *OnClick `json:"onClick,omitempty"`
 }
 
@@ -274,15 +297,15 @@ type OpenLink struct {
 
 // Action represents an action
 type Action struct {
-	Function string                 `json:"function,omitempty"`
+	Function   string                 `json:"function,omitempty"`
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
 }
 
 // DecoratedTextWidget represents a decorated text widget
 type DecoratedTextWidget struct {
-	TopLabel    string    `json:"topLabel,omitempty"`
-	Text        string    `json:"text,omitempty"`
-	BottomLabel string    `json:"bottomLabel,omitempty"`
-	OnClick     *OnClick  `json:"onClick,omitempty"`
-	StartIcon   string    `json:"startIcon,omitempty"`
+	TopLabel    string   `json:"topLabel,omitempty"`
+	Text        string   `json:"text,omitempty"`
+	BottomLabel string   `json:"bottomLabel,omitempty"`
+	OnClick     *OnClick `json:"onClick,omitempty"`
+	StartIcon   string   `json:"startIcon,omitempty"`
 }

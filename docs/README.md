@@ -44,7 +44,7 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 
 - **[Approval Workflow](user-guide/approval-workflow.md)**
   - How write operations work
-  - Reviewing and approving queries
+  - Reviewing and approving queries (UI & Google Chat App)
   - Transaction management
 
 - **[Schema Browser](user-guide/schema-browser.md)**
@@ -175,7 +175,7 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 - ✅ Approval workflow system with transaction preview
 - ✅ Data source management with encryption
 - ✅ Redis queue + background worker
-- ✅ Google Chat notifications
+- ✅ Google Chat Interactive App notifications
 - ✅ User & Group Management
 - ✅ EXPLAIN and Dry Run features
 - ✅ Query results pagination with sorting

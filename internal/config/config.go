@@ -10,11 +10,12 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
-	CORS     CORSConfig     `mapstructure:"cors"`
+	Server     ServerConfig     `mapstructure:"server"`
+	Database   DatabaseConfig   `mapstructure:"database"`
+	Redis      RedisConfig      `mapstructure:"redis"`
+	JWT        JWTConfig        `mapstructure:"jwt"`
+	CORS       CORSConfig       `mapstructure:"cors"`
+	GoogleChat GoogleChatConfig `mapstructure:"google_chat"`
 }
 
 // ServerConfig represents the server configuration
@@ -62,6 +63,30 @@ type CORSConfig struct {
 
 	// MaxAge indicates how long (in seconds) the results of a preflight request can be cached
 	MaxAge int `mapstructure:"max_age"`
+}
+
+// GoogleChatConfig represents the Google Chat integration configuration
+type GoogleChatConfig struct {
+	// Enabled controls whether Google Chat integration is active
+	Enabled bool `mapstructure:"enabled"`
+
+	// Mode: "webhook" (one-way notifications) or "app" (interactive buttons, threads)
+	Mode string `mapstructure:"mode"`
+
+	// ServiceAccountFile is the path to the Google Cloud service account JSON key file
+	ServiceAccountFile string `mapstructure:"service_account_file"`
+
+	// SpaceID is the Google Chat space to send notifications to (e.g., "spaces/AAAA")
+	SpaceID string `mapstructure:"space_id"`
+
+	// ProjectNumber is the Google Cloud project number for JWT verification
+	ProjectNumber string `mapstructure:"project_number"`
+
+	// AppURL is the public QueryBase URL used for "View Query" deep links
+	AppURL string `mapstructure:"app_url"`
+
+	// SkipVerification disables Google Chat JWT verification (dev mode only)
+	SkipVerification bool `mapstructure:"skip_verification"`
 }
 
 // Load loads the configuration from file and environment variables
