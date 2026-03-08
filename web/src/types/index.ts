@@ -109,6 +109,27 @@ export interface PaginatedResults {
 }
 
 // Approval Types
+export type AuditMode = 'full' | 'sample' | 'count_only';
+
+export interface TransactionPreview {
+  transaction_id: string;
+  approval_id: string;
+  data_source_id: string;
+  query_text: string;
+  started_by: string;
+  status: 'active' | 'committed' | 'rolled_back' | 'failed';
+  started_at: string;
+  preview: {
+    data: any;
+    row_count: number;
+    columns: any[];
+    estimated_rows: number;
+    caution: boolean;
+    caution_message?: string;
+    audit_mode: AuditMode;
+  };
+}
+
 export interface ApprovalRequest {
   id: string;
   query_id?: string;
@@ -119,9 +140,17 @@ export interface ApprovalRequest {
   data_source_id: string;
   data_source_name?: string;
   requester_name?: string;
+  can_approve?: boolean;
   created_at: string;
   updated_at: string;
   reviews?: any[];
+  transaction?: {
+    affected_rows: number;
+    audit_mode: AuditMode;
+    before_data?: Record<string, unknown>[];
+    after_data?: Record<string, unknown>[];
+    completed_at?: string;
+  };
 }
 
 export interface ApprovalReview {
@@ -138,6 +167,23 @@ export interface ReviewApprovalRequest {
   comments?: string;
 }
 
+export interface StartTransactionRequest {
+  audit_mode?: AuditMode;
+}
+
+export interface WriteQueryPreview {
+  total_affected: number;
+  preview_rows: Record<string, unknown>[];
+  columns: string[];
+  preview_limit: number;
+  select_query: string;
+  operation_type: string;
+}
+
+export interface CommitTransactionRequest {
+  audit_mode?: AuditMode;
+}
+
 // Group Types
 export interface Group {
   id: string;
@@ -152,7 +198,6 @@ export interface Group {
 export interface UserGroupDetail {
   group_id: string;
   group_name: string;
-  role_in_group: string;
 }
 
 export interface GroupMember {
@@ -160,18 +205,17 @@ export interface GroupMember {
   email: string;
   username: string;
   full_name: string;
-  role_in_group: string;
 }
 
-export interface GroupRolePolicy {
-  id: string;
+
+
+export interface GroupDataSourcePermission {
+  data_source_id: string;
+  data_source_name: string;
   group_id: string;
-  data_source_id: string | null;
-  role_in_group: string;
-  allow_select: boolean;
-  allow_insert: boolean;
-  allow_update: boolean;
-  allow_delete: boolean;
+  can_read: boolean;
+  can_write: boolean;
+  can_approve: boolean;
 }
 
 // API Response Types

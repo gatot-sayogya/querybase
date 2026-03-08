@@ -9,10 +9,9 @@ import (
 
 // UserGroup represents the join table for user groups with roles
 type UserGroup struct {
-	UserID      uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
-	GroupID     uuid.UUID `gorm:"type:uuid;primaryKey" json:"group_id"`
-	RoleInGroup string    `gorm:"type:varchar(50);default:'viewer'"`
-	JoinedAt    time.Time `gorm:"autoCreateTime"`
+	UserID   uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
+	GroupID  uuid.UUID `gorm:"type:uuid;primaryKey" json:"group_id"`
+	JoinedAt time.Time `gorm:"autoCreateTime"`
 
 	User  User  `gorm:"foreignKey:UserID"`
 	Group Group `gorm:"foreignKey:GroupID"`

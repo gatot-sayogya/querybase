@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +17,7 @@ type ApprovalService struct {
 	db           *gorm.DB
 	queryService *QueryService
 	statsService *StatsService
+	auditService *AuditService
 }
 
 // NewApprovalService creates a new approval service
@@ -23,6 +26,7 @@ func NewApprovalService(db *gorm.DB, queryService *QueryService, statsService *S
 		db:           db,
 		queryService: queryService,
 		statsService: statsService,
+		auditService: NewAuditService(db),
 	}
 }
 
@@ -173,7 +177,7 @@ func (s *ApprovalService) ReviewApproval(ctx context.Context, review *ReviewInpu
 	}
 
 	// Update approval status based on reviews
-	s.updateApprovalStatus(approval.ID)
+	s.updateApprovalStatus(ctx, approval.ID)
 
 	// TODO: Send notification to requester
 
@@ -201,7 +205,7 @@ func (s *ApprovalService) GetEligibleApprovers(ctx context.Context, dataSourceID
 }
 
 // updateApprovalStatus updates the approval status based on reviews
-func (s *ApprovalService) updateApprovalStatus(approvalID uuid.UUID) {
+func (s *ApprovalService) updateApprovalStatus(ctx context.Context, approvalID uuid.UUID) {
 	var reviews []models.ApprovalReview
 	s.db.Where("approval_request_id = ?", approvalID).Find(&reviews)
 
@@ -212,9 +216,13 @@ func (s *ApprovalService) updateApprovalStatus(approvalID uuid.UUID) {
 	// If any review is rejected, mark as rejected
 	for _, review := range reviews {
 		if review.Decision == models.ApprovalDecisionRejected {
+			now := time.Now()
 			s.db.Model(&models.ApprovalRequest{}).
 				Where("id = ?", approvalID).
-				Update("status", models.ApprovalStatusRejected)
+				Updates(map[string]interface{}{
+					"status":       models.ApprovalStatusRejected,
+					"completed_at": now,
+				})
 			return
 		}
 	}
@@ -223,23 +231,49 @@ func (s *ApprovalService) updateApprovalStatus(approvalID uuid.UUID) {
 	// For multi-stage approval, you would check for required number of approvals
 	for _, review := range reviews {
 		if review.Decision == models.ApprovalDecisionApproved {
+			now := time.Now()
 			s.db.Model(&models.ApprovalRequest{}).
 				Where("id = ?", approvalID).
-				Update("status", models.ApprovalStatusApproved)
+				Updates(map[string]interface{}{
+					"status":       models.ApprovalStatusApproved,
+					"completed_at": now,
+				})
 
 			// Trigger stats update
 			if s.statsService != nil {
 				s.statsService.TriggerStatsChanged()
 			}
 
-			// TODO: Trigger query execution for approved queries
+			// Execute the approved query
+			var approval models.ApprovalRequest
+			if err := s.db.Preload("DataSource").First(&approval, "id = ?", approvalID).Error; err == nil {
+				// We create a transient query executed by the reviewer (who has permissions) to bypass the direct execution block
+				query := &models.Query{
+					ID:            uuid.New(),
+					DataSourceID:  approval.DataSourceID,
+					UserID:        review.ReviewerID, // Execute as the approver
+					QueryText:     approval.QueryText,
+					OperationType: approval.OperationType,
+					Name:          "Approved execution",
+					Status:        models.StatusRunning,
+				}
+
+				// The transient query must exist for QueryResult to avoid f-key violations
+				s.db.Create(query)
+
+				// Execute in background to avoid blocking the API response
+				go func(q *models.Query, ds *models.DataSource) {
+					bgCtx := context.Background()
+					_, _ = s.queryService.ExecuteQuery(bgCtx, q, ds)
+				}(query, &approval.DataSource)
+			}
 			return
 		}
 	}
 }
 
 // StartTransaction starts a transaction for an approval request and executes the query in preview mode
-func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, startedBy string) (*models.QueryTransaction, error) {
+func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, startedBy string, auditMode models.AuditMode) (*models.QueryTransaction, error) {
 	// Get the approval request
 	var approval models.ApprovalRequest
 	if err := s.db.Preload("DataSource").First(&approval, "id = ?", approvalID).Error; err != nil {
@@ -251,12 +285,17 @@ func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, star
 		return nil, fmt.Errorf("approval request is not pending")
 	}
 
-	// Check if a transaction already exists for this approval
+	// Check if an active transaction already exists — return it directly
 	var existingTx models.QueryTransaction
 	err := s.db.Where("approval_id = ? AND status = ?", approvalID, models.TransactionStatusActive).First(&existingTx).Error
 	if err == nil {
 		return &existingTx, nil // Return existing active transaction
 	}
+
+	// Hard-delete any stale transaction records for this approval so the user can retry cleanly.
+	// We wipe all non-committed rows since the unique constraint on approval_id would block a new insert.
+	s.db.Where("approval_id = ? AND status != ?", approvalID, models.TransactionStatusCommitted).
+		Delete(&models.QueryTransaction{})
 
 	// Parse startedBy as UUID
 	startedByUUID, err := uuid.Parse(startedBy)
@@ -264,34 +303,99 @@ func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, star
 		return nil, fmt.Errorf("invalid started_by UUID: %w", err)
 	}
 
-	// Create transaction record
-	transaction := &models.QueryTransaction{
-		ID:           uuid.New(),
-		ApprovalID:   approval.ID,
-		DataSourceID: approval.DataSourceID,
-		QueryText:    approval.QueryText,
-		StartedBy:    startedByUUID,
-		Status:       models.TransactionStatusActive,
+	// Resolve audit mode based on capability
+	effectiveMode := s.auditService.ResolveAuditMode(auditMode, approval.DataSource.AuditCapability)
+
+	// Estimate affected rows
+	dataSourceDB, err := s.queryService.connectToDataSource(&approval.DataSource)
+	var estimatedRows int
+	var caution bool
+	var cautionMsg string
+	if err == nil {
+		estimatedRows, _ = s.auditService.EstimateAffectedRows(ctx, approval.QueryText, dataSourceDB, &approval.DataSource)
+		caution, cautionMsg = s.auditService.CheckCaution(estimatedRows, &approval.DataSource)
+
+		// Test audit capability lazily if unknown
+		if approval.DataSource.AuditCapability == models.AuditCapabilityUnknown {
+			cap, _ := s.auditService.TestAuditCapability(ctx, dataSourceDB, &approval.DataSource)
+			effectiveMode = s.auditService.ResolveAuditMode(auditMode, cap)
+		}
+	} else {
+		log.Printf("[StartTransaction] WARNING: failed to connect to data source for row estimation: %v", err)
 	}
 
-	// Execute query in transaction mode via query service
-	result, err := s.queryService.ExecuteQueryInTransaction(ctx, &approval, &approval.DataSource)
+	// Build the transaction record to save
+	transaction := &models.QueryTransaction{
+		ID:            uuid.New(),
+		ApprovalID:    approval.ID,
+		DataSourceID:  approval.DataSourceID,
+		QueryText:     approval.QueryText,
+		StartedBy:     startedByUUID,
+		Status:        models.TransactionStatusActive,
+		AuditMode:     effectiveMode,
+		EstimatedRows: estimatedRows,
+		BeforeData:    "[]",
+		AfterData:     "[]",
+		PreviewData:   "[]",
+	}
+
+	log.Printf("[StartTransaction] Executing query for approval=%s, queryText=%q", approvalID, approval.QueryText)
+
+	// Execute query in transaction mode — returns query results + audit data (before/after rows)
+	result, auditResult, err := s.queryService.ExecuteQueryInTransaction(ctx, &approval, &approval.DataSource)
 	if err != nil {
+		log.Printf("[StartTransaction] ExecuteQueryInTransaction failed: %v", err)
 		transaction.Status = models.TransactionStatusFailed
 		transaction.ErrorMessage = err.Error()
+		// Best-effort save of failed record; ignore error (the wipe above cleared any blocker)
 		s.db.Create(transaction)
 		return transaction, fmt.Errorf("query execution failed: %w", err)
 	}
 
-	// Store preview results
-	transaction.PreviewData = result.Data
+	// Store preview results. For write queries in audit mode, the actual rows
+	// are in auditResult.BeforeData. The result.Data is just metadata (e.g. "operation, rows_affected...").
+	if auditResult != nil && len(auditResult.BeforeData) > 0 {
+		if beforeJSON, err := json.Marshal(auditResult.BeforeData); err == nil {
+			transaction.PreviewData = string(beforeJSON)
+		}
+	} else if result.Data != "" {
+		transaction.PreviewData = result.Data
+	}
 	transaction.AffectedRows = result.RowCount
 
-	// Save transaction
-	if err := s.db.Create(transaction).Error; err != nil {
-		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	// Store audit before/after row data if available
+	if auditResult != nil {
+		if len(auditResult.BeforeData) > 0 {
+			if beforeJSON, err := json.Marshal(auditResult.BeforeData); err == nil {
+				transaction.BeforeData = string(beforeJSON)
+			}
+		}
+		if len(auditResult.AfterData) > 0 {
+			if afterJSON, err := json.Marshal(auditResult.AfterData); err == nil {
+				transaction.AfterData = string(afterJSON)
+			}
+		}
+		if auditResult.AffectedRows > 0 {
+			transaction.AffectedRows = auditResult.AffectedRows
+		}
+		transaction.AuditMode = auditResult.AuditMode
 	}
 
+	_ = caution
+	_ = cautionMsg
+
+	// Save transaction record
+	if err := s.db.Create(transaction).Error; err != nil {
+		log.Printf("[StartTransaction] Failed to save transaction record: %v", err)
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+	beforeCount, afterCount := 0, 0
+	if auditResult != nil {
+		beforeCount = len(auditResult.BeforeData)
+		afterCount = len(auditResult.AfterData)
+	}
+	log.Printf("[StartTransaction] Success: transaction=%s created for approval=%s, beforeRows=%d, afterRows=%d",
+		transaction.ID, approvalID, beforeCount, afterCount)
 	return transaction, nil
 }
 

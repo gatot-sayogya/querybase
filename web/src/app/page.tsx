@@ -27,7 +27,7 @@ export default function Home() {
     {
       title: 'Visual Results',
       description: 'Interactive data grid with sorting, pagination, and export capabilities.',
-      icon: <ChartBarIcon className="w-6 h-6 text-purple-500" />,
+      icon: <ChartBarIcon className="w-6 h-6 text-emerald-500" />,
       delay: 'delay-400',
     },
   ];

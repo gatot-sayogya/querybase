@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -96,7 +97,11 @@ func (h *QueryHandler) ExecuteQuery(c *gin.Context) {
 	// Execute the query
 	result, err := h.queryService.ExecuteQuery(c, query, &dataSource)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if strings.Contains(err.Error(), "permission denied") {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -302,11 +307,62 @@ func (h *QueryHandler) DeleteQuery(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Query deleted successfully"})
 }
 
+// PreviewWriteQuery previews the rows affected by a DELETE/UPDATE query before submission
+func (h *QueryHandler) PreviewWriteQuery(c *gin.Context) {
+	var req dto.PreviewWriteQueryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := c.GetString("user_id")
+
+	// Verify data source exists
+	var dataSource models.DataSource
+	if err := h.db.First(&dataSource, "id = ?", req.DataSourceID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Data source not found"})
+		return
+	}
+
+	// Check read permission (preview is read-only)
+	if !h.checkReadPermission(c, userID, dataSource.ID.String()) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+		return
+	}
+
+	// Validate SQL
+	if err := service.ValidateSQL(req.QueryText); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SQL syntax", "details": err.Error()})
+		return
+	}
+
+	// Execute preview
+	result, err := h.queryService.PreviewWriteQuery(c, req.QueryText, &dataSource)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.PreviewWriteQueryResponse{
+		TotalAffected: result.TotalAffected,
+		PreviewRows:   result.PreviewRows,
+		Columns:       result.Columns,
+		PreviewLimit:  result.PreviewLimit,
+		SelectQuery:   result.SelectQuery,
+		OperationType: string(result.OperationType),
+	})
+}
+
 // createApprovalForQuery creates an approval request for write operations
 func (h *QueryHandler) createApprovalForQuery(c *gin.Context, req dto.ExecuteQueryRequest, dataSource models.DataSource, userID string, operationType models.OperationType) {
 	// Check if user has write permission
 	if !h.checkWritePermission(c, userID, dataSource.ID.String()) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions to submit write operations"})
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":       "Insufficient permissions to submit write operations",
+			"code":        "PERMISSION_DENIED_WRITE",
+			"data_source": dataSource.Name,
+			"hint":        "Contact your admin to get write access on this data source.",
+		})
 		return
 	}
 

@@ -14,14 +14,15 @@ type CreateDataSourceRequest struct {
 
 // UpdateDataSourceRequest represents an update data source request
 type UpdateDataSourceRequest struct {
-	Name             string                 `json:"name"`
-	Host             string                 `json:"host"`
-	Port             *int                   `json:"port"`
-	DatabaseName     string                 `json:"database_name"`
-	Username         string                 `json:"username"`
-	Password         string                 `json:"password"`
-	ConnectionParams map[string]interface{} `json:"connection_params"`
-	IsActive         *bool                  `json:"is_active"`
+	Name              string                 `json:"name"`
+	Host              string                 `json:"host"`
+	Port              *int                   `json:"port"`
+	DatabaseName      string                 `json:"database_name"`
+	Username          string                 `json:"username"`
+	Password          string                 `json:"password"`
+	ConnectionParams  map[string]interface{} `json:"connection_params"`
+	IsActive          *bool                  `json:"is_active"`
+	AuditRowThreshold *int                   `json:"audit_row_threshold"`
 }
 
 // DataSourceResponse represents a data source response
@@ -39,12 +40,12 @@ type DataSourceResponse struct {
 
 // TestDataSourceRequest represents a test connection request
 type TestDataSourceRequest struct {
-	Type         string                 `json:"type" binding:"required,oneof=postgresql mysql"`
-	Host         string                 `json:"host" binding:"required"`
-	Port         int                    `json:"port" binding:"required,min=1,max=65535"`
-	DatabaseName string                 `json:"database_name" binding:"required"`
-	Username     string                 `json:"username" binding:"required"`
-	Password     string                 `json:"password" binding:"required"`
+	Type             string                 `json:"type" binding:"required,oneof=postgresql mysql"`
+	Host             string                 `json:"host" binding:"required"`
+	Port             int                    `json:"port" binding:"required,min=1,max=65535"`
+	DatabaseName     string                 `json:"database_name" binding:"required"`
+	Username         string                 `json:"username" binding:"required"`
+	Password         string                 `json:"password" binding:"required"`
 	ConnectionParams map[string]interface{} `json:"connection_params"`
 }
 
@@ -67,10 +68,17 @@ const (
 
 // DataSourceHealthResponse represents a health check response
 type DataSourceHealthResponse struct {
-	DataSourceID string        `json:"data_source_id"`
-	Status       HealthStatus  `json:"status"`
-	LatencyMs    int64         `json:"latency_ms"`
-	LastError    string        `json:"last_error,omitempty"`
-	LastChecked  string        `json:"last_checked"`
-	Message      string        `json:"message"`
+	DataSourceID string       `json:"data_source_id"`
+	Status       HealthStatus `json:"status"`
+	LatencyMs    int64        `json:"latency_ms"`
+	LastError    string       `json:"last_error,omitempty"`
+	LastChecked  string       `json:"last_checked"`
+	Message      string       `json:"message"`
+}
+
+// TestAuditResponse represents the response from testing audit capability
+type TestAuditResponse struct {
+	DataSourceID    string `json:"data_source_id"`
+	AuditCapability string `json:"audit_capability"`
+	Message         string `json:"message"`
 }

@@ -1,12 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ApprovalList from '@/components/approvals/ApprovalList';
 import ApprovalDetail from '@/components/approvals/ApprovalDetail';
 
 export default function ApprovalDashboard() {
-  const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const idFromUrl = searchParams.get('id');
+
+  const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(idFromUrl);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // When URL ?id= changes, auto-select that approval
+  useEffect(() => {
+    if (idFromUrl) {
+      setSelectedApprovalId(idFromUrl);
+    }
+  }, [idFromUrl]);
 
   const handleSelectApproval = (approvalId: string) => {
     setSelectedApprovalId(approvalId);
@@ -24,6 +35,7 @@ export default function ApprovalDashboard() {
           key={refreshKey}
           onSelectApproval={handleSelectApproval}
           selectedId={selectedApprovalId}
+          initialFilter={idFromUrl ? 'all' : 'pending'}
         />
       </div>
 

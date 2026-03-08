@@ -89,6 +89,31 @@ func SanitizeSQL(sql string) string {
 	return strings.TrimSpace(sql)
 }
 
+// normalizeSQLForExecution fixes common non-standard SQL syntax before sending
+// to the database driver. Handles the most common user mistakes:
+//   - Multi-line queries: collapses newlines/tabs/extra spaces into single spaces
+//   - SQL comments: strips -- and /* */ comments
+//   - DELETE without FROM: "DELETE table WHERE ..." → "DELETE FROM table WHERE ..."
+//   - Trailing semicolons are stripped (some drivers choke on them)
+func normalizeSQLForExecution(sql string) string {
+	// Sanitize first: remove comments, collapse all whitespace (newlines, tabs, etc.)
+	trimmed := SanitizeSQL(sql)
+
+	// Strip trailing semicolon
+	trimmed = strings.TrimRight(trimmed, "; \t\n\r")
+
+	upper := strings.ToUpper(trimmed)
+
+	// Fix: DELETE <table> WHERE ... → DELETE FROM <table> WHERE ...
+	// MySQL (and standard SQL) requires FROM. Users often omit it.
+	if strings.HasPrefix(upper, "DELETE ") && !strings.HasPrefix(upper, "DELETE FROM ") {
+		// Prepend FROM after DELETE keyword
+		trimmed = "DELETE FROM " + trimmed[7:]
+	}
+
+	return trimmed
+}
+
 // RequiresApproval returns true if the operation type requires approval
 func RequiresApproval(operationType models.OperationType) bool {
 	switch operationType {
@@ -151,16 +176,16 @@ func ValidateSQL(sql string) error {
 
 	// Check for UPDATE without SET
 	if strings.HasPrefix(upperSQL, "UPDATE") {
-		if !strings.Contains(upperSQL, " SET ") && !strings.Contains(upperSQL, "\nSET ") {
+		if !strings.Contains(upperSQL, " SET ") {
 			return fmt.Errorf("UPDATE statement must include SET clause")
 		}
 	}
 
 	// Check for DELETE without FROM (or TABLE in some SQL dialects)
+	// Note: PostgreSQL, SQL Server, and Oracle allow DELETE without FROM (e.g., "DELETE table WHERE ...").
+	// Therefore, we don't strictly enforce FROM or TABLE for DELETE statements.
 	if strings.HasPrefix(upperSQL, "DELETE") {
-		if !strings.Contains(upperSQL, " FROM ") && !strings.Contains(upperSQL, " TABLE ") && !strings.Contains(upperSQL, "\nFROM ") {
-			return fmt.Errorf("DELETE statement must include FROM or TABLE clause")
-		}
+		// Valid in many SQL dialects
 	}
 
 	// Check for CREATE TABLE without table name

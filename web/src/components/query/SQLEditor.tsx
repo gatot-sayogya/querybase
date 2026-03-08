@@ -12,6 +12,8 @@ interface SQLEditorProps {
   readOnly?: boolean;
   height?: string;
   dataSourceId?: string;
+  canWrite?: boolean;
+  onWriteDetected?: (isWrite: boolean) => void;
 }
 
 export default function SQLEditor({
@@ -21,8 +23,11 @@ export default function SQLEditor({
   readOnly = false,
   height = '400px',
   dataSourceId,
+  canWrite = false,
+  onWriteDetected,
 }: SQLEditorProps) {
   const [editorHeight] = useState(height);
+  const [isWriteOperation, setIsWriteOperation] = useState(false);
   const [monaco, setMonaco] = useState<Monaco | null>(null);
   const [editor, setEditor] = useState<any>(null);
   const completionProviderRef = useRef<any>(null);
@@ -261,9 +266,19 @@ export default function SQLEditor({
     monaco.editor.setTheme(monacoTheme);
   }, [editor, monaco, effectiveTheme]);
 
-  const handleEditorChange = (value: string | undefined) => {
-    onChange(value || '');
+  const handleEditorChange = (val: string | undefined) => {
+    const newVal = val || '';
+    onChange(newVal);
   };
+  
+  // Detect write operations when value changes
+  useEffect(() => {
+    const isWrite = /^\s*(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE)\b/i.test(value);
+    setIsWriteOperation(isWrite);
+    if (onWriteDetected) {
+      onWriteDetected(isWrite);
+    }
+  }, [value, onWriteDetected]);
 
   const handleEditorDidMount = (editorInstance: any, monacoInstance: Monaco) => {
     setEditor(editorInstance);
@@ -305,6 +320,16 @@ export default function SQLEditor({
           },
         }}
       />
+      {isWriteOperation && !canWrite && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800/50 px-3 py-2 text-xs text-amber-800 dark:text-amber-300 border-b border-gray-300 dark:border-gray-700">
+          ⚠️ Write operation detected. You have read-only access to this data source.
+        </div>
+      )}
+      {isWriteOperation && canWrite && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border-t border-blue-200 dark:border-blue-800/50 px-3 py-2 text-xs text-blue-800 dark:text-blue-300 border-b border-gray-300 dark:border-gray-700">
+          ℹ️ This query will require admin approval before execution.
+        </div>
+      )}
     </div>
   );
 }

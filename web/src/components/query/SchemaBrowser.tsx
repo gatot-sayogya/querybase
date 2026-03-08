@@ -544,7 +544,7 @@ function ViewItem({ view, isExpanded, onToggle, onSelectTable }: ViewItemProps) 
             {viewName}
           </span>
           <span
-            className="px-1.5 py-0.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded"
+            className="px-1.5 py-0.5 text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded"
             title="View"
           >
             VIEW

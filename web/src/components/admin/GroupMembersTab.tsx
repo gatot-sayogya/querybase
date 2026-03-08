@@ -17,7 +17,6 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
 
   // Form state
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [selectedRole, setSelectedRole] = useState('viewer');
 
   const fetchData = useCallback(async () => {
     try {
@@ -47,10 +46,9 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
     }
     try {
       setSaving('add');
-      await apiClient.addGroupMember(group.id, selectedUserId, selectedRole);
+      await apiClient.addGroupMember(group.id, selectedUserId);
       toast.success('Member added successfully');
       setSelectedUserId('');
-      setSelectedRole('viewer');
       await fetchData();
     } catch (err) {
       toast.error(`Failed to add member: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -72,18 +70,7 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
     }
   };
 
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    try {
-      setSaving(`role-${userId}`);
-      await apiClient.updateGroupMemberRole(group.id, userId, newRole);
-      toast.success('Role updated');
-      await fetchData();
-    } catch (err) {
-      toast.error(`Failed to update role: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setSaving(null);
-    }
-  };
+
 
   // Filter out users already in the group AND any zero-UUID records (corrupted pre-fix)
   const usersToAdd = availableUsers.filter(
@@ -134,22 +121,6 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
             )}
           </div>
 
-          <div className="w-full md:w-52">
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-              Role in Group
-            </label>
-            <select
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-              className="w-full bg-[var(--bg-page)] border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-primary)] rounded focus:outline-none focus:border-[var(--accent-blue)]"
-              disabled={saving !== null}
-            >
-              <option value="viewer">Viewer (Read-only)</option>
-              <option value="member">Member (Read/Write)</option>
-              <option value="analyst">Analyst (All Access)</option>
-            </select>
-          </div>
-
           <button
             onClick={handleAddMember}
             disabled={!selectedUserId || saving !== null}
@@ -179,13 +150,12 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
               <thead className="bg-[var(--bg-hover)] bg-opacity-50 text-[var(--text-muted)] uppercase tracking-wider text-xs border-b border-[var(--border)]">
                 <tr>
                   <th className="px-4 py-3 font-medium">User</th>
-                  <th className="px-4 py-3 font-medium w-44">Role</th>
                   <th className="px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)] bg-[var(--bg-page)] text-[var(--text-primary)]">
                 {members.map((m) => {
-                  const isBusy = saving === `role-${m.id}` || saving === `remove-${m.id}`;
+                  const isBusy = saving === `remove-${m.id}`;
                   return (
                     <tr
                       key={m.id}
@@ -194,18 +164,6 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
                       <td className="px-4 py-3">
                         <div className="font-medium">{m.full_name || m.username}</div>
                         <div className="text-xs text-[var(--text-muted)]">{m.email}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <select
-                          value={m.role_in_group}
-                          onChange={(e) => handleRoleChange(m.id, e.target.value)}
-                          disabled={saving !== null}
-                          className="bg-transparent border border-transparent hover:border-[var(--border)] focus:border-[var(--accent-blue)] px-2 py-1 rounded text-sm focus:outline-none cursor-pointer w-full"
-                        >
-                          <option value="viewer" className="bg-[var(--card-bg)]">Viewer</option>
-                          <option value="member" className="bg-[var(--card-bg)]">Member</option>
-                          <option value="analyst" className="bg-[var(--card-bg)]">Analyst</option>
-                        </select>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button

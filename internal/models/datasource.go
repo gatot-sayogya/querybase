@@ -21,6 +21,15 @@ const (
 	DataSourceMySQL      = DataSourceTypeMySQL
 )
 
+// AuditCapability represents the DDL audit capability of a data source
+type AuditCapability string
+
+const (
+	AuditCapabilityFull      AuditCapability = "full"       // Can create triggers and temp tables
+	AuditCapabilityCountOnly AuditCapability = "count_only" // Can only report row counts
+	AuditCapabilityUnknown   AuditCapability = "unknown"    // Not yet tested
+)
+
 // DataSource represents a database connection
 type DataSource struct {
 	ID                uuid.UUID              `gorm:"type:uuid;primary_key" json:"id"`
@@ -34,6 +43,8 @@ type DataSource struct {
 	ConnectionParams  string                 `gorm:"type:jsonb;default:'{}'" json:"connection_params"`
 	IsActive          bool                   `gorm:"default:true" json:"is_active"`
 	IsHealthy         bool                   `gorm:"default:true" json:"is_healthy"`
+	AuditRowThreshold int                    `gorm:"default:1000" json:"audit_row_threshold"`
+	AuditCapability   AuditCapability        `gorm:"default:'unknown'" json:"audit_capability"`
 	LastSchemaSync    *time.Time             `json:"last_schema_sync"`
 	LastHealthCheck   *time.Time             `json:"last_health_check"`
 	CreatedBy         *uuid.UUID             `gorm:"type:uuid" json:"created_by"`
@@ -84,4 +95,15 @@ type DataSourcePermission struct {
 // TableName specifies the table name for DataSourcePermission
 func (DataSourcePermission) TableName() string {
 	return "data_source_permissions"
+}
+
+// EffectivePermissions represents the resolved permission set for a user on a datasource
+type EffectivePermissions struct {
+	CanRead    bool
+	CanWrite   bool
+	CanApprove bool
+	CanSelect  bool
+	CanInsert  bool
+	CanUpdate  bool
+	CanDelete  bool
 }

@@ -11,12 +11,14 @@ interface DataSourceSelectorProps {
   value: string;
   onChange: (dataSourceId: string) => void;
   disabled?: boolean;
+  onWritePermissionChange?: (canWrite: boolean) => void;
 }
 
 export default function DataSourceSelector({
   value,
   onChange,
   disabled = false,
+  onWritePermissionChange,
 }: DataSourceSelectorProps) {
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +56,18 @@ export default function DataSourceSelector({
     fetchDataSources();
   }, [fetchDataSources]);
 
+  // Compute write permission when value or dataSources change
+  useEffect(() => {
+    if (value && dataSources.length > 0 && onWritePermissionChange) {
+      const selectedDs = dataSources.find((ds) => ds.id === value);
+      if (selectedDs) {
+        // We need to import canWriteToDataSource
+        const { canWriteToDataSource } = require('@/lib/data-source-utils');
+        onWritePermissionChange(canWriteToDataSource(selectedDs, user));
+      }
+    }
+  }, [value, dataSources, user, onWritePermissionChange]);
+
   if (loading) {
     return (
       <div className="animate-pulse">
@@ -88,12 +102,31 @@ export default function DataSourceSelector({
 
   return (
     <div className="space-y-2">
-      <label
-        htmlFor="datasource-select"
-        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-      >
-        Data Source
-      </label>
+      <div className="flex items-center justify-between">
+        <label
+          htmlFor="datasource-select"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          Data Source
+        </label>
+        {value && dataSources.length > 0 && (() => {
+          const selectedDs = dataSources.find((ds) => ds.id === value);
+          if (!selectedDs) return null;
+          const { canWriteToDataSource } = require('@/lib/data-source-utils');
+          const hasWrite = canWriteToDataSource(selectedDs, user);
+          return (
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                hasWrite
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                  : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+              }`}
+            >
+              {hasWrite ? 'Read + Write' : 'Read Only'}
+            </span>
+          );
+        })()}
+      </div>
       <select
         id="datasource-select"
         value={value}

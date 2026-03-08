@@ -24,6 +24,7 @@ interface DataSourceSchemaSelectorProps {
   onChange: (dataSourceId: string) => void;
   onTableSelect?: (tableName: string) => void;
   disabled?: boolean;
+  onWritePermissionChange?: (canWrite: boolean) => void;
 }
 
 type HealthStatus = 'healthy' | 'unhealthy' | 'checking' | 'unknown';
@@ -61,6 +62,7 @@ export default function DataSourceSchemaSelector({
   onChange,
   onTableSelect,
   disabled = false,
+  onWritePermissionChange,
 }: DataSourceSchemaSelectorProps) {
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,6 +148,17 @@ export default function DataSourceSchemaSelector({
 
     initializeDataSources();
   }, []); // Empty dependency array - run once on mount
+
+  // Compute write permission when value or dataSources change
+  useEffect(() => {
+    if (value && dataSources.length > 0 && onWritePermissionChange) {
+      const selectedDs = dataSources.find((ds) => ds.id === value);
+      if (selectedDs) {
+        const { canWriteToDataSource } = require('@/lib/data-source-utils');
+        onWritePermissionChange(canWriteToDataSource(selectedDs, user));
+      }
+    }
+  }, [value, dataSources, user, onWritePermissionChange]);
 
   // Fetch health status for all datasources in parallel
   const fetchHealthStatuses = async (sources: DataSource[]) => {
@@ -300,6 +313,26 @@ export default function DataSourceSchemaSelector({
         <div className="flex items-center gap-1">
           {/* Custom Dropdown with Health Indicators */}
           <div className="relative flex-1">
+          {value && dataSources.length > 0 && (() => {
+            const selectedDs = dataSources.find((ds) => ds.id === value);
+            if (!selectedDs) return null;
+            const { canWriteToDataSource } = require('@/lib/data-source-utils');
+            const hasWrite = canWriteToDataSource(selectedDs, user);
+            return (
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Data Source</span>
+                <span
+                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    hasWrite
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                  }`}
+                >
+                  {hasWrite ? 'Read + Write' : 'Read Only'}
+                </span>
+              </div>
+            );
+          })()}
           <button
             type="button"
             onClick={() => !disabled && setDropdownOpen(!dropdownOpen)}
@@ -768,7 +801,7 @@ function SchemaViewItem({ view, viewName, onTableSelect }: SchemaViewItemProps) 
           <span className="text-xs text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white truncate transition-colors">
             {viewName}
           </span>
-        <span className="px-1 py-0 text-[8px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded flex-shrink-0">
+        <span className="px-1 py-0 text-[8px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded flex-shrink-0">
             VIEW
           </span>
         </div>

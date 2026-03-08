@@ -144,13 +144,13 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 					groups.PUT("/:id", groupHandler.UpdateGroup)
 					groups.DELETE("/:id", groupHandler.DeleteGroup)
 					groups.POST("/:id/members", groupHandler.AddUserToGroup)
-					groups.PUT("/:id/members/:uid", groupHandler.UpdateGroupMemberRole)
+
 					groups.DELETE("/:id/members/:uid", groupHandler.RemoveUserFromGroup)
 					groups.GET("/:id/members", groupHandler.ListGroupUsers)
 
-					// Group logic policies
-					groups.GET("/:id/policies", groupHandler.GetRolePolicies)
-					groups.PUT("/:id/policies", groupHandler.SetRolePolicy)
+					// Group data source permissions
+					groups.GET("/:id/datasource_permissions", groupHandler.GetGroupDataSourcePermissions)
+					groups.PUT("/:id/datasource_permissions", groupHandler.SetGroupDataSourcePermission)
 				}
 			}
 
@@ -173,6 +173,9 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 
 				// Query export routes
 				queries.POST("/export", queryHandler.ExportQuery)
+
+				// Query preview route (for DELETE/UPDATE)
+				queries.POST("/preview", queryHandler.PreviewWriteQuery)
 			}
 
 			// Approval routes
@@ -233,6 +236,7 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 					adminDatasources.PUT("/:id", dataSourceHandler.UpdateDataSource)
 					adminDatasources.DELETE("/:id", dataSourceHandler.DeleteDataSource)
 					adminDatasources.PUT("/:id/permissions", dataSourceHandler.SetPermissions)
+					adminDatasources.POST("/:id/test-audit", dataSourceHandler.TestAuditCapability)
 				}
 			}
 

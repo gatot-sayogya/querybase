@@ -7,12 +7,12 @@ import type { Group } from '@/types';
 import GroupList from './GroupList';
 import GroupForm from './GroupForm';
 import GroupMembersTab from './GroupMembersTab';
-import GroupPoliciesTab from './GroupPoliciesTab';
+import GroupDataSourcesTab from './GroupDataSourcesTab';
 import Modal from '../Modal';
 
 export default function GroupManager() {
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
-  const [activeTab, setActiveTab] = useState<'details' | 'members' | 'policies'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'members' | 'data-sources'>('details');
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -97,13 +97,13 @@ export default function GroupManager() {
             </button>
             <button
               className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'policies'
+                activeTab === 'data-sources'
                   ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
-              onClick={() => setActiveTab('policies')}
+              onClick={() => setActiveTab('data-sources')}
             >
-              Policies
+              Data Sources
             </button>
           </div>
         )}
@@ -119,9 +119,9 @@ export default function GroupManager() {
         {activeTab === 'members' && selectedGroup && (
           <GroupMembersTab group={selectedGroup} />
         )}
-        
-        {activeTab === 'policies' && selectedGroup && (
-          <GroupPoliciesTab group={selectedGroup} />
+
+        {activeTab === 'data-sources' && selectedGroup && (
+          <GroupDataSourcesTab group={selectedGroup} />
         )}
       </Modal>
     </div>

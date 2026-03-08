@@ -47,7 +47,6 @@ func NewPostgresConnection(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&models.UserGroup{},
-		&models.GroupRolePolicy{},
 		&models.User{},
 		&models.Group{},
 		&models.DataSource{},

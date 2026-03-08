@@ -13,20 +13,25 @@ QueryBase requires approval for all write operations (INSERT, UPDATE, DELETE, DD
 1. **Write Your Query**
    - Open the SQL Editor
    - Write your INSERT, UPDATE, DELETE, or DDL query
-   - Click "Execute"
+   - Click "Run"
 
-2. **Approval Request Created**
-   - System detects write operation
-   - Creates approval request automatically
+2. **Preview Changes (DELETE/UPDATE Only)**
+   - System automatically performs a safe dry-run of your query
+   - A **Preview Modal** appears showing exactly how many rows will be affected
+   - A scrollable data table shows a sample (up to 100 rows) of the data that will be modified/deleted
+   - Review the preview and click "Confirm & Submit for Approval"
+
+3. **Approval Request Created**
+   - System submits the write operation to the approval queue
    - Notifies eligible approvers via Google Chat
-   - Query status: "Pending Approval"
+   - Query status becomes "Pending Approval"
 
-3. **Wait for Approval**
+4. **Wait for Approval**
    - Monitor approval status in Approvals dashboard
    - You'll receive notification when decision is made
    - Can add comments to provide context
 
-4. **Execution**
+5. **Execution**
    - If approved: Background worker executes query
    - Results appear in Query History
    - You receive completion notification
@@ -57,26 +62,37 @@ QueryBase requires approval for all write operations (INSERT, UPDATE, DELETE, DD
 
 ## Transaction Preview
 
-For certain write operations, you can preview results before committing:
+For write operations, approvers can preview the actual execution results in a safe, held-open transaction before committing:
 
-1. Approve the query
-2. Background worker starts transaction
-3. Preview affected rows
-4. Choose:
-   - **Commit**: Apply changes permanently
-   - **Rollback**: Undo all changes
+1. **Phase 1 (Preview Ready)**
+   - Open a pending approval request
+   - Click **"Test & Preview Execution"**
+   - The system runs a dry-run query and displays a table of exactly which rows will be affected. No data is locked yet.
+   - Review the table to guarantee the query is doing what is expected.
+2. **Phase 2 (Transaction Open)**
+   - Click **"Confirm & Start Transaction"**
+   - A background worker opens an actual database transaction, executes the write query, and pauses.
+3. **Phase 3 (Commit or Rollback)**
+   - Choose an Audit Mode
+   - To apply the changes permanently, click **Commit & Approve**
+   - To reject or cancel, click **Abort & Rollback**
+
+After committing, the UI displays a detailed **Before/After** data panel to show the exact state of the rows before and after the query was executed.
 
 ## Permission Levels
 
 ### `can_read`
+
 - Execute SELECT queries only
 - Cannot submit write operations
 
 ### `can_write`
+
 - Submit write operation requests
 - Cannot approve queries
 
 ### `can_approve`
+
 - Review and approve/reject write operations
 - Execute SELECT queries
 - Submit write operation requests
@@ -146,11 +162,13 @@ For certain write operations, you can preview results before committing:
 ### Query Stuck in "Pending"
 
 **Possible causes:**
+
 - No eligible approvers for data source
 - Approvers are unavailable
 - Notification webhook failed
 
 **Solutions:**
+
 - Check data source permissions
 - Contact admin to assign approvers
 - Check notification configuration
@@ -158,12 +176,14 @@ For certain write operations, you can preview results before committing:
 ### Approval Failed
 
 **Possible causes:**
+
 - Query syntax error
 - Permission denied on data source
 - Constraint violation
 - Transaction timeout
 
 **Solutions:**
+
 - Check error message
 - Verify query syntax
 - Check data source permissions
@@ -172,11 +192,13 @@ For certain write operations, you can preview results before committing:
 ### Transaction Rollback Failed
 
 **Possible causes:**
+
 - Transaction already committed
 - Connection lost to data source
 - Timeout exceeded
 
 **Solutions:**
+
 - Check connection status
 - Verify transaction state
 - Contact administrator

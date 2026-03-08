@@ -80,7 +80,8 @@ func main() {
 	// Initialize services
 	statsService := service.NewStatsService(db, redisClient)
 	blacklistService := service.NewTokenBlacklistService(redisClient)
-	queryService := service.NewQueryService(db, cfg.JWT.Secret, statsService)
+	auditService := service.NewAuditService(db)
+	queryService := service.NewQueryService(db, cfg.JWT.Secret, statsService, auditService)
 	approvalService := service.NewApprovalService(db, queryService, statsService)
 	dataSourceService := service.NewDataSourceService(db, cfg.JWT.Secret)
 	schemaService := service.NewSchemaService(db, cfg.JWT.Secret)
@@ -93,7 +94,7 @@ func main() {
 	authHandler := handlers.NewAuthHandler(db, jwtManager, blacklistService)
 	queryHandler := handlers.NewQueryHandler(db, queryService)
 	approvalHandler := handlers.NewApprovalHandler(db, approvalService)
-	dataSourceHandler := handlers.NewDataSourceHandler(db, dataSourceService)
+	dataSourceHandler := handlers.NewDataSourceHandler(db, dataSourceService, queryService)
 	groupHandler := handlers.NewGroupHandler(db)
 	schemaHandler := handlers.NewSchemaHandler(db, schemaService)
 	webSocketHandler := handlers.NewWebSocketHandler(wsHub, schemaService)

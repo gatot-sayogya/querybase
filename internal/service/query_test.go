@@ -15,7 +15,7 @@ import (
 func TestExtractTableNames(t *testing.T) {
 	// For extractTableNames, we don't need a real database connection,
 	// so we can pass nil for the database and logger.
-	queryService := NewQueryService(nil, "test-encryption-key-32-chars-long!", nil)
+	queryService := NewQueryService(nil, "test-encryption-key-32-chars-long!", nil, nil)
 
 	tests := []struct {
 		name           string
@@ -45,6 +45,11 @@ func TestExtractTableNames(t *testing.T) {
 		{
 			name:           "DELETE query",
 			sql:            "DELETE FROM users WHERE id = 1",
+			expectedTables: []string{"users"},
+		},
+		{
+			name:           "DELETE query without FROM",
+			sql:            "DELETE users WHERE id = 1",
 			expectedTables: []string{"users"},
 		},
 		{
@@ -382,6 +387,65 @@ func TestDetectOperationTypeEdgeCases(t *testing.T) {
 	}
 }
 
+// TestNormalizeSQLForExecution tests whitespace and comment normalization before execution
+func TestNormalizeSQLForExecution(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Single line query unchanged",
+			input:    "UPDATE users SET name = 'Jane' WHERE id = 1",
+			expected: "UPDATE users SET name = 'Jane' WHERE id = 1",
+		},
+		{
+			name:     "Multi-line UPDATE collapses to single line",
+			input:    "UPDATE ecommerce_product_merchants \nSET ecommerce_product_code = '11699245199', updated_at = '2026-03-08 12:12:12',updated_by = 5285816\nwhere id = 12099180;",
+			expected: "UPDATE ecommerce_product_merchants SET ecommerce_product_code = '11699245199', updated_at = '2026-03-08 12:12:12',updated_by = 5285816 where id = 12099180",
+		},
+		{
+			name:     "Multi-line DELETE collapses to single line",
+			input:    "DELETE FROM users\nWHERE id = 1\nAND status = 'inactive'",
+			expected: "DELETE FROM users WHERE id = 1 AND status = 'inactive'",
+		},
+		{
+			name:     "DELETE without FROM gets fixed",
+			input:    "DELETE users\nWHERE id = 1",
+			expected: "DELETE FROM users WHERE id = 1",
+		},
+		{
+			name:     "Tabs and extra spaces collapsed",
+			input:    "UPDATE\t\tusers\t\tSET\t\tname = 'Jane'\t\tWHERE\t\tid = 1",
+			expected: "UPDATE users SET name = 'Jane' WHERE id = 1",
+		},
+		{
+			name:     "Trailing semicolons stripped",
+			input:    "UPDATE users SET name = 'Jane' WHERE id = 1;",
+			expected: "UPDATE users SET name = 'Jane' WHERE id = 1",
+		},
+		{
+			name:     "SQL comments stripped",
+			input:    "-- Update user name\nUPDATE users SET name = 'Jane' WHERE id = 1",
+			expected: "UPDATE users SET name = 'Jane' WHERE id = 1",
+		},
+		{
+			name:     "Multi-line INSERT collapses correctly",
+			input:    "INSERT INTO users\n(name, email)\nVALUES\n('John', 'john@example.com')",
+			expected: "INSERT INTO users (name, email) VALUES ('John', 'john@example.com')",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeSQLForExecution(tt.input)
+			if result != tt.expected {
+				t.Errorf("normalizeSQLForExecution() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
 // TestConvertDeleteToSelect tests the DELETE to SELECT conversion
 func TestConvertDeleteToSelect(t *testing.T) {
 	tests := []struct {
@@ -392,6 +456,11 @@ func TestConvertDeleteToSelect(t *testing.T) {
 		{
 			name:              "Simple DELETE",
 			deleteSQL:         "DELETE FROM users WHERE id = 1",
+			expectedSelectSQL: "SELECT * FROM users WHERE id = 1",
+		},
+		{
+			name:              "DELETE without FROM",
+			deleteSQL:         "DELETE users WHERE id = 1",
 			expectedSelectSQL: "SELECT * FROM users WHERE id = 1",
 		},
 		{

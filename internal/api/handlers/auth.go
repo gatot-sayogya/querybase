@@ -333,20 +333,14 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 		return
 	}
 
-	// Get group roles
-	var userGroups []models.UserGroup
-	h.db.Where("user_id = ?", userID).Find(&userGroups)
-	roleMap := make(map[string]string)
-	for _, ug := range userGroups {
-		roleMap[ug.GroupID.String()] = ug.RoleInGroup
-	}
+	// Get group names
+	// RoleInGroup was removed.
 
 	groupDetails := make([]dto.UserGroupDetail, len(user.Groups))
 	for i, group := range user.Groups {
 		groupDetails[i] = dto.UserGroupDetail{
-			GroupID:     group.ID.String(),
-			GroupName:   group.Name,
-			RoleInGroup: roleMap[group.ID.String()],
+			GroupID:   group.ID.String(),
+			GroupName: group.Name,
 		}
 	}
 
@@ -480,9 +474,8 @@ func (h *AuthHandler) GetUserGroups(c *gin.Context) {
 	response := make([]dto.UserGroupDetail, len(userGroups))
 	for i, ug := range userGroups {
 		response[i] = dto.UserGroupDetail{
-			GroupID:     ug.GroupID.String(),
-			GroupName:   ug.Group.Name,
-			RoleInGroup: ug.RoleInGroup,
+			GroupID:   ug.GroupID.String(),
+			GroupName: ug.Group.Name,
 		}
 	}
 
@@ -529,9 +522,8 @@ func (h *AuthHandler) AssignUserGroups(c *gin.Context) {
 				return
 			}
 			userGroups[i] = models.UserGroup{
-				UserID:      uID,
-				GroupID:     gID,
-				RoleInGroup: gDetail.RoleInGroup,
+				UserID:  uID,
+				GroupID: gID,
 			}
 		}
 

@@ -4,29 +4,40 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import type { ApprovalRequest } from '@/types';
-import { formatDate } from '@/lib/utils';
 
 interface ApprovalListProps {
   onSelectApproval: (approvalId: string) => void;
   selectedId: string | null;
+  initialFilter?: 'all' | 'pending' | 'approved' | 'rejected';
 }
 
 export default function ApprovalList({
   onSelectApproval,
   selectedId,
+  initialFilter = 'pending',
 }: ApprovalListProps) {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>(initialFilter);
   const [counts, setCounts] = useState<Record<string, number>>({
     all: 0,
     pending: 0,
     approved: 0,
     rejected: 0
   });
+  
+  // Hydration safe date formatter
+  const [formatter, setFormatter] = useState<Intl.DateTimeFormat | null>(null);
 
   useEffect(() => {
+    setFormatter(new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }));
     fetchApprovals();
   }, [filter]);
 
@@ -92,7 +103,7 @@ export default function ApprovalList({
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`btn btn-sm flex items-center gap-1.5 ${
+              className={`btn btn-sm flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                 filter === status
                   ? 'btn-primary'
                   : 'btn-ghost'
@@ -146,23 +157,23 @@ export default function ApprovalList({
       ) : (
         <div className="request-items" style={{ flex: 1 }}>
           {approvals.map((approval) => (
-            <div
+            <button
               key={approval.id}
               onClick={() => onSelectApproval(approval.id)}
-              className={`request-item ${selectedId === approval.id ? 'active' : ''}`}
+              className={`request-item w-full text-left focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 focus-visible:outline-none transition-colors ${selectedId === approval.id ? 'active' : ''}`}
             >
-              <div className="req-top">
-                <span className="req-op">
+              <div className="req-top flex justify-between items-start mb-1 gap-2">
+                <span className="req-op truncate font-medium flex-1">
                   {approval.operation_type ? `${approval.operation_type.toUpperCase()} operation` : 'UNKNOWN operation'}
                 </span>
-                <span className={`badge ${getStatusBadgeColor(approval.status)}`}>
+                <span className={`badge shrink-0 ${getStatusBadgeColor(approval.status)}`}>
                   {approval.status}
                 </span>
               </div>
-              <div className="req-user">
-                Requested by {approval.requester_name || approval.requester_id} &middot; {formatDate(approval.created_at)}
+              <div className="req-user text-sm text-gray-500 dark:text-gray-400 truncate">
+                Requested by {approval.requester_name || approval.requester_id} &middot; {formatter ? formatter.format(new Date(approval.created_at)) : ''}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}

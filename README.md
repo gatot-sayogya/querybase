@@ -101,10 +101,10 @@ graph TD
 ### 🔍 Query Execution
 
 - **SELECT Queries:** Execute immediately with results
-- **Write Operations:** CREATE approval workflow
-  - INSERT, UPDATE, DELETE, DDL
-  - Single-stage approval process
-  - Transaction support (start/commit/rollback)
+- **Write Operations:** 3-phase workflow for DELETE/UPDATE
+  - Phase 1: Dry-run data preview for requester
+  - Phase 2: Transaction open & row preview for approver
+  - Phase 3: Commit / Rollback actions
 - **Query History:** Track all executed queries
 - **Export Results:** CSV and JSON export
 - **Row Limiting:** Configurable limits for safety

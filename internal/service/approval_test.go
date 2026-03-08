@@ -23,6 +23,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	err = db.AutoMigrate(
 		&models.User{},
 		&models.Group{},
+		&models.UserGroup{},
 		&models.DataSource{},
 		&models.DataSourcePermission{},
 		&models.Query{},
@@ -33,6 +34,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&models.QueryTransaction{},
 		&models.NotificationConfig{},
 		&models.Notification{},
+		&models.ApprovalComment{},
 	)
 	require.NoError(t, err)
 
@@ -80,7 +82,7 @@ func TestApprovalService_CreateApprovalRequest(t *testing.T) {
 	}
 
 	db := setupTestDB(t)
-	queryService := &QueryService{}
+	queryService := NewQueryService(db, "test-encryption-key-32-chars-long!", nil, nil)
 	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
@@ -151,7 +153,7 @@ func TestApprovalService_GetApproval(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
+	queryService := NewQueryService(db, "test-encryption-key-32-chars-long!", nil, nil)
 	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
@@ -213,7 +215,7 @@ func TestApprovalService_ListApprovals(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
+	queryService := NewQueryService(db, "test-encryption-key-32-chars-long!", nil, nil)
 	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
@@ -323,7 +325,7 @@ func TestApprovalService_ReviewApproval(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
+	queryService := NewQueryService(db, "test-encryption-key-32-chars-long!", nil, nil)
 	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
@@ -414,7 +416,7 @@ func TestApprovalService_ReviewApproval(t *testing.T) {
 				assert.Nil(t, result)
 			} else {
 				assert.NoError(t, err)
-				assert.NotNil(t, result)
+				require.NotNil(t, result)
 				assert.Equal(t, tt.review.Decision, result.Decision)
 				assert.Equal(t, tt.review.Comments, result.Comments)
 
@@ -434,7 +436,7 @@ func TestApprovalService_GetEligibleApprovers(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
+	queryService := NewQueryService(db, "test-encryption-key-32-chars-long!", nil, nil)
 	approvalService := NewApprovalService(db, queryService, nil)
 
 	// Create users and data source
@@ -488,7 +490,7 @@ func TestApprovalService_StartTransaction(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
+	queryService := NewQueryService(db, "test-encryption-key-32-chars-long!", nil, nil)
 	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
@@ -531,7 +533,7 @@ func TestApprovalService_StartTransaction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			transaction, err := approvalService.StartTransaction(ctx, tt.approvalID, tt.startedBy)
+			transaction, err := approvalService.StartTransaction(ctx, tt.approvalID, tt.startedBy, models.AuditModeCountOnly)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -552,7 +554,7 @@ func TestApprovalService_UpdateApprovalStatus(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
+	queryService := NewQueryService(db, "test-encryption-key-32-chars-long!", nil, nil)
 	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
@@ -624,7 +626,7 @@ func TestApprovalService_DuplicateReview(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
+	queryService := NewQueryService(db, "test-encryption-key-32-chars-long!", nil, nil)
 	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)
@@ -673,7 +675,7 @@ func TestApprovalService_ReviewNonPendingApproval(t *testing.T) {
 		t.Skip("Skipping database-dependent test in short mode")
 	}
 	db := setupTestDB(t)
-	queryService := &QueryService{}
+	queryService := NewQueryService(db, "test-encryption-key-32-chars-long!", nil, nil)
 	approvalService := NewApprovalService(db, queryService, nil)
 
 	user := createTestUser(t, db, models.RoleUser)

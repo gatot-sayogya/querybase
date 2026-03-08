@@ -68,7 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   Users
                 </Link>
                 <Link href="/admin/groups" className={`settings-item ${pathname === '/admin/groups' ? 'active-page' : ''}`}>
-                  <span className="settings-icon" style={{background:'#F5F3FF',color:'#7C3AED'}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+                  <span className="settings-icon" style={{background:'#ccfbf1',color:'#0d9488'}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
                   Groups
                 </Link>
                 <Link href="/admin/datasources" className={`settings-item ${pathname === '/admin/datasources' ? 'active-page' : ''}`}>

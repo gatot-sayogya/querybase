@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -200,11 +201,6 @@ func (h *GroupHandler) AddUserToGroup(c *gin.Context) {
 		return
 	}
 
-	role := req.RoleInGroup
-	if role == "" {
-		role = "viewer" // default
-	}
-
 	// Check if already in group
 	var count int64
 	h.db.Model(&models.UserGroup{}).Where("group_id = ? AND user_id = ?", gID, uID).Count(&count)
@@ -214,9 +210,8 @@ func (h *GroupHandler) AddUserToGroup(c *gin.Context) {
 	}
 
 	userGroup := models.UserGroup{
-		UserID:      uID,
-		GroupID:     gID,
-		RoleInGroup: role,
+		UserID:  uID,
+		GroupID: gID,
 	}
 
 	if err := h.db.Create(&userGroup).Error; err != nil {
@@ -262,11 +257,10 @@ func (h *GroupHandler) ListGroupUsers(c *gin.Context) {
 	users := make([]dto.UserInGroupResp, len(userGroups))
 	for i, ug := range userGroups {
 		users[i] = dto.UserInGroupResp{
-			ID:          ug.UserID.String(),
-			Email:       ug.User.Email,
-			Username:    ug.User.Username,
-			FullName:    ug.User.FullName,
-			RoleInGroup: ug.RoleInGroup,
+			ID:       ug.UserID.String(),
+			Email:    ug.User.Email,
+			Username: ug.User.Username,
+			FullName: ug.User.FullName,
 		}
 	}
 
@@ -276,71 +270,47 @@ func (h *GroupHandler) ListGroupUsers(c *gin.Context) {
 	})
 }
 
-// UpdateGroupMemberRole updates a user's role in a group
-func (h *GroupHandler) UpdateGroupMemberRole(c *gin.Context) {
-	groupID := c.Param("id")
-	userID := c.Param("uid")
-
-	var req dto.UpdateGroupMemberRoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := h.db.Model(&models.UserGroup{}).
-		Where("group_id = ? AND user_id = ?", groupID, userID).
-		Update("role_in_group", req.RoleInGroup).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update member role"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Member role updated successfully"})
-}
-
-// GetRolePolicies retrieves all role policies for a group
-func (h *GroupHandler) GetRolePolicies(c *gin.Context) {
+// GetGroupDataSourcePermissions retrieves all data source permissions for a specific group
+func (h *GroupHandler) GetGroupDataSourcePermissions(c *gin.Context) {
 	groupID := c.Param("id")
 
-	var policies []models.GroupRolePolicy
-	if err := h.db.Where("group_id = ?", groupID).Find(&policies).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch policies"})
+	var permissions []models.DataSourcePermission
+	if err := h.db.Preload("DataSource").Where("group_id = ?", groupID).Find(&permissions).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch permissions"})
 		return
 	}
 
-	response := make([]dto.GroupRolePolicyResponse, len(policies))
-	for i, p := range policies {
-		var dsID *string
-		if p.DataSourceID != nil {
-			id := p.DataSourceID.String()
-			dsID = &id
-		}
-		response[i] = dto.GroupRolePolicyResponse{
-			ID:           p.ID.String(),
-			GroupID:      p.GroupID.String(),
-			DataSourceID: dsID,
-			RoleInGroup:  p.RoleInGroup,
-			AllowSelect:  p.AllowSelect,
-			AllowInsert:  p.AllowInsert,
-			AllowUpdate:  p.AllowUpdate,
-			AllowDelete:  p.AllowDelete,
+	response := make([]dto.GroupDataSourcePermissionResponse, len(permissions))
+	for i, p := range permissions {
+		response[i] = dto.GroupDataSourcePermissionResponse{
+			DataSourceID:   p.DataSourceID.String(),
+			DataSourceName: p.DataSource.Name,
+			GroupID:        p.GroupID.String(),
+			CanRead:        p.CanRead,
+			CanWrite:       p.CanWrite,
+			CanApprove:     p.CanApprove,
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"policies": response,
-		"total":    len(response),
+		"permissions": response,
+		"count":       len(response),
 	})
 }
 
-// SetRolePolicy sets a role policy for a group
-func (h *GroupHandler) SetRolePolicy(c *gin.Context) {
+// SetGroupDataSourcePermission sets a specific data source permission for a group
+func (h *GroupHandler) SetGroupDataSourcePermission(c *gin.Context) {
 	groupID := c.Param("id")
 
-	var req dto.GroupRolePolicyRequest
+	// ... (We will start replacing from the gin context parsing)
+	var req dto.GroupDataSourcePermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	fmt.Printf("[DEBUG] SetGroupDataSourcePermission HTTP PUT received for group %s and ds %s\n", groupID, req.DataSourceID)
+	fmt.Printf("[DEBUG] Payload: Read=%v, Write=%v, Approve=%v\n", req.CanRead, req.CanWrite, req.CanApprove)
 
 	gID, err := uuid.Parse(groupID)
 	if err != nil {
@@ -348,50 +318,46 @@ func (h *GroupHandler) SetRolePolicy(c *gin.Context) {
 		return
 	}
 
-	var dsID *uuid.UUID
-	if req.DataSourceID != nil && *req.DataSourceID != "" {
-		id, err := uuid.Parse(*req.DataSourceID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data source ID"})
-			return
-		}
-		dsID = &id
+	dsID, err := uuid.Parse(req.DataSourceID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data source ID"})
+		return
 	}
 
-	// Upsert policy
-	policy := models.GroupRolePolicy{
+	permission := models.DataSourcePermission{
 		ID:           uuid.New(),
-		GroupID:      gID,
 		DataSourceID: dsID,
-		RoleInGroup:  req.RoleInGroup,
-		AllowSelect:  req.AllowSelect,
-		AllowInsert:  req.AllowInsert,
-		AllowUpdate:  req.AllowUpdate,
-		AllowDelete:  req.AllowDelete,
+		GroupID:      gID,
+		CanRead:      req.CanRead,
+		CanWrite:     req.CanWrite,
+		CanApprove:   req.CanApprove,
 	}
 
-	query := h.db.Where("group_id = ? AND role_in_group = ?", gID, req.RoleInGroup)
-	if dsID != nil {
-		query = query.Where("data_source_id = ?", dsID)
-	} else {
-		query = query.Where("data_source_id IS NULL")
-	}
-
-	var existing models.GroupRolePolicy
-	if err := query.First(&existing).Error; err == nil {
-		// Update
-		policy.ID = existing.ID
-		if err := h.db.Save(&policy).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update role policy"})
+	var existing models.DataSourcePermission
+	if err := h.db.Where("group_id = ? AND data_source_id = ?", gID, dsID).First(&existing).Error; err == nil {
+		fmt.Printf("[DEBUG] Found existing permission. ID: %s. Read=%v\n", existing.ID, existing.CanRead)
+		// Record exists, explicitly update using map to avoid zero-value omission
+		updateMap := map[string]interface{}{
+			"can_read":    req.CanRead,
+			"can_write":   req.CanWrite,
+			"can_approve": req.CanApprove,
+		}
+		if err := h.db.Model(&existing).Updates(updateMap).Error; err != nil {
+			fmt.Printf("[DEBUG] Failed to update: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update permission"})
 			return
 		}
+		fmt.Printf("[DEBUG] Successfully ran Updates(map). New Read=%v\n", req.CanRead)
 	} else {
-		// Create
-		if err := h.db.Create(&policy).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create role policy"})
+		fmt.Printf("[DEBUG] Record does not exist, creating new one.\n")
+		// Record does not exist, create new one
+		if err := h.db.Create(&permission).Error; err != nil {
+			fmt.Printf("[DEBUG] Failed to create: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create permission"})
 			return
 		}
+		fmt.Printf("[DEBUG] Successfully ran Create(&permission).\n")
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Role policy saved successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Data source permission saved successfully"})
 }

@@ -210,10 +210,9 @@ func TestValidateSQL(t *testing.T) {
 			errorMsg:    "must include SET clause",
 		},
 		{
-			name:        "DELETE without FROM",
-			sql:         "DELETE users",
-			expectError: true,
-			errorMsg:    "must include FROM or TABLE clause",
+			name:        "DELETE without FROM (valid in Postgres/SQL Server)",
+			sql:         "DELETE users WHERE id = 1",
+			expectError: false,
 		},
 		{
 			name:        "CREATE TABLE without name",

@@ -3,27 +3,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import { useAuthStore } from '@/stores/auth-store';
 import type { User, UserGroupDetail, Group } from '@/types';
 
 interface UserGroupsTabProps {
   user: User;
 }
 
-const ROLE_LABELS: Record<string, { label: string; className: string }> = {
-  viewer:  { label: 'Viewer',  className: 'badge badge-slate' },
-  member:  { label: 'Member',  className: 'badge badge-blue'  },
-  analyst: { label: 'Analyst', className: 'badge badge-green' },
-};
-
 export default function UserGroupsTab({ user }: UserGroupsTabProps) {
   const [userGroups, setUserGroups] = useState<UserGroupDetail[]>([]);
   const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null); // stores the operation id
+  const [saving, setSaving] = useState<string | null>(null);
+  
+  const currentUser = useAuthStore((state) => state.user);
+  const loadUser = useAuthStore((state) => state.loadUser);
 
   // Form state for adding new group
   const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [selectedRole, setSelectedRole] = useState('viewer');
 
   const fetchData = useCallback(async () => {
     try {
@@ -54,14 +51,16 @@ export default function UserGroupsTab({ user }: UserGroupsTabProps) {
     try {
       setSaving('add');
       const updatedGroups = [
-        ...userGroups.map((g) => ({ group_id: g.group_id, role_in_group: g.role_in_group })),
-        { group_id: selectedGroupId, role_in_group: selectedRole },
+        ...userGroups.map((g) => ({ group_id: g.group_id })),
+        { group_id: selectedGroupId },
       ];
       await apiClient.assignUserGroups(user.id, updatedGroups);
       toast.success('Added to group successfully');
       setSelectedGroupId('');
-      setSelectedRole('viewer');
       await fetchData();
+      if (currentUser?.id === user.id) {
+        await loadUser();
+      }
     } catch (err) {
       toast.error(`Failed to add group: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
@@ -74,10 +73,13 @@ export default function UserGroupsTab({ user }: UserGroupsTabProps) {
       setSaving(`remove-${groupId}`);
       const updatedGroups = userGroups
         .filter((g) => g.group_id !== groupId)
-        .map((g) => ({ group_id: g.group_id, role_in_group: g.role_in_group }));
+        .map((g) => ({ group_id: g.group_id }));
       await apiClient.assignUserGroups(user.id, updatedGroups);
       toast.success('Removed from group');
       await fetchData();
+      if (currentUser?.id === user.id) {
+        await loadUser();
+      }
     } catch (err) {
       toast.error(`Failed to remove group: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
@@ -85,22 +87,7 @@ export default function UserGroupsTab({ user }: UserGroupsTabProps) {
     }
   };
 
-  const handleRoleChange = async (groupId: string, newRole: string) => {
-    try {
-      setSaving(`role-${groupId}`);
-      const updatedGroups = userGroups.map((g) => ({
-        group_id: g.group_id,
-        role_in_group: g.group_id === groupId ? newRole : g.role_in_group,
-      }));
-      await apiClient.assignUserGroups(user.id, updatedGroups);
-      toast.success('Role updated');
-      await fetchData();
-    } catch (err) {
-      toast.error(`Failed to update role: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setSaving(null);
-    }
-  };
+
 
   // Groups user is not yet a member of
   const groupsToAdd = availableGroups.filter(
@@ -147,22 +134,6 @@ export default function UserGroupsTab({ user }: UserGroupsTabProps) {
             )}
           </div>
 
-          <div className="w-full md:w-52">
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-              Role in Group
-            </label>
-            <select
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-              className="w-full bg-[var(--bg-page)] border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-primary)] rounded focus:outline-none focus:border-[var(--accent-blue)]"
-              disabled={saving !== null}
-            >
-              <option value="viewer">Viewer (Read-only)</option>
-              <option value="member">Member (Read/Write)</option>
-              <option value="analyst">Analyst (All Access)</option>
-            </select>
-          </div>
-
           <button
             onClick={handleAddGroup}
             disabled={!selectedGroupId || saving !== null}
@@ -192,28 +163,15 @@ export default function UserGroupsTab({ user }: UserGroupsTabProps) {
               <thead className="bg-[var(--bg-hover)] bg-opacity-50 text-[var(--text-muted)] uppercase tracking-wider text-xs border-b border-[var(--border)]">
                 <tr>
                   <th className="px-4 py-3 font-medium">Group</th>
-                  <th className="px-4 py-3 font-medium w-44">Role</th>
                   <th className="px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)] bg-[var(--bg-page)] text-[var(--text-primary)]">
                 {userGroups.map((ug) => {
-                  const isBusy = saving === `role-${ug.group_id}` || saving === `remove-${ug.group_id}`;
+                  const isBusy = saving === `remove-${ug.group_id}`;
                   return (
                     <tr key={ug.group_id} className={`transition-colors ${isBusy ? 'opacity-60' : 'hover:bg-[var(--bg-hover)]'}`}>
                       <td className="px-4 py-3 font-medium">{ug.group_name}</td>
-                      <td className="px-4 py-3">
-                        <select
-                          value={ug.role_in_group}
-                          onChange={(e) => handleRoleChange(ug.group_id, e.target.value)}
-                          disabled={saving !== null}
-                          className="bg-transparent border border-transparent hover:border-[var(--border)] focus:border-[var(--accent-blue)] px-2 py-1 rounded text-sm focus:outline-none cursor-pointer w-full"
-                        >
-                          <option value="viewer" className="bg-[var(--card-bg)]">Viewer</option>
-                          <option value="member" className="bg-[var(--card-bg)]">Member</option>
-                          <option value="analyst" className="bg-[var(--card-bg)]">Analyst</option>
-                        </select>
-                      </td>
                       <td className="px-4 py-3 text-right">
                         <button
                           onClick={() => handleRemoveGroup(ug.group_id)}

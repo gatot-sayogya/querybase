@@ -20,11 +20,10 @@ type UserDetailResponse struct {
 	Groups    []UserGroupDetail `json:"groups,omitempty"`
 }
 
-// UserGroupDetail represents a group a user belongs to with role details
+// UserGroupDetail represents a group a user belongs to
 type UserGroupDetail struct {
-	GroupID     string `json:"group_id"`
-	GroupName   string `json:"group_name"`
-	RoleInGroup string `json:"role_in_group"`
+	GroupID   string `json:"group_id"`
+	GroupName string `json:"group_name"`
 }
 
 // AssignUserGroupsRequest is used when saving user groups selection

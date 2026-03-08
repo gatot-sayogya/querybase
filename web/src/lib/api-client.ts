@@ -19,7 +19,8 @@ import type {
   HealthStatus,
   UserGroupDetail,
   GroupMember,
-  GroupRolePolicy,
+  GroupDataSourcePermission,
+  WriteQueryPreview,
 } from '@/types';
 
 class ApiClient {
@@ -304,6 +305,15 @@ class ApiClient {
     return response.data;
   }
 
+  // Write Query Preview
+  async previewWriteQuery(dataSourceId: string, queryText: string): Promise<WriteQueryPreview> {
+    const response = await this.client.post<WriteQueryPreview>('/api/v1/queries/preview', {
+      data_source_id: dataSourceId,
+      query_text: queryText,
+    });
+    return response.data;
+  }
+
   // Approvals
   async getApprovalCounts(): Promise<Record<string, number>> {
     const response = await this.client.get<Record<string, number>>('/api/v1/approvals/counts');
@@ -321,6 +331,23 @@ class ApiClient {
     return response.data.approvals;
   }
 
+  async getApprovalHistory(page = 1, limit = 20, search = ''): Promise<{ approvals: ApprovalRequest[]; total: number }> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    if (search) {
+      params.append('search', search); // if backend supports it, otherwise it's just ignored
+    }
+    const response = await this.client.get<{ approvals: ApprovalRequest[]; total: number }>(
+      `/api/v1/approvals?${params.toString()}`
+    );
+    return {
+      approvals: response.data.approvals || [],
+      total: response.data.total || (response.data.approvals ? response.data.approvals.length : 0),
+    };
+  }
+
   async getApproval(id: string): Promise<ApprovalRequest> {
     const response = await this.client.get<ApprovalRequest>(`/api/v1/approvals/${id}`);
     return response.data;
@@ -328,6 +355,21 @@ class ApiClient {
 
   async reviewApproval(id: string, data: ReviewApprovalRequest): Promise<void> {
     await this.client.post(`/api/v1/approvals/${id}/review`, data);
+  }
+
+  async startApprovalTransaction(id: string, data?: { audit_mode?: string }): Promise<any> {
+    const response = await this.client.post(`/api/v1/approvals/${id}/transaction-start`, data);
+    return response.data;
+  }
+
+  async commitTransaction(transactionId: string, data?: { audit_mode?: string }): Promise<any> {
+    const response = await this.client.post(`/api/v1/transactions/${transactionId}/commit`, data);
+    return response.data;
+  }
+
+  async rollbackTransaction(transactionId: string): Promise<any> {
+    const response = await this.client.post(`/api/v1/transactions/${transactionId}/rollback`);
+    return response.data;
   }
 
   // Groups
@@ -355,32 +397,28 @@ class ApiClient {
     await this.client.delete(`/api/v1/groups/${id}`);
   }
 
-  // --- Group Members & Roles ---
+  // --- Group Members ---
   async getGroupMembers(groupId: string): Promise<GroupMember[]> {
     const response = await this.client.get<{ users: GroupMember[] }>(`/api/v1/groups/${groupId}/members`);
     return response.data.users;
   }
 
-  async addGroupMember(groupId: string, userId: string, roleInGroup: string = 'viewer'): Promise<void> {
-    await this.client.post(`/api/v1/groups/${groupId}/members`, { user_id: userId, role_in_group: roleInGroup });
-  }
-
-  async updateGroupMemberRole(groupId: string, userId: string, roleInGroup: string): Promise<void> {
-    await this.client.put(`/api/v1/groups/${groupId}/members/${userId}`, { role_in_group: roleInGroup });
+  async addGroupMember(groupId: string, userId: string): Promise<void> {
+    await this.client.post(`/api/v1/groups/${groupId}/members`, { user_id: userId });
   }
 
   async removeGroupMember(groupId: string, userId: string): Promise<void> {
     await this.client.delete(`/api/v1/groups/${groupId}/members/${userId}`);
   }
 
-  // --- Group Policies ---
-  async getGroupPolicies(groupId: string): Promise<GroupRolePolicy[]> {
-    const response = await this.client.get<{ policies: GroupRolePolicy[] }>(`/api/v1/groups/${groupId}/policies`);
-    return response.data.policies;
+  // --- Group Data Source Permissions ---
+  async getGroupDataSourcePermissions(groupId: string): Promise<GroupDataSourcePermission[]> {
+    const response = await this.client.get<{ permissions: GroupDataSourcePermission[] }>(`/api/v1/groups/${groupId}/datasource_permissions`);
+    return response.data.permissions;
   }
 
-  async setGroupPolicy(groupId: string, policy: Omit<GroupRolePolicy, 'id' | 'group_id'>): Promise<void> {
-    await this.client.put(`/api/v1/groups/${groupId}/policies`, policy);
+  async setGroupDataSourcePermission(groupId: string, permission: Pick<GroupDataSourcePermission, 'data_source_id' | 'can_read' | 'can_write' | 'can_approve'>): Promise<void> {
+    await this.client.put(`/api/v1/groups/${groupId}/datasource_permissions`, permission);
   }
 
   // --- User Group Memberships ---
@@ -389,7 +427,7 @@ class ApiClient {
     return response.data.groups;
   }
 
-  async assignUserGroups(userId: string, groups: { group_id: string; role_in_group: string }[]): Promise<void> {
+  async assignUserGroups(userId: string, groups: { group_id: string }[]): Promise<void> {
     await this.client.put(`/api/v1/auth/users/${userId}/groups`, { groups });
   }
 

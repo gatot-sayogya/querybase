@@ -44,8 +44,8 @@
   --amber-text: #92400e;
   --blue-bg: #eff6ff;
   --blue-text: #1d4ed8;
-  --purple-bg: #ede9fe;
-  --purple-text: #4f46e5;
+  --teal-bg: #ccfbf1;
+  --teal-text: #0d9488;
   --slate-bg: #f1f5f9;
   --slate-text: #475569;
 
@@ -84,8 +84,8 @@
   --amber-text: #fbbf24;
   --blue-bg: rgba(37, 99, 235, 0.2);
   --blue-text: #60a5fa;
-  --purple-bg: rgba(79, 70, 229, 0.2);
-  --purple-text: #818cf8;
+  --teal-bg: rgba(13, 148, 136, 0.2);
+  --teal-text: #2dd4bf;
   --slate-bg: rgba(71, 85, 105, 0.2);
   --slate-text: #cbd5e1;
 }
@@ -303,7 +303,7 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #4f46e5;
+  background: #0d9488;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -332,7 +332,7 @@ body {
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: #4f46e5;
+  background: #0d9488;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -542,9 +542,9 @@ body {
   background: var(--blue-bg);
   color: var(--blue-text);
 }
-.badge-purple {
-  background: var(--purple-bg);
-  color: var(--purple-text);
+.badge-teal {
+  background: var(--teal-bg);
+  color: var(--teal-text);
 }
 .badge-slate {
   background: var(--slate-bg);
@@ -674,7 +674,7 @@ body {
     }
     .avatar-large {
       width: 80px; height: 80px; border-radius: 50%;
-      background: linear-gradient(135deg, #4F46E5, #2563EB);
+      background: linear-gradient(135deg, #0d9488, #2563EB);
       display: flex; align-items: center; justify-content: center;
       font-size: 32px; font-weight: 700; color: #fff;
       letter-spacing: -1px;

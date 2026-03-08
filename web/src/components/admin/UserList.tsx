@@ -50,7 +50,7 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'badge-purple';
+        return 'badge-teal';
       case 'user':
         return 'badge-blue';
       case 'viewer':
@@ -71,7 +71,7 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
   };
 
   const getAvatarColor = (name: string) => {
-    const colors = ['#4F46E5', '#0EA5E9', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
+    const colors = ['#0F766E', '#0EA5E9', '#10B981', '#F59E0B', '#14B8A6', '#EC4899'];
     let num = 0;
     for (let i = 0; i < (name || '').length; i++) {
       num += name.charCodeAt(i);

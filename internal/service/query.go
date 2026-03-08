@@ -29,23 +29,29 @@ type ActiveTransaction struct {
 
 // QueryService handles query execution logic
 type QueryService struct {
-	db            *gorm.DB
-	encryptionKey []byte
-	// Map to store active transactions per data source
-	// Key: data_source_id
+	db                 *gorm.DB
+	encryptionKey      []byte
 	activeTransactions map[uuid.UUID]*ActiveTransaction
 	txMutex            sync.RWMutex
 	statsService       *StatsService
+	auditService       *AuditService
 }
 
 // NewQueryService creates a new query service
-func NewQueryService(db *gorm.DB, encryptionKey string, statsService *StatsService) *QueryService {
+func NewQueryService(db *gorm.DB, encryptionKey string, statsService *StatsService, auditService *AuditService) *QueryService {
 	return &QueryService{
 		db:                 db,
 		encryptionKey:      []byte(encryptionKey),
 		activeTransactions: make(map[uuid.UUID]*ActiveTransaction),
 		statsService:       statsService,
+		auditService:       auditService,
 	}
+}
+
+// ConnectToDataSourcePublic is a public wrapper around connectToDataSource
+// used by external handlers for audit capability testing
+func (s *QueryService) ConnectToDataSourcePublic(dataSource *models.DataSource) (*gorm.DB, error) {
+	return s.connectToDataSource(dataSource)
 }
 
 // GetEffectivePermissions resolves merged query permissions for a user on a datasource
@@ -81,21 +87,13 @@ func (s *QueryService) GetEffectivePermissions(ctx context.Context, userID, dsID
 		perms.CanWrite = perms.CanWrite || dsPerm.CanWrite
 		perms.CanApprove = perms.CanApprove || dsPerm.CanApprove
 
-		// Resolve role policy (specific datasource first)
-		var policy models.GroupRolePolicy
-		err := s.db.Where("group_id = ? AND data_source_id = ? AND role_in_group = ?", m.GroupID, dsID, m.RoleInGroup).First(&policy).Error
-		if err != nil {
-			// fallback to wildcard datasource policy
-			err = s.db.Where("group_id = ? AND data_source_id IS NULL AND role_in_group = ?", m.GroupID, m.RoleInGroup).First(&policy).Error
-		}
+		// Read Access grants SELECT
+		perms.CanSelect = perms.CanSelect || dsPerm.CanRead
 
-		if err == nil {
-			// Merge role query-type allowances
-			perms.CanSelect = perms.CanSelect || policy.AllowSelect
-			perms.CanInsert = perms.CanInsert || policy.AllowInsert
-			perms.CanUpdate = perms.CanUpdate || policy.AllowUpdate
-			perms.CanDelete = perms.CanDelete || policy.AllowDelete
-		}
+		// Write Access grants INSERT/UPDATE/DELETE
+		perms.CanInsert = perms.CanInsert || dsPerm.CanWrite
+		perms.CanUpdate = perms.CanUpdate || dsPerm.CanWrite
+		perms.CanDelete = perms.CanDelete || dsPerm.CanWrite
 	}
 
 	return perms, nil
@@ -103,6 +101,9 @@ func (s *QueryService) GetEffectivePermissions(ctx context.Context, userID, dsID
 
 // ExecuteQuery executes a SQL query on a data source
 func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, dataSource *models.DataSource) (*models.QueryResult, error) {
+	// Normalize the query text before execution (fixes common syntax mistakes)
+	query.QueryText = normalizeSQLForExecution(query.QueryText)
+
 	// Detect operation type
 	operationType := DetectOperationType(query.QueryText)
 
@@ -145,7 +146,26 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 		return nil, fmt.Errorf("failed to connect to data source: %w", err)
 	}
 
-	// Execute the query
+	// Execute the query — write ops use Exec(), reads use Raw().Rows()
+	if operationType != models.OperationSelect {
+		// Write query: use Exec to get affected row count
+		execResult := dataSourceDB.Exec(query.QueryText)
+		if execResult.Error != nil {
+			s.db.Model(query).Updates(map[string]interface{}{
+				"status":        models.StatusFailed,
+				"error_message": execResult.Error.Error(),
+			})
+			return nil, fmt.Errorf("query execution failed: %w", execResult.Error)
+		}
+		// Build a minimal result
+		return &models.QueryResult{
+			RowCount:    int(execResult.RowsAffected),
+			ColumnNames: `["rows_affected"]`,
+			ColumnTypes: `["int"]`,
+			Data:        fmt.Sprintf(`[{"rows_affected":%d}]`, execResult.RowsAffected),
+		}, nil
+	}
+
 	rows, err := dataSourceDB.Raw(query.QueryText).Rows()
 	if err != nil {
 		// Update query status to failed
@@ -719,31 +739,150 @@ func (s *QueryService) DryRunDelete(ctx context.Context, queryText string, dataS
 // convertDeleteToSelect converts a DELETE query to a SELECT query
 func convertDeleteToSelect(queryText string) string {
 	trimmedSQL := strings.TrimSpace(queryText)
-	upperSQL := strings.ToUpper(trimmedSQL)
 
 	// Remove comments
 	trimmedSQL = SanitizeSQL(trimmedSQL)
-	upperSQL = strings.ToUpper(trimmedSQL)
+	upperSQL := strings.ToUpper(trimmedSQL)
 
-	// Pattern: DELETE FROM table_name [WHERE ...]
+	// Pattern: DELETE [FROM] table_name [WHERE ...]
 	// Replace with: SELECT * FROM table_name [WHERE ...]
 
-	// Find the DELETE FROM keyword
-	deleteFromIndex := strings.Index(upperSQL, "DELETE FROM")
-	if deleteFromIndex == -1 {
-		return queryText // Not a DELETE query, return as-is
+	var afterDelete string
+	if strings.HasPrefix(upperSQL, "DELETE FROM ") {
+		afterDelete = trimmedSQL[12:]
+	} else if strings.HasPrefix(upperSQL, "DELETE ") {
+		afterDelete = trimmedSQL[7:]
+	} else {
+		return queryText // Not a standard DELETE query or malformed
 	}
 
-	// Extract the part after "DELETE FROM"
-	afterDeleteFrom := trimmedSQL[deleteFromIndex+11:] // len("DELETE FROM") = 11
-
 	// Trim leading whitespace
-	afterDeleteFrom = strings.TrimLeft(afterDeleteFrom, " \t\n\r")
+	afterDelete = strings.TrimLeft(afterDelete, " \t\n\r")
 
-	// Build SELECT query
-	selectQuery := "SELECT * FROM " + afterDeleteFrom
+	return "SELECT * FROM " + afterDelete
+}
 
-	return selectQuery
+// convertUpdateToSelect converts an UPDATE query to a SELECT query
+// UPDATE table SET ... WHERE ... → SELECT * FROM table WHERE ...
+func convertUpdateToSelect(queryText string) string {
+	trimmedSQL := strings.TrimSpace(queryText)
+	trimmedSQL = SanitizeSQL(trimmedSQL)
+	upperSQL := strings.ToUpper(trimmedSQL)
+
+	// Extract table name: UPDATE table_name SET ...
+	re := regexp.MustCompile(`(?i)^UPDATE\s+(\S+)\s+SET\s+`)
+	matches := re.FindStringSubmatchIndex(trimmedSQL)
+	if matches == nil {
+		return queryText
+	}
+
+	tableName := trimmedSQL[matches[2]:matches[3]]
+
+	// Find WHERE clause
+	whereIdx := strings.Index(upperSQL, " WHERE ")
+	if whereIdx == -1 {
+		// No WHERE → SELECT * FROM table (all rows)
+		return "SELECT * FROM " + tableName
+	}
+
+	whereClause := trimmedSQL[whereIdx:]
+	return "SELECT * FROM " + tableName + whereClause
+}
+
+// PreviewResult holds the preview data for a write query
+type PreviewResult struct {
+	TotalAffected int
+	PreviewRows   []map[string]interface{}
+	Columns       []string
+	PreviewLimit  int
+	SelectQuery   string
+	OperationType models.OperationType
+}
+
+// PreviewWriteQuery previews the rows that will be affected by a DELETE/UPDATE query
+// without actually modifying any data. It converts the query to a SELECT and runs it
+// with a LIMIT, plus runs a COUNT(*) to get the total affected rows.
+func (s *QueryService) PreviewWriteQuery(ctx context.Context, queryText string, dataSource *models.DataSource) (*PreviewResult, error) {
+	operationType := DetectOperationType(queryText)
+
+	// Only support DELETE and UPDATE preview
+	if operationType != models.OperationDelete && operationType != models.OperationUpdate {
+		return nil, fmt.Errorf("preview is only available for DELETE and UPDATE queries")
+	}
+
+	// Convert write query to SELECT
+	var selectQuery string
+	if operationType == models.OperationDelete {
+		selectQuery = convertDeleteToSelect(queryText)
+	} else {
+		selectQuery = convertUpdateToSelect(queryText)
+	}
+
+	if selectQuery == queryText {
+		return nil, fmt.Errorf("failed to convert query for preview")
+	}
+
+	// Connect to data source
+	dataSourceDB, err := s.connectToDataSource(dataSource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to data source: %w", err)
+	}
+
+	// Run COUNT(*) for total affected
+	var totalAffected int
+	if s.auditService != nil {
+		totalAffected, _ = s.auditService.EstimateAffectedRows(ctx, queryText, dataSourceDB, dataSource)
+	}
+
+	// Run SELECT with LIMIT 100 for preview rows
+	const previewLimit = 100
+	limitedQuery := selectQuery
+	upperQ := strings.ToUpper(limitedQuery)
+	if !strings.Contains(upperQ, " LIMIT ") {
+		limitedQuery += fmt.Sprintf(" LIMIT %d", previewLimit)
+	}
+
+	rows, err := dataSourceDB.Raw(limitedQuery).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute preview query: %w", err)
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get columns: %w", err)
+	}
+
+	var previewRows []map[string]interface{}
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+		if err := rows.Scan(valuePtrs...); err != nil {
+			continue
+		}
+		row := make(map[string]interface{})
+		for i, col := range columns {
+			val := values[i]
+			if b, ok := val.([]byte); ok {
+				row[col] = string(b)
+			} else {
+				row[col] = val
+			}
+		}
+		previewRows = append(previewRows, row)
+	}
+
+	return &PreviewResult{
+		TotalAffected: totalAffected,
+		PreviewRows:   previewRows,
+		Columns:       columns,
+		PreviewLimit:  previewLimit,
+		SelectQuery:   selectQuery,
+		OperationType: operationType,
+	}, nil
 }
 
 // ListQueryHistory retrieves query history with pagination
@@ -815,6 +954,10 @@ func (s *QueryService) connectToDataSource(dataSource *models.DataSource) (*gorm
 
 // decryptPassword decrypts an encrypted password using AES-256-GCM
 func (s *QueryService) decryptPassword(encryptedPassword string) (string, error) {
+	if encryptedPassword == "" {
+		return "", nil
+	}
+
 	// The encrypted password should be in format: base64(nonce + ciphertext)
 	data, err := base64.StdEncoding.DecodeString(encryptedPassword)
 	if err != nil {
@@ -942,9 +1085,9 @@ func (s *QueryService) extractTableNames(queryText string) ([]string, error) {
 		}
 	}
 
-	// Pattern 5: DELETE FROM table_name
+	// Pattern 5: DELETE FROM table_name or DELETE table_name
 	if strings.HasPrefix(upperSQL, "DELETE") {
-		deleteRegex := regexp.MustCompile(`DELETE\s+FROM\s+(?:"([^"]+)"|([\w.]+))(?:\s+WHERE|;|$)`)
+		deleteRegex := regexp.MustCompile(`DELETE\s+(?:FROM\s+)?(?:"([^"]+)"|([\w.]+))(?:\s+WHERE|;|$)`)
 		matches := deleteRegex.FindStringSubmatch(upperSQL)
 		if len(matches) > 1 {
 			tableName := matches[1]
@@ -1061,86 +1204,134 @@ func (s *QueryService) tableExists(db *gorm.DB, dataSource *models.DataSource, t
 	}
 }
 
-// ExecuteQueryInTransaction executes a query in a transaction and keeps it open for preview
-func (s *QueryService) ExecuteQueryInTransaction(ctx context.Context, approval *models.ApprovalRequest, dataSource *models.DataSource) (*models.QueryResult, error) {
+// ExecuteQueryInTransaction executes a query in a transaction and keeps it open for preview.
+// It returns both the QueryResult (for preview display) and the AuditResult (which contains
+// before/after row data captured by the AuditService).
+func (s *QueryService) ExecuteQueryInTransaction(ctx context.Context, approval *models.ApprovalRequest, dataSource *models.DataSource) (*models.QueryResult, *AuditResult, error) {
 	// Get database connection
 	dataSourceDB, err := s.connectToDataSource(dataSource)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to data source: %w", err)
+		return nil, nil, fmt.Errorf("failed to connect to data source: %w", err)
 	}
 
 	// Begin transaction
 	tx := dataSourceDB.Begin()
 	if tx.Error != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", tx.Error)
+		return nil, nil, fmt.Errorf("failed to begin transaction: %w", tx.Error)
 	}
 
-	// Execute the query in transaction
-	rows, err := tx.Raw(approval.QueryText).Rows()
-	if err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("query execution failed: %w", err)
-	}
-	defer rows.Close()
+	// Detect if this is a write query (INSERT/UPDATE/DELETE/DDL)
+	operationType := DetectOperationType(approval.QueryText)
+	isWriteQuery := operationType != models.OperationSelect
 
-	// Parse results
-	columns, err := rows.Columns()
-	if err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("failed to get columns: %w", err)
-	}
+	// Normalize the query text to fix common non-standard SQL variants before execution
+	queryToExecute := normalizeSQLForExecution(approval.QueryText)
 
 	var results []map[string]interface{}
-	for rows.Next() {
-		// Create a slice of interface{} to hold each column value
-		values := make([]interface{}, len(columns))
-		valuePtrs := make([]interface{}, len(columns))
+	var columns []string
 
-		for i := range columns {
-			valuePtrs[i] = &values[i]
-		}
+	var capturedAuditResult *AuditResult
 
-		if err := rows.Scan(valuePtrs...); err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("failed to scan row: %w", err)
-		}
+	if isWriteQuery {
+		// Use AuditService to execute the query and capture before/after row data
+		var execResult *AuditResult
+		var err error
 
-		// Create a map for this row
-		row := make(map[string]interface{})
-		for i, col := range columns {
-			var v interface{}
-			val := values[i]
-			b, ok := val.([]byte)
-			if ok {
-				v = string(b)
-			} else {
-				v = val
+		if s.auditService != nil {
+			execResult, err = s.auditService.ExecuteWithAudit(ctx, tx, queryToExecute, dataSource, models.AuditModeFull, 100)
+		} else {
+			// Fallback to simple Exec if audit service is missing
+			dbRes := tx.Exec(queryToExecute)
+			err = dbRes.Error
+			if err == nil {
+				execResult = &AuditResult{
+					AffectedRows: int(dbRes.RowsAffected),
+					AuditMode:    models.AuditModeCountOnly,
+				}
 			}
-			row[col] = v
 		}
-		results = append(results, row)
+
+		if err != nil {
+			tx.Rollback()
+			return nil, nil, fmt.Errorf("query execution failed: %w", err)
+		}
+
+		capturedAuditResult = execResult
+
+		// Build a summary result for the preview display
+		columns = []string{"operation", "rows_affected", "status"}
+		results = []map[string]interface{}{
+			{
+				"operation":     string(operationType),
+				"rows_affected": execResult.AffectedRows,
+				"status":        "executed_in_transaction",
+			},
+		}
+	} else {
+		// For SELECT queries, use Raw().Rows() to get result set
+		rows, err := tx.Raw(approval.QueryText).Rows()
+		if err != nil {
+			tx.Rollback()
+			return nil, nil, fmt.Errorf("query execution failed: %w", err)
+		}
+		defer rows.Close()
+
+		// Parse results
+		cols, err := rows.Columns()
+		if err != nil {
+			tx.Rollback()
+			return nil, nil, fmt.Errorf("failed to get columns: %w", err)
+		}
+		columns = cols
+
+		for rows.Next() {
+			values := make([]interface{}, len(columns))
+			valuePtrs := make([]interface{}, len(columns))
+
+			for i := range columns {
+				valuePtrs[i] = &values[i]
+			}
+
+			if err := rows.Scan(valuePtrs...); err != nil {
+				tx.Rollback()
+				return nil, nil, fmt.Errorf("failed to scan row: %w", err)
+			}
+
+			row := make(map[string]interface{})
+			for i, col := range columns {
+				var v interface{}
+				val := values[i]
+				b, ok := val.([]byte)
+				if ok {
+					v = string(b)
+				} else {
+					v = val
+				}
+				row[col] = v
+			}
+			results = append(results, row)
+		}
 	}
 
 	// Serialize results to JSON
 	resultsJSON, err := json.Marshal(results)
 	if err != nil {
 		tx.Rollback()
-		return nil, fmt.Errorf("failed to serialize results: %w", err)
+		return nil, nil, fmt.Errorf("failed to serialize results: %w", err)
 	}
 
 	// Serialize column names and types to JSON strings for storage
 	columnNamesJSON, err := json.Marshal(columns)
 	if err != nil {
 		tx.Rollback()
-		return nil, fmt.Errorf("failed to serialize column names: %w", err)
+		return nil, nil, fmt.Errorf("failed to serialize column names: %w", err)
 	}
 
-	// Note: ColumnTypes is set to empty strings as we don't have type information without additional schema query
 	columnTypes := make([]string, len(columns))
 	columnTypesJSON, err := json.Marshal(columnTypes)
 	if err != nil {
 		tx.Rollback()
-		return nil, fmt.Errorf("failed to serialize column types: %w", err)
+		return nil, nil, fmt.Errorf("failed to serialize column types: %w", err)
 	}
 
 	// Create query result (with temp ID for preview)
@@ -1164,7 +1355,7 @@ func (s *QueryService) ExecuteQueryInTransaction(ctx context.Context, approval *
 	}
 	s.txMutex.Unlock()
 
-	return queryResult, nil
+	return queryResult, capturedAuditResult, nil
 }
 
 // CommitTransaction commits an active transaction for a data source

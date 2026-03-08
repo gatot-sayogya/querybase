@@ -3,6 +3,7 @@
 This document describes advanced query testing and analysis features in QueryBase.
 
 ## Table of Contents
+
 - [EXPLAIN Queries](#explain-queries)
 - [Dry Run DELETE](#dry-run-delete)
 - [API Reference](#api-reference)
@@ -12,7 +13,9 @@ This document describes advanced query testing and analysis features in QueryBas
 ## EXPLAIN Queries
 
 ### Overview
+
 EXPLAIN queries show how the database will execute your query, including:
+
 - **Execution Plan**: The order of operations and algorithms used
 - **Index Usage**: Which indexes are being used (or not used)
 - **Estimated Row Counts**: How many rows the database expects to process
@@ -22,12 +25,14 @@ EXPLAIN queries show how the database will execute your query, including:
 ### EXPLAIN vs EXPLAIN ANALYZE
 
 **EXPLAIN** (Default):
+
 - Shows the **planned** execution plan
 - Does **not actually execute** the query
 - Fast and safe to run on any query
 - Provides estimates only
 
 **EXPLAIN ANALYZE** (With `analyze: true`):
+
 - Shows the **actual** execution plan
 - **Actually executes** the query
 - Provides real timing and row counts
@@ -35,26 +40,29 @@ EXPLAIN queries show how the database will execute your query, including:
 
 ### Supported Databases
 
-| Database | EXPLAIN | EXPLAIN ANALYZE | Notes |
-|----------|---------|-----------------|-------|
-| PostgreSQL | ✅ | ✅ | Full support |
-| MySQL | ✅ | ⚠️ | MySQL uses `EXPLAIN ANALYZE` (8.0.18+) or `EXPLAIN FORMAT=TREE` |
+| Database   | EXPLAIN | EXPLAIN ANALYZE | Notes                                                           |
+| ---------- | ------- | --------------- | --------------------------------------------------------------- |
+| PostgreSQL | ✅      | ✅              | Full support                                                    |
+| MySQL      | ✅      | ⚠️              | MySQL uses `EXPLAIN ANALYZE` (8.0.18+) or `EXPLAIN FORMAT=TREE` |
 
 ### When to Use EXPLAIN
 
 1. **Before Running Expensive Queries**
+
    ```sql
    -- Check if your query will use indexes
    EXPLAIN SELECT * FROM users WHERE email = 'user@example.com'
    ```
 
 2. **Debug Slow Queries**
+
    ```sql
    -- See actual execution time
    EXPLAIN ANALYZE SELECT * FROM orders WHERE status = 'pending'
    ```
 
 3. **Optimize JOINs**
+
    ```sql
    -- Check join methods and order
    EXPLAIN SELECT * FROM orders JOIN users ON orders.user_id = users.id
@@ -69,6 +77,7 @@ EXPLAIN queries show how the database will execute your query, including:
 ### Reading EXPLAIN Output
 
 **PostgreSQL Output Example:**
+
 ```json
 {
   "plan": [
@@ -80,12 +89,14 @@ EXPLAIN queries show how the database will execute your query, including:
 ```
 
 **Key Metrics:**
+
 - **cost**: Estimated cost (lower is better)
 - **rows**: Estimated number of rows
 - **Index Scan**: Using an index (good!)
 - **Seq Scan**: Full table scan (consider adding an index)
 
 **MySQL Output Example:**
+
 ```json
 {
   "plan": [
@@ -105,42 +116,47 @@ EXPLAIN queries show how the database will execute your query, including:
 
 ### Common Issues and Solutions
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Seq Scan on large table | No index or index not used | Create appropriate index |
-| High cost | Complex query or missing indexes | Simplify query or add indexes |
-| Nested Loop Join | Missing join condition | Add proper WHERE clause |
-| Filter on large result set | Query retrieves too many rows | Add more selective WHERE clause |
+| Issue                      | Cause                            | Solution                        |
+| -------------------------- | -------------------------------- | ------------------------------- |
+| Seq Scan on large table    | No index or index not used       | Create appropriate index        |
+| High cost                  | Complex query or missing indexes | Simplify query or add indexes   |
+| Nested Loop Join           | Missing join condition           | Add proper WHERE clause         |
+| Filter on large result set | Query retrieves too many rows    | Add more selective WHERE clause |
 
 ---
 
-## Dry Run DELETE
+## Dry Run DELETE & UPDATE
 
 ### Overview
-Dry Run DELETE converts a DELETE query to a SELECT query to show exactly which rows will be affected **before** you execute the DELETE. This is a critical safety feature for data deletion operations.
+
+Dry Run converts a DELETE or UPDATE query to a SELECT query to show exactly which rows will be affected **before** you execute it. This is a critical safety feature for data modification operations.
 
 ### How It Works
 
-1. **Conversion**: `DELETE FROM table WHERE ...` → `SELECT * FROM table WHERE ...`
-2. **Execution**: The SELECT query is executed to show affected rows
-3. **Preview**: Returns the count and actual row data that would be deleted
-4. **Safety**: No data is actually deleted
+1. **Integrated UI Flow**: When you click "Run" in the Query Editor on a DELETE or UPDATE query, a dry-run is performed automatically.
+2. **Conversion**: `DELETE/UPDATE ... WHERE ...` → `SELECT * ... WHERE ...`
+3. **Execution**: The SELECT query is executed with `LIMIT 100` alongside a `COUNT(*)` query.
+4. **Preview Modal**: Returns the total count and actual row data that will be modified for you to review before submitting an approval request.
+5. **Safety**: No data is actually deleted or modified during this phase.
 
 ### When to Use Dry Run
 
-1. **Before Deleting Data**
+1. **Before Modifying Data**
+
    ```sql
-   -- Check what will be deleted
-   DELETE FROM users WHERE last_login < '2024-01-01'
+   -- Check what will be modified
+   UPDATE users SET status = 'inactive' WHERE last_login < '2024-01-01'
    ```
 
 2. **Verify WHERE Clause**
+
    ```sql
    -- Make sure your conditions are correct
    DELETE FROM orders WHERE status = 'cancelled' AND created_at < '2024-01-01'
    ```
 
 3. **Count Affected Rows**
+
    ```sql
    -- See how many rows will be deleted
    DELETE FROM logs WHERE level = 'DEBUG' AND created_at < '2024-01-01'
@@ -155,6 +171,7 @@ Dry Run DELETE converts a DELETE query to a SELECT query to show exactly which r
 ### Dry Run Output Example
 
 **Request:**
+
 ```json
 {
   "query_text": "DELETE FROM users WHERE status = 'inactive'",
@@ -163,6 +180,7 @@ Dry Run DELETE converts a DELETE query to a SELECT query to show exactly which r
 ```
 
 **Response:**
+
 ```json
 {
   "affected_rows": 3,
@@ -192,13 +210,14 @@ Dry Run DELETE converts a DELETE query to a SELECT query to show exactly which r
 
 ### Best Practices
 
-1. **Always Dry Run Before Deleting**
-   - Run dry run first
-   - Review affected rows
+1. **Always Review the Preview Modal**
+   - Wait for the dry-run modal to appear
+   - Review the affected rows count
    - Verify count matches expectations
-   - Then proceed with actual DELETE (via approval workflow)
+   - Then proceed with actual submission (via approval workflow)
 
 2. **Use Specific WHERE Clauses**
+
    ```sql
    -- Good: Specific condition
    DELETE FROM logs WHERE created_at < '2024-01-01' AND level = 'DEBUG'
@@ -208,6 +227,7 @@ Dry Run DELETE converts a DELETE query to a SELECT query to show exactly which r
    ```
 
 3. **Add LIMIT in Dry Run for Large Tables**
+
    ```sql
    -- If dry run returns too many rows, add a LIMIT to preview
    SELECT * FROM large_table WHERE condition LIMIT 100
@@ -229,6 +249,7 @@ Dry Run DELETE converts a DELETE query to a SELECT query to show exactly which r
 **Authentication:** Required (JWT token)
 
 **Request Body:**
+
 ```json
 {
   "data_source_id": "uuid-of-data-source",
@@ -245,6 +266,7 @@ Dry Run DELETE converts a DELETE query to a SELECT query to show exactly which r
 | analyze | boolean | No | Use EXPLAIN ANALYZE (default: false) |
 
 **Response:**
+
 ```json
 {
   "plan": [
@@ -257,6 +279,7 @@ Dry Run DELETE converts a DELETE query to a SELECT query to show exactly which r
 ```
 
 **Error Response:**
+
 ```json
 {
   "error": "EXPLAIN query failed: relation \"users\" does not exist"
@@ -264,6 +287,7 @@ Dry Run DELETE converts a DELETE query to a SELECT query to show exactly which r
 ```
 
 **cURL Example:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/queries/explain \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -282,6 +306,7 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 **Authentication:** Required (JWT token + write permission)
 
 **Request Body:**
+
 ```json
 {
   "data_source_id": "uuid-of-data-source",
@@ -296,6 +321,7 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 | query_text | string | Yes | DELETE query to dry run |
 
 **Response:**
+
 ```json
 {
   "affected_rows": 3,
@@ -312,6 +338,7 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 ```
 
 **Error Response:**
+
 ```json
 {
   "error": "dry run is only supported for DELETE queries"
@@ -319,6 +346,7 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 ```
 
 **cURL Example:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/queries/dry-run \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -336,11 +364,13 @@ curl -X POST http://localhost:8080/api/v1/queries/dry-run \
 ### Example 1: Optimize Slow Query
 
 **Problem:** Query is slow
+
 ```sql
 SELECT * FROM orders WHERE customer_id = 123 AND status = 'pending'
 ```
 
 **Solution:** Use EXPLAIN to check
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/queries/explain \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -355,6 +385,7 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 **Response shows:** `Seq Scan on orders` (no index!)
 
 **Fix:** Create index
+
 ```sql
 CREATE INDEX idx_orders_customer_status ON orders(customer_id, status)
 ```
@@ -366,6 +397,7 @@ CREATE INDEX idx_orders_customer_status ON orders(customer_id, status)
 **Scenario:** Delete old log entries
 
 **Step 1: Dry Run**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/queries/dry-run \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -377,6 +409,7 @@ curl -X POST http://localhost:8080/api/v1/queries/dry-run \
 ```
 
 **Response:**
+
 ```json
 {
   "affected_rows": 15234,
@@ -389,11 +422,13 @@ curl -X POST http://localhost:8080/api/v1/queries/dry-run \
 ```
 
 **Step 2: Review**
+
 - 15,234 rows will be deleted
 - Sample rows look correct
 - Date is as expected
 
 **Step 3: Execute via Approval Workflow**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/queries \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -407,6 +442,7 @@ curl -X POST http://localhost:8080/api/v1/queries \
 ### Example 3: Verify JOIN Performance
 
 **Query:**
+
 ```sql
 SELECT *
 FROM orders o
@@ -416,6 +452,7 @@ WHERE o.status = 'pending'
 ```
 
 **Step 1: EXPLAIN**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/queries/explain \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -428,6 +465,7 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 ```
 
 **Step 2: Review Plan**
+
 - Check join order (should start with most selective table)
 - Check join methods (Hash Join for large tables, Nested Loop for small)
 - Check if indexes are used for join conditions
@@ -483,11 +521,13 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 ### General Query Safety
 
 1. **Write-Query Workflow**
+
    ```
-   1. EXPLAIN the query → Check performance
-   2. Dry run DELETE → Preview affected rows
-   3. Submit for approval → Get approval
-   4. Execute → Commit transaction
+   1. Write Query → Click Run
+   2. Dry run preview modal → Review affected rows
+   3. Confirm & Submit → Creates Approval Request
+   4. Approver Previews Execution → Phase 1 preview
+   5. Approver Starts Transaction & Commits → DB changes applied
    ```
 
 2. **Query Review Checklist**
@@ -516,6 +556,7 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 **Cause:** Table doesn't exist or permission denied
 
 **Solution:**
+
 1. Check table name spelling
 2. Verify data source connection
 3. Check user permissions on table
@@ -525,11 +566,13 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 **Error:** Dry run returns 0 affected rows but you expected rows
 
 **Possible Causes:**
+
 1. WHERE clause is too restrictive
 2. Data doesn't match condition
 3. Table is empty
 
 **Solution:**
+
 1. Run dry run without WHERE to see all data
 2. Check data format (dates, case sensitivity)
 3. Verify table has data
@@ -539,6 +582,7 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 **Problem:** Dry run takes too long on large table
 
 **Solution:**
+
 1. Add LIMIT to dry run manually
 2. Add more specific WHERE conditions
 3. Use EXPLAIN to check if indexes exist
@@ -551,16 +595,19 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 ### Indexing Strategies
 
 1. **Single Column Indexes**
+
    ```sql
    CREATE INDEX idx_users_email ON users(email);
    ```
 
 2. **Composite Indexes**
+
    ```sql
    CREATE INDEX idx_orders_customer_status ON orders(customer_id, status);
    ```
 
 3. **Covering Indexes**
+
    ```sql
    CREATE INDEX idx_products_category_price ON products(category, price) INCLUDE (name, sku);
    ```
@@ -573,18 +620,21 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 ### Query Optimization
 
 1. **Use Specific Columns**
+
    ```sql
    -- Instead of SELECT *
    SELECT id, name, email FROM users WHERE status = 'active'
    ```
 
 2. **Use LIMIT for Preview**
+
    ```sql
    -- Add LIMIT when testing
    SELECT * FROM large_table WHERE condition LIMIT 100
    ```
 
 3. **Avoid Functions in WHERE**
+
    ```sql
    -- Bad: Function prevents index use
    WHERE LOWER(name) = 'alice'
@@ -598,18 +648,21 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 ## Security Considerations
 
 ### EXPLAIN Queries
+
 - ✅ Safe: Read-only operations
 - ✅ No data modification
 - ⚠️ EXPLAIN ANALYZE: Actually executes the query
 - ❌ Never use EXPLAIN ANALYZE on write operations
 
 ### Dry Run DELETE
+
 - ✅ Safe: No data deletion
 - ✅ Only reads data
 - ✅ Requires write permission (for safety)
 - ✅ All queries logged
 
 ### Access Control
+
 - EXPLAIN: Requires `can_read` permission
 - Dry Run: Requires `can_write` permission
 - Both operations are logged in query history
@@ -627,10 +680,11 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 
 ## API Endpoints Summary
 
-| Feature | Endpoint | Method | Auth | Permissions |
-|---------|----------|--------|------|-------------|
-| EXPLAIN Query | `/api/v1/queries/explain` | POST | Required | `can_read` |
-| Dry Run DELETE | `/api/v1/queries/dry-run` | POST | Required | `can_write` |
+| Feature               | Endpoint                  | Method | Auth     | Permissions |
+| --------------------- | ------------------------- | ------ | -------- | ----------- |
+| EXPLAIN Query         | `/api/v1/queries/explain` | POST   | Required | `can_read`  |
+| Dry Run DELETE        | `/api/v1/queries/dry-run` | POST   | Required | `can_write` |
+| Preview DELETE/UPDATE | `/api/v1/queries/preview` | POST   | Required | `can_write` |
 
 ---
 

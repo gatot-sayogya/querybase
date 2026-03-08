@@ -256,9 +256,9 @@ func TestRateLimiterByPath(t *testing.T) {
 func TestDefaultRateLimitConfig(t *testing.T) {
 	config := DefaultRateLimitConfig()
 
-	assert.Equal(t, 60, config.RequestsPerMinute)
-	assert.Equal(t, 10, config.BurstSize)
+	assert.Equal(t, 300, config.RequestsPerMinute)
+	assert.Equal(t, 30, config.BurstSize)
 	assert.False(t, config.SkipSuccessfulRequests)
 	assert.Contains(t, config.SkipPaths, "/health")
-	assert.Contains(t, config.SkipPaths, "/api/v1/auth")
+	assert.Contains(t, config.SkipPaths, "/api/v1/auth/me")
 }

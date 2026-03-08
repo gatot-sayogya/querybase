@@ -48,7 +48,7 @@ export default function GroupList({ onEditGroup, selectedId }: GroupListProps) {
           const colors = [
             { bg: '#F0FDF4', color: '#16A34A' },
             { bg: '#EFF6FF', color: '#1D4ED8' },
-            { bg: '#FDF4FF', color: '#7C3AED' },
+            { bg: '#ccfbf1', color: '#0d9488' },
             { bg: '#FEF2F2', color: '#DC2626' },
             { bg: '#FFFBEB', color: '#D97706' },
           ];

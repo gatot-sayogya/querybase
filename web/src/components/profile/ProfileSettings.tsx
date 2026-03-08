@@ -127,7 +127,7 @@ export default function ProfileSettings() {
           <span className="w-1.5 h-1.5 rounded-none bg-[var(--text-faint)]"></span>
           <span>{user.email}</span>
           <span className="w-1.5 h-1.5 rounded-none bg-[var(--text-faint)]"></span>
-          <span className={`px-3 py-1 text-[var(--bg-page)] text-xs font-black rounded-sm ${user.role === 'admin' ? 'bg-[var(--purple-text)]' : user.role === 'viewer' ? 'bg-[var(--text-faint)]' : 'bg-[var(--accent-blue)]'}`}>{user.role}</span>
+          <span className={`px-3 py-1 text-[var(--bg-page)] text-xs font-black rounded-sm ${user.role === 'admin' ? 'bg-[var(--teal-text)]' : user.role === 'viewer' ? 'bg-[var(--text-faint)]' : 'bg-[var(--accent-blue)]'}`}>{user.role}</span>
           <span className="w-1.5 h-1.5 rounded-none bg-[var(--text-faint)]"></span>
           <span>Since {new Date(user.created_at).toLocaleDateString()}</span>
         </div>

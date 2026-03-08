@@ -5,13 +5,26 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
-import type { Query } from '@/types';
+import type { Query, ApprovalRequest } from '@/types';
 import { formatDate } from '@/lib/utils';
+
+export interface HistoryItem {
+  id: string;
+  type: 'read' | 'write';
+  name: string;
+  query_text: string;
+  data_source_name: string;
+  status: string;
+  created_at: string;
+  operation_type?: string;
+  original: Query | ApprovalRequest;
+}
 
 export default function QueryHistory() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
-  const [queries, setQueries] = useState<Query[]>([]);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'all' | 'reads' | 'writes'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,21 +54,85 @@ export default function QueryHistory() {
       try {
         setLoading(true);
         setError(null);
-        const data = await apiClient.getQueryHistory(page, 20, debouncedSearch);
-        setQueries(data.queries);
-        setTotal(data.total);
+
+        let fetchedQueries: Query[] = [];
+        let fetchedApprovals: ApprovalRequest[] = [];
+        let newTotal = 0;
+
+        // Fetch Reads
+        if (activeTab === 'all' || activeTab === 'reads') {
+          const data = await apiClient.getQueryHistory(page, 20, debouncedSearch);
+          fetchedQueries = data.queries;
+          if (activeTab === 'reads') newTotal = data.total;
+        }
+
+        // Fetch Writes
+        if (activeTab === 'all' || activeTab === 'writes') {
+          const data = await apiClient.getApprovalHistory(page, 20, debouncedSearch);
+          fetchedApprovals = data.approvals;
+          if (activeTab === 'writes') newTotal = data.total;
+        }
+
+        const items: HistoryItem[] = [];
+        
+        fetchedQueries.forEach(q => {
+          items.push({
+            id: q.id,
+            type: 'read',
+            name: q.name || 'Unnamed Query',
+            query_text: q.query_text,
+            data_source_name: q.data_source_name || 'Unknown',
+            status: q.status,
+            created_at: q.created_at,
+            original: q
+          });
+        });
+
+        fetchedApprovals.forEach(a => {
+          items.push({
+            id: a.id,
+            type: 'write',
+            name: a.operation_type ? `${a.operation_type.toUpperCase()} Request` : 'Write Request',
+            query_text: a.query_text,
+            data_source_name: a.data_source_name || 'Unknown',
+            status: a.status,
+            created_at: a.created_at,
+            operation_type: a.operation_type || 'UNKNOWN',
+            original: a
+          });
+        });
+
+        items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        if (activeTab === 'all') {
+             // Basic workaround for simple UI, since we're pulling limited pages from both ends
+             newTotal = items.length;
+        }
+
+        setHistoryItems(items);
+        setTotal(newTotal);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load query history');
+        setError(err instanceof Error ? err.message : 'Failed to load history');
       } finally {
         setLoading(false);
       }
     };
 
     fetchHistory();
-  }, [isAuthenticated, page, debouncedSearch]);
+  }, [isAuthenticated, page, debouncedSearch, activeTab]);
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
+      case 'completed':
+      case 'approved':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+      case 'failed':
+      case 'rejected':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+      case 'running':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'pending':
+        return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300';
       case 'completed':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'failed':
@@ -94,6 +171,24 @@ export default function QueryHistory() {
         </div>
       )}
 
+      {/* Tabs */}
+      <div className="flex gap-4 mb-4" style={{ padding: '0 4px' }}>
+        {(['all', 'reads', 'writes'] as const).map(tab => (
+            <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); setPage(1); }}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200 ${
+                  activeTab === tab 
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600'
+                }`}
+                style={{ background: 'none' }}
+            >
+                {tab === 'all' ? 'All Activity' : tab === 'reads' ? 'Read Queries' : 'Write Requests'}
+            </button>
+        ))}
+      </div>
+
       {/* Main Card */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-sm flex flex-col" style={{ padding: 0, overflow: 'hidden' }}>
         {loading ? (
@@ -104,7 +199,7 @@ export default function QueryHistory() {
               </div>
             ))}
           </div>
-        ) : error ? null : queries.length === 0 ? (
+        ) : error ? null : historyItems.length === 0 ? (
           <div className="p-12 text-center">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 text-slate-400 mb-4">
               <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -144,36 +239,55 @@ export default function QueryHistory() {
                 </tr>
               </thead>
               <tbody>
-                {queries.map((query) => {
-                  let badgeClass = 'badge-slate';
-                  if (query.status === 'completed') badgeClass = 'badge-green';
-                  else if (query.status === 'failed') badgeClass = 'badge-red text-red-700 bg-red-50';
-                  else if (query.status === 'running' || query.status === 'pending') badgeClass = 'badge-amber';
-
+                {historyItems.map((item) => {
                   return (
-                    <tr key={query.id}>
+                    <tr key={`${item.type}-${item.id}`}>
                       <td style={{ paddingTop: '4px', paddingBottom: '4px' }}>
-                        <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
-                          {query.name || 'Unnamed Query'}
+                        <div style={{ fontWeight: 500, color: 'var(--text-primary)' }} className="flex items-center gap-2">
+                           {item.type === 'write' && (
+                              <span className="px-1.5 py-0.5 border border-slate-300 dark:border-slate-700 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-900 dark:text-slate-300 rounded-none bg-slate-100 dark:bg-slate-800">
+                                  {item.operation_type}
+                              </span>
+                          )}
+                          {item.name}
                         </div>
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {query.query_text}
+                          {item.query_text}
                         </div>
                       </td>
-                      <td>{query.data_source_name || 'Unknown'}</td>
+                      <td>{item.data_source_name}</td>
                       <td>
-                        <span className={`badge ${badgeClass}`}>{query.status}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`badge ${getStatusBadgeColor(item.status)}`}>{item.status}</span>
+                          {item.type === 'write' && item.status === 'approved' && (item.original as ApprovalRequest).transaction !== undefined && (
+                            <span 
+                              className={`px-1.5 py-0.5 rounded text-[11px] font-medium font-mono whitespace-nowrap ${(item.original as ApprovalRequest).transaction!.affected_rows > 0 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/50' : 'bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700'}`}
+                              title={`${(item.original as ApprovalRequest).transaction!.affected_rows} rows affected in database`}
+                            >
+                              ⬢ {(item.original as ApprovalRequest).transaction!.affected_rows} rows
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td style={{ color: 'var(--text-muted)' }}>
-                        {query.created_at ? formatDate(query.created_at) : 'N/A'}
+                        {item.created_at ? formatDate(item.created_at) : 'N/A'}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <button
-                          onClick={() => router.push(`/dashboard/queries/${query.id}`)}
-                          style={{ color: 'var(--accent-blue)', fontSize: '13px', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                          View Results
-                        </button>
+                        {item.type === 'read' ? (
+                          <button
+                            onClick={() => router.push(`/dashboard/queries/${item.id}`)}
+                            style={{ color: 'var(--accent-blue)', fontSize: '13px', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer' }}
+                          >
+                            View Results
+                          </button>
+                        ) : (
+                           <button
+                             onClick={() => router.push(`/dashboard/approvals?id=${item.id}`)}
+                             style={{ color: 'var(--accent-blue)', fontSize: '13px', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer' }}
+                           >
+                             View Details
+                           </button>
+                        )}
                       </td>
                     </tr>
                   );

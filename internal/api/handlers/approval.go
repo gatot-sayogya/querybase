@@ -3,8 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yourorg/querybase/internal/api/dto"
@@ -70,7 +73,7 @@ func (h *ApprovalHandler) ListApprovals(c *gin.Context) {
 
 	response := make([]gin.H, len(approvals))
 	for i, approval := range approvals {
-		response[i] = h.formatApprovalResponse(approval)
+		response[i] = h.formatApprovalResponse(approval, userID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -132,7 +135,7 @@ func (h *ApprovalHandler) GetApproval(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, h.formatApprovalResponse(*approval))
+	c.JSON(http.StatusOK, h.formatApprovalResponse(*approval, userID))
 }
 
 // ReviewApproval adds a review to an approval request
@@ -243,7 +246,7 @@ func (h *ApprovalHandler) checkCanApprove(userID, dataSourceID string) bool {
 }
 
 // formatApprovalResponse formats an approval request for API response
-func (h *ApprovalHandler) formatApprovalResponse(approval models.ApprovalRequest) gin.H {
+func (h *ApprovalHandler) formatApprovalResponse(approval models.ApprovalRequest, userID string) gin.H {
 	reviews := make([]gin.H, len(approval.ApprovalReviews))
 	for i, review := range approval.ApprovalReviews {
 		reviews[i] = gin.H{
@@ -255,7 +258,12 @@ func (h *ApprovalHandler) formatApprovalResponse(approval models.ApprovalRequest
 		}
 	}
 
-	return gin.H{
+	canApprove := false
+	if userID != "" {
+		canApprove = h.checkCanApprove(userID, approval.DataSourceID.String())
+	}
+
+	response := gin.H{
 		"id":               approval.ID.String(),
 		"operation_type":   string(approval.OperationType),
 		"data_source_id":   approval.DataSourceID.String(),
@@ -264,10 +272,44 @@ func (h *ApprovalHandler) formatApprovalResponse(approval models.ApprovalRequest
 		"requested_by":     approval.RequestedBy.String(),
 		"requester_name":   approval.RequestedByUser.FullName,
 		"status":           string(approval.Status),
+		"can_approve":      canApprove,
 		"created_at":       approval.CreatedAt,
 		"updated_at":       approval.UpdatedAt,
 		"reviews":          reviews,
 	}
+
+	// Fetch transaction data if approved
+	if approval.Status == models.ApprovalStatusApproved {
+		var tx models.QueryTransaction
+		if err := h.db.Where("approval_id = ? AND status = ?", approval.ID, models.TransactionStatusCommitted).First(&tx).Error; err == nil {
+			var beforeData, afterData []map[string]interface{}
+			if tx.BeforeData != "" {
+				json.Unmarshal([]byte(tx.BeforeData), &beforeData)
+			}
+			if tx.AfterData != "" {
+				json.Unmarshal([]byte(tx.AfterData), &afterData)
+			}
+
+			txData := gin.H{
+				"affected_rows": tx.AffectedRows,
+				"audit_mode":    string(tx.AuditMode),
+			}
+
+			if beforeData != nil {
+				txData["before_data"] = beforeData
+			}
+			if afterData != nil {
+				txData["after_data"] = afterData
+			}
+			if tx.CompletedAt != nil {
+				txData["completed_at"] = tx.CompletedAt.Format(time.RFC3339)
+			}
+
+			response["transaction"] = txData
+		}
+	}
+
+	return response
 }
 
 // ValidateQuery validates a SQL query before submission
@@ -322,6 +364,14 @@ func (h *ApprovalHandler) StartTransaction(c *gin.Context) {
 	userID := c.GetString("user_id")
 	approvalID := c.Param("id")
 
+	// Parse optional request body for audit mode
+	var req dto.StartTransactionRequest
+	c.ShouldBindJSON(&req) // Optional binding, ignore errors
+	auditMode := models.AuditMode(req.AuditMode)
+	if auditMode == "" {
+		auditMode = models.AuditModeFull
+	}
+
 	// Verify approval exists
 	approval, err := h.approvalService.GetApproval(c, approvalID)
 	if err != nil {
@@ -341,9 +391,10 @@ func (h *ApprovalHandler) StartTransaction(c *gin.Context) {
 		return
 	}
 
-	// Start transaction
-	transaction, err := h.approvalService.StartTransaction(c, approvalID, userID)
+	// Start transaction with audit mode
+	transaction, err := h.approvalService.StartTransaction(c, approvalID, userID, auditMode)
 	if err != nil {
+		log.Printf("[StartTransaction] ERROR approvalID=%s userID=%s: %v", approvalID, userID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -363,6 +414,24 @@ func (h *ApprovalHandler) StartTransaction(c *gin.Context) {
 		}
 	}
 
+	// Check caution based on estimated rows and threshold
+	var caution bool
+	var cautionMsg string
+	var ds models.DataSource
+	if err := h.db.First(&ds, "id = ?", approval.DataSourceID).Error; err == nil {
+		threshold := ds.AuditRowThreshold
+		if threshold <= 0 {
+			threshold = 1000
+		}
+		if transaction.EstimatedRows > threshold {
+			caution = true
+			cautionMsg = fmt.Sprintf(
+				"This query will affect ~%d rows (threshold: %d). Consider using 'count_only' or 'sample' audit mode.",
+				transaction.EstimatedRows, threshold,
+			)
+		}
+	}
+
 	// Format response
 	c.JSON(http.StatusOK, dto.TransactionResponse{
 		TransactionID: transaction.ID.String(),
@@ -373,9 +442,13 @@ func (h *ApprovalHandler) StartTransaction(c *gin.Context) {
 		StartedBy:     transaction.StartedBy.String(),
 		StartedAt:     transaction.StartedAt.Format("2006-01-02T15:04:05Z07:00"),
 		Preview: dto.TransactionPreview{
-			RowCount: transaction.AffectedRows,
-			Columns:  convertToColumnInfo(columns),
-			Data:     previewData,
+			RowCount:      transaction.AffectedRows,
+			EstimatedRows: transaction.EstimatedRows,
+			Columns:       convertToColumnInfo(columns),
+			Data:          previewData,
+			Caution:       caution,
+			CautionMsg:    cautionMsg,
+			AuditMode:     string(transaction.AuditMode),
 		},
 	})
 }
@@ -405,11 +478,28 @@ func (h *ApprovalHandler) CommitTransaction(c *gin.Context) {
 		return
 	}
 
+	// Re-read the transaction to get updated audit data
+	var updatedTx models.QueryTransaction
+	h.db.First(&updatedTx, "id = ?", transactionID)
+
+	// Parse before/after data
+	var beforeData, afterData []map[string]interface{}
+	if updatedTx.BeforeData != "" {
+		json.Unmarshal([]byte(updatedTx.BeforeData), &beforeData)
+	}
+	if updatedTx.AfterData != "" {
+		json.Unmarshal([]byte(updatedTx.AfterData), &afterData)
+	}
+
 	c.JSON(http.StatusOK, dto.CommitTransactionResponse{
 		TransactionID: transactionID,
 		Status:        "committed",
 		Message:       "Transaction committed successfully",
 		ApprovalID:    transaction.ApprovalID.String(),
+		AffectedRows:  updatedTx.AffectedRows,
+		AuditMode:     string(updatedTx.AuditMode),
+		BeforeData:    beforeData,
+		AfterData:     afterData,
 	})
 }
 
@@ -481,6 +571,8 @@ func (h *ApprovalHandler) GetTransactionStatus(c *gin.Context) {
 		StartedAt:     transaction.StartedAt.Format("2006-01-02T15:04:05Z07:00"),
 		ErrorMessage:  transaction.ErrorMessage,
 		AffectedRows:  transaction.AffectedRows,
+		EstimatedRows: transaction.EstimatedRows,
+		AuditMode:     string(transaction.AuditMode),
 	}
 
 	if transaction.CompletedAt != nil {

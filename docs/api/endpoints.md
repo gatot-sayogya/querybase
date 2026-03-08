@@ -165,6 +165,37 @@ Execute a query (SELECT or write operation).
 
 ---
 
+### POST /queries/preview
+
+Preview affected rows for a DELETE or UPDATE query (dry-run).
+
+**Request:**
+
+```json
+{
+  "data_source_id": "uuid",
+  "query_text": "DELETE FROM users WHERE last_login < '2025-01-01'"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "total_affected": 5,
+  "preview_rows": [
+    { "id": 1, "email": "olduser1@example.com", "last_login": "2024-12-01" },
+    { "id": 2, "email": "olduser2@example.com", "last_login": "2024-11-15" }
+  ],
+  "columns": ["id", "email", "last_login"],
+  "preview_limit": 100
+}
+```
+
+**Permissions Required:** `can_write` on data source
+
+---
+
 ### GET /queries
 
 List queries for current user.

@@ -19,13 +19,17 @@ import (
 type DataSourceHandler struct {
 	db                *gorm.DB
 	dataSourceService *service.DataSourceService
+	queryService      *service.QueryService
+	auditService      *service.AuditService
 }
 
 // NewDataSourceHandler creates a new data source handler
-func NewDataSourceHandler(db *gorm.DB, dataSourceService *service.DataSourceService) *DataSourceHandler {
+func NewDataSourceHandler(db *gorm.DB, dataSourceService *service.DataSourceService, queryService *service.QueryService) *DataSourceHandler {
 	return &DataSourceHandler{
 		db:                db,
 		dataSourceService: dataSourceService,
+		queryService:      queryService,
+		auditService:      service.NewAuditService(db),
 	}
 }
 
@@ -455,4 +459,53 @@ func (h *DataSourceHandler) checkReadPermission(userID, dataSourceID string) boo
 		Count(&count)
 
 	return count > 0
+}
+
+// TestAuditCapability tests if a data source supports trigger-based audit capture
+func (h *DataSourceHandler) TestAuditCapability(c *gin.Context) {
+	dataSourceID := c.Param("id")
+
+	// Verify data source exists
+	var dataSource models.DataSource
+	if err := h.db.First(&dataSource, "id = ?", dataSourceID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data source not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data source"})
+		}
+		return
+	}
+
+	// Connect to data source
+	dataSourceDB, err := h.queryService.ConnectToDataSourcePublic(&dataSource)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.TestAuditResponse{
+			DataSourceID:    dataSourceID,
+			AuditCapability: string(models.AuditCapabilityCountOnly),
+			Message:         fmt.Sprintf("Cannot connect to data source: %s", err.Error()),
+		})
+		return
+	}
+
+	capability, err := h.auditService.TestAuditCapability(c, dataSourceDB, &dataSource)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var message string
+	switch capability {
+	case models.AuditCapabilityFull:
+		message = "Full audit capability confirmed. Trigger-based audit capture is supported."
+	case models.AuditCapabilityCountOnly:
+		message = "Limited audit capability. Only row count capture is available. Grant CREATE TRIGGER and CREATE TEMP TABLE permissions to enable full audit."
+	default:
+		message = "Audit capability could not be determined."
+	}
+
+	c.JSON(http.StatusOK, dto.TestAuditResponse{
+		DataSourceID:    dataSourceID,
+		AuditCapability: string(capability),
+		Message:         message,
+	})
 }
