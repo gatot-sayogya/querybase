@@ -648,62 +648,6 @@ Force schema synchronization.
 
 ---
 
-### GET /datasources/:id/permissions
-
-Get data source permissions.
-
-**Response (200):**
-
-```json
-{
-  "data_source_id": "uuid",
-  "permissions": [
-    {
-      "group_id": "uuid",
-      "group_name": "Developers",
-      "can_read": true,
-      "can_write": true,
-      "can_approve": false
-    }
-  ]
-}
-```
-
-**Permissions Required:** Access to data source
-
----
-
-### PUT /datasources/:id/permissions
-
-Set data source permissions.
-
-**Request:**
-
-```json
-{
-  "permissions": [
-    {
-      "group_id": "uuid",
-      "can_read": true,
-      "can_write": true,
-      "can_approve": false
-    }
-  ]
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "message": "Permissions updated successfully"
-}
-```
-
-**Permissions Required:** Admin
-
----
-
 ### GET /datasources/:id/health
 
 Get data source health status.
@@ -799,11 +743,134 @@ Get user details.
   "groups": [
     {
       "id": "uuid",
-      "name": "Developers"
+      "name": "Developers",
+      "joined_at": "2026-01-29T12:00:00Z"
     }
   ]
 }
 ```
+
+**Permissions Required:** Admin or self
+
+---
+
+## Groups
+
+### GET /groups
+
+List all groups.
+
+**Response (200):**
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Developers",
+      "description": "Core development team",
+      "member_count": 5,
+      "created_at": "2026-01-29T12:00:00Z"
+    }
+  ]
+}
+```
+
+**Permissions Required:** Authenticated user
+
+---
+
+### POST /groups
+
+Create a new group.
+
+**Request:**
+
+```json
+{
+  "name": "Data Analysts",
+  "description": "Business intelligence team"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "id": "uuid",
+  "name": "Data Analysts",
+  "description": "Business intelligence team",
+  "created_at": "2026-01-29T12:00:00Z"
+}
+```
+
+**Permissions Required:** Admin
+
+---
+
+### GET /groups/:id/datasource_permissions
+
+Get all data source permissions for a specific group.
+
+**Response (200):**
+
+```json
+[
+  {
+    "data_source_id": "uuid",
+    "group_id": "uuid",
+    "can_read": true,
+    "can_write": false,
+    "can_approve": false,
+    "created_at": "2026-02-15T10:00:00Z",
+    "updated_at": "2026-02-15T10:00:00Z"
+  }
+]
+```
+
+**Permissions Required:** Admin
+
+---
+
+### PUT /groups/:id/datasource_permissions
+
+Set data source permissions for a specific group (bulk update).
+
+**Request:**
+
+```json
+{
+  "permissions": [
+    {
+      "data_source_id": "uuid",
+      "can_read": true,
+      "can_write": true,
+      "can_approve": false
+    }
+  ]
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "message": "Permissions updated successfully"
+}
+```
+
+**Permissions Required:** Admin
+
+---
+
+      "id": "uuid",
+      "name": "Developers"
+    }
+
+]
+}
+
+````
 
 ---
 
@@ -818,7 +885,7 @@ Update user information.
   "email": "updated@example.com",
   "role": "admin"
 }
-```
+````
 
 **Response (200):**
 

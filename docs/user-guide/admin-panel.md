@@ -64,11 +64,11 @@ The Admin Panel provides administrative functions for managing:
 
 ### User Roles
 
-| Role | Permissions |
-|------|-------------|
-| **Admin** | Full access to all features and admin panel |
-| **User** | Can execute queries, submit approvals, manage own data sources |
-| **Viewer** | Read-only access, can execute SELECT queries only |
+| Role       | Permissions                                                    |
+| ---------- | -------------------------------------------------------------- |
+| **Admin**  | Full access to all features and admin panel                    |
+| **User**   | Can execute queries, submit approvals, manage own data sources |
+| **Viewer** | Read-only access, can execute SELECT queries only              |
 
 ---
 
@@ -122,6 +122,16 @@ The Admin Panel provides administrative functions for managing:
    - Click **"Remove"** next to user
    - Confirm removal
 
+### Manage Group Data Sources (Permissions)
+
+1. Click on group in list
+2. Go to **"Data Sources"** tab
+3. See list of all data sources available in the system
+4. Toggle access for the group:
+   - **Read Access**: Allow members to execute SELECT queries
+   - **Write Access**: Allow members to submit write operation requests (INSERT, UPDATE, DELETE)
+   - **Approve Access**: Allow members to review and approve write requests
+
 ---
 
 ## Data Source Management
@@ -153,14 +163,12 @@ The Admin Panel provides administrative functions for managing:
    - **SSL Mode**: Optional (disable, require, verify-ca, verify-full)
 3. Click **"Test Connection"** to verify
 4. Click **"Create Data Source"**
-5. Set permissions (see below)
+5. Navigate to **Groups** to assign permissions configurations.
 
-### Edit Data Source
-
-1. Click on data source in list
-2. Edit connection details
-3. Click **"Save Changes"**
-4. **Warning**: Connection changes affect all users
+6. Click on data source in list
+7. Edit connection details
+8. Click **"Save Changes"**
+9. **Warning**: Connection changes affect all users
 
 ### Delete Data Source
 
@@ -193,28 +201,24 @@ The Admin Panel provides administrative functions for managing:
 
 Permissions control what users can do with each data source:
 
-| Permission | Description |
-|------------|-------------|
-| **can_read** | Execute SELECT queries |
-| **can_write** | Submit write operation requests (INSERT, UPDATE, DELETE, DDL) |
-| **can_approve** | Approve or reject write operation requests |
+| Permission      | Description                                                   |
+| --------------- | ------------------------------------------------------------- |
+| **can_read**    | Execute SELECT queries                                        |
+| **can_write**   | Submit write operation requests (INSERT, UPDATE, DELETE, DDL) |
+| **can_approve** | Approve or reject write operation requests                    |
 
-### View Permissions
+### View and Set Permissions
 
-1. Click on data source in list
-2. Go to **"Permissions"** tab
-3. See list of groups with permissions
+Permissions are managed entirely within groups.
 
-### Set Permissions
-
-1. Click on data source in list
-2. Go to **"Permissions"** tab
-3. Click **"Edit Permissions"** button
-4. For each group:
-   - **can_read**: Check/uncheck
-   - **can_write**: Check/uncheck
-   - **can_approve**: Check/uncheck
-5. Click **"Save Permissions"**
+1. Navigate to **Admin → Groups**
+2. Click on the group you wish to configure
+3. Go to the **"Data Sources"** tab
+4. For each data source listed, toggle the checkboxes:
+   - **Read Access** (`can_read`)
+   - **Write Access** (`can_write`)
+   - **Approve Access** (`can_approve`)
+5. Changes are saved automatically as you toggle them.
 
 ### Permission Best Practices
 
@@ -236,16 +240,19 @@ Permissions control what users can do with each data source:
 ### Example Permission Setups
 
 #### Development Team
+
 - **Developers Group**: can_read, can_write
 - **Team Lead Group**: can_read, can_write, can_approve
 - **Data Analysts**: can_read only
 
 #### Production Database
+
 - **DBA Group**: can_read, can_write, can_approve
 - **Developers**: can_read only (no write access)
 - **Analytics**: can_read only
 
 #### Staging Database
+
 - **Developers**: can_read, can_write
 - **QA Team**: can_read, can_write, can_approve
 - **Stakeholders**: can_read only
@@ -319,11 +326,13 @@ Permissions control what users can do with each data source:
 ### Cannot Create User
 
 **Possible causes:**
+
 - Email/username already exists
 - Invalid email format
 - Password too weak
 
 **Solutions:**
+
 - Check for duplicates
 - Verify email format
 - Use stronger password
@@ -331,22 +340,26 @@ Permissions control what users can do with each data source:
 ### Cannot Delete User
 
 **Possible causes:**
+
 - User owns approval requests
 - User is only approver for data source
 
 **Solutions:**
+
 - Reassign approval requests
 - Add another approver first
 
 ### Data Source Connection Fails
 
 **Possible causes:**
+
 - Incorrect host/port
 - Firewall blocking connection
 - Invalid credentials
 - Database not running
 
 **Solutions:**
+
 - Verify connection details
 - Check network connectivity
 - Test credentials with database client
@@ -355,11 +368,13 @@ Permissions control what users can do with each data source:
 ### Permissions Not Working
 
 **Possible causes:**
+
 - User not in group
 - Group permissions not set
 - Data source permissions not saved
 
 **Solutions:**
+
 - Verify user group membership
 - Check group permissions for data source
 - Re-save permissions

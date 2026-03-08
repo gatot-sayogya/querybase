@@ -173,6 +173,7 @@ Comprehensive documentation for QueryBase - A database explorer with approval wo
 - ✅ All infrastructure (database, models, auth, config)
 - ✅ Query execution engine with SQL parser
 - ✅ Approval workflow system with transaction preview
+- ✅ Detailed query execution logging and auditing
 - ✅ Data source management with encryption
 - ✅ Redis queue + background worker
 - ✅ Google Chat notifications

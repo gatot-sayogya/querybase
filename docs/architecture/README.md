@@ -109,23 +109,6 @@ Detailed documentation on:
 - Improving autocomplete or real-time feature
 - Debugging dashboard data issues
 
-### 4. [Per-User Role-in-Group Permissions](per-user-group-roles.md)
-
-**Plan C Permission Model**
-
-Detailed documentation on:
-
-- Granular RBAC within groups
-- Role-based policy overrides per datasource
-- Permission merging and resolution logic
-- Database schema for Plan C implementation
-
-**When to Read:**
-
-- Implementing new permission features
-- Debugging access control issues
-- Understanding how group roles affect query execution
-
 ## Key Architectural Decisions
 
 ### 1. Separation of Concerns
@@ -145,7 +128,7 @@ Detailed documentation on:
 
 - JWT-based authentication
 - Role-based access control (RBAC)
-- Group-based permissions
+- Data source access permissions assigned to Groups
 - Encrypted data source credentials (AES-256-GCM)
 - SQL injection prevention
 
