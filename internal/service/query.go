@@ -281,7 +281,7 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 
 	// Trigger stats update
 	if s.statsService != nil {
-		s.statsService.TriggerStatsChanged()
+		s.statsService.TriggerStatsChanged(query.UserID.String())
 	}
 
 	return queryResult, nil

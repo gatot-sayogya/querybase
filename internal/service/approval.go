@@ -53,7 +53,7 @@ func (s *ApprovalService) CreateApprovalRequest(ctx context.Context, req *Approv
 
 	// Trigger stats update
 	if s.statsService != nil {
-		s.statsService.TriggerStatsChanged()
+		s.statsService.TriggerStatsChanged(approval.RequestedBy.String())
 	}
 
 	return approval, nil
@@ -241,7 +241,9 @@ func (s *ApprovalService) updateApprovalStatus(ctx context.Context, approvalID u
 
 			// Trigger stats update
 			if s.statsService != nil {
-				s.statsService.TriggerStatsChanged()
+				var tempApp models.ApprovalRequest
+				s.db.Select("requested_by").First(&tempApp, "id = ?", approvalID)
+				s.statsService.TriggerStatsChanged(tempApp.RequestedBy.String())
 			}
 
 			// Execute the approved query

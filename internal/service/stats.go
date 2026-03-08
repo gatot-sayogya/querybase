@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 )
 
@@ -30,6 +31,7 @@ type DashboardStats struct {
 type StatsService struct {
 	db                   *gorm.DB
 	redis                *redis.Client
+	statsGroup           singleflight.Group
 	statsChangedCallback func()
 }
 
@@ -47,16 +49,15 @@ func (s *StatsService) SetStatsChangedCallback(callback func()) {
 }
 
 // TriggerStatsChanged invalidates the cache and notifies listeners (e.g., WebSockets)
-func (s *StatsService) TriggerStatsChanged() {
-	// Flush the global and all user-scoped caches so the next fetch is fresh
+func (s *StatsService) TriggerStatsChanged(userID string) {
+	// Flush the global and specific user's caches so the next fetch is fresh
 	if s.redis != nil {
 		ctx := context.Background()
-		// Delete global cache
+		// Always delete global cache as it is shared by admins
 		s.redis.Del(ctx, CacheKeyStatsGlobal)
-		// Use SCAN to delete all user-scoped keys
-		iter := s.redis.Scan(ctx, 0, "stats:dashboard:user:*", 100).Iterator()
-		for iter.Next(ctx) {
-			s.redis.Del(ctx, iter.Val())
+
+		if userID != "" {
+			s.redis.Del(ctx, fmt.Sprintf(CacheKeyStatsUser, userID))
 		}
 	}
 
@@ -81,18 +82,27 @@ func (s *StatsService) GetDashboardStats(ctx context.Context, userID string, isA
 		}
 	}
 
-	// Calculate and set cache if not found or expired
-	stats, err := s.CalculateStats(userID, isAdmin)
+	// Use singleflight to prevent Thundering Herd
+	v, err, _ := s.statsGroup.Do(cacheKey, func() (interface{}, error) {
+		// Calculate stats from DB
+		stats, err := s.CalculateStats(userID, isAdmin)
+		if err != nil {
+			return nil, err
+		}
+
+		// Save to cache
+		if statsBytes, marshalErr := json.Marshal(stats); marshalErr == nil {
+			s.redis.Set(ctx, cacheKey, statsBytes, CacheTTLExpiration)
+		}
+
+		return stats, nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	// Save to cache asynchronously or synchronously (we'll do sync for simplicity, async for speed usually)
-	if statsBytes, err := json.Marshal(stats); err == nil {
-		s.redis.Set(ctx, cacheKey, statsBytes, CacheTTLExpiration)
-	}
-
-	return stats, nil
+	return v.(*DashboardStats), nil
 }
 
 // CalculateStats dynamically calculates the stats from the database
