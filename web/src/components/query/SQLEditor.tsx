@@ -14,6 +14,7 @@ interface SQLEditorProps {
   dataSourceId?: string;
   canWrite?: boolean;
   onWriteDetected?: (isWrite: boolean) => void;
+  onExecute?: () => void;
 }
 
 export default function SQLEditor({
@@ -25,8 +26,8 @@ export default function SQLEditor({
   dataSourceId,
   canWrite = false,
   onWriteDetected,
+  onExecute,
 }: SQLEditorProps) {
-  const [editorHeight] = useState(height);
   const [isWriteOperation, setIsWriteOperation] = useState(false);
   const [monaco, setMonaco] = useState<Monaco | null>(null);
   const [editor, setEditor] = useState<any>(null);
@@ -282,6 +283,13 @@ export default function SQLEditor({
 
   const handleEditorDidMount = (editorInstance: any, monacoInstance: Monaco) => {
     setEditor(editorInstance);
+    
+    // Add keyboard shortcut for execution
+    if (onExecute) {
+      editorInstance.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter, () => {
+        onExecute();
+      });
+    }
   };
 
   const monacoTheme = effectiveTheme === 'dark' ? 'vs-dark' : 'vs-light';
@@ -289,7 +297,7 @@ export default function SQLEditor({
   return (
     <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
       <Editor
-        height={editorHeight}
+        height={height}
         defaultLanguage="sql"
         value={value}
         onChange={handleEditorChange}

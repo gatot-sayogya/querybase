@@ -12,6 +12,7 @@ import {
   MagnifyingGlassIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { useSchemaStore } from '@/stores/schema-store';
@@ -71,7 +72,9 @@ export default function DataSourceSchemaSelector({
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tables']));
   const [isPolling, setIsPolling] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [isSearchHovered, setIsSearchHovered] = useState(false);
+  const searchBarRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [healthStatuses, setHealthStatuses] = useState<Record<string, HealthStatus>>({});
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -218,10 +221,18 @@ export default function DataSourceSchemaSelector({
     };
   }, [value, isPolling]);
 
+  // Pagination state for schema items
+  const [tableLimit, setTableLimit] = useState(50);
+  const [viewLimit, setViewLimit] = useState(50);
+  const [functionLimit, setFunctionLimit] = useState(50);
+
   const handleDataSourceChange = async (dataSourceId: string) => {
     onChange(dataSourceId);
     setExpandedDataSources(new Set([dataSourceId]));
     setExpandedSections(new Set(['tables']));
+    setTableLimit(50);
+    setViewLimit(50);
+    setFunctionLimit(50);
 
     // Load schema if not already loaded
     if (!schemas.has(dataSourceId)) {
@@ -273,24 +284,25 @@ export default function DataSourceSchemaSelector({
 
   if (loading) {
     return (
-      <div className="animate-pulse">
-        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      <div className="animate-pulse px-2">
+        <div className="h-10 bg-slate-200 dark:bg-slate-700/50 rounded-2xl mb-4"></div>
+        <div className="h-64 bg-slate-200 dark:bg-slate-700/50 rounded-2xl"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl">
+        <p className="text-sm text-red-600 dark:text-red-400 font-medium">{error}</p>
         <button
           onClick={() => {
             hasInitialized.current = false;
             window.location.reload();
           }}
-          className="mt-2 text-sm text-red-600 dark:text-red-400 underline"
+          className="mt-2 text-xs text-red-600 dark:text-red-400 underline font-bold"
         >
-          Retry
+          RETRY
         </button>
       </div>
     );
@@ -298,8 +310,8 @@ export default function DataSourceSchemaSelector({
 
   if (dataSources.length === 0) {
     return (
-      <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-        <p className="text-sm text-yellow-600 dark:text-yellow-400">
+      <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl">
+        <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
           No accessible data sources available. Please contact an administrator to get access.
         </p>
       </div>
@@ -307,295 +319,126 @@ export default function DataSourceSchemaSelector({
   }
 
   return (
-    <div className="space-y-2 flex flex-col flex-1 overflow-hidden">
+    <div className="space-y-4 flex flex-col flex-1 overflow-hidden">
       {/* Data Source Selector */}
-      <div className="flex-shrink-0 mb-1" ref={dropdownRef}>
-        <div className="flex items-center gap-1">
+      <div className="flex-shrink-0 mb-3 px-1" ref={dropdownRef}>
+        <div className="flex items-center gap-2">
           {/* Custom Dropdown with Health Indicators */}
           <div className="relative flex-1">
-          {value && dataSources.length > 0 && (() => {
-            const selectedDs = dataSources.find((ds) => ds.id === value);
-            if (!selectedDs) return null;
-            const { canWriteToDataSource } = require('@/lib/data-source-utils');
-            const hasWrite = canWriteToDataSource(selectedDs, user);
-            return (
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Data Source</span>
-                <span
-                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                    hasWrite
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
-                  }`}
-                >
-                  {hasWrite ? 'Read + Write' : 'Read Only'}
+            <button
+              type="button"
+              onClick={() => !disabled && setDropdownOpen(!dropdownOpen)}
+              disabled={disabled}
+              className="w-full flex items-center justify-between px-3 py-2 text-sm border-none rounded-2xl sleek-shadow-sm bg-white/50 dark:bg-slate-800/50 backdrop-blur-md text-slate-900 dark:text-white hover:bg-white/80 dark:hover:bg-slate-800/80 transition-all ease-spring disabled:opacity-50 disabled:cursor-not-allowed group"
+            >
+              <span className="flex items-center gap-2 min-w-0 flex-1">
+                {value && <HealthDot status={healthStatuses[value] || 'unknown'} />}
+                <span className="truncate font-bold tracking-tight">
+                  {value
+                    ? (dataSources.find(ds => ds.id === value)?.name ?? 'Select datasource')
+                    : 'Select a data source'}
                 </span>
-              </div>
-            );
-          })()}
-          <button
-            type="button"
-            onClick={() => !disabled && setDropdownOpen(!dropdownOpen)}
-            disabled={disabled}
-            className="w-full flex items-center justify-between px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="flex items-center gap-1.5 min-w-0 flex-1">
-              {value && <HealthDot status={healthStatuses[value] || 'unknown'} />}
-              <span className="truncate">
-                {value
-                  ? (dataSources.find(ds => ds.id === value)?.name ?? 'Select datasource')
-                  : 'Select a data source'}
               </span>
-            </span>
-            <ChevronDownIcon className={`h-3 w-3 text-gray-400 flex-shrink-0 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDownIcon className={`h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-all ease-spring duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {dropdownOpen && (
+              <div className="absolute z-30 mt-2 w-full glass sleek-shadow rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300 border border-white/20 dark:border-white/5">
+                {dataSources.map((ds) => {
+                  const status = healthStatuses[ds.id] || 'unknown';
+                  const isSelected = ds.id === value;
+                  const isPg = ds.type === 'postgresql';
+                  const isMysql = ds.type === 'mysql';
+                  
+                  return (
+                    <button
+                      key={ds.id}
+                      type="button"
+                      onClick={() => {
+                        handleDataSourceChange(ds.id);
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-xs hover:bg-slate-500/10 dark:hover:bg-white/10 transition-colors ${
+                        isSelected ? 'bg-blue-500/10 dark:bg-blue-500/20' : ''
+                      }`}
+                    >
+                      <HealthDot status={status} />
+                      <span className="flex-1 truncate font-bold text-slate-700 dark:text-slate-100">{ds.name}</span>
+                      <span className="flex-shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" 
+                            style={{
+                               color: isPg ? '#3B82F6' : isMysql ? '#10B981' : 'inherit'
+                            }}>
+                        {isPg ? <PgIcon /> : isMysql ? <MysqlIcon /> : <DbIcon />}
+                      </span>
+                      <HealthBadge status={status} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Sync Now Button — moved inline */}
+          <button
+            onClick={handleSyncNow}
+            disabled={!value || isSchemaLoading}
+            className="flex-shrink-0 flex items-center justify-center w-10 h-[38px] text-slate-500 bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-800/80 rounded-2xl sleek-shadow-sm transition-all ease-spring disabled:opacity-50 disabled:cursor-not-allowed border border-white/20 dark:border-white/5"
+            title="Sync schema and re-check datasource health"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${isSchemaLoading ? 'animate-spin' : ''}`} />
           </button>
-
-          {dropdownOpen && (
-            <div className="absolute z-30 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
-              {dataSources.map((ds) => {
-                const status = healthStatuses[ds.id] || 'unknown';
-                const isSelected = ds.id === value;
-                const isPg = ds.type === 'postgresql';
-                const isMysql = ds.type === 'mysql';
-                
-                return (
-                  <button
-                    key={ds.id}
-                    type="button"
-                    onClick={() => {
-                      handleDataSourceChange(ds.id);
-                      setDropdownOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                      isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                    }`}
-                  >
-                    <HealthDot status={status} />
-                    <span className="flex-1 truncate font-medium text-gray-800 dark:text-gray-100">{ds.name}</span>
-                    <span className="flex-shrink-0 transition-opacity opacity-80" 
-                          style={{
-                             color: isPg ? '#1D4ED8' : isMysql ? '#166534' : 'inherit'
-                          }}>
-                      {isPg ? <PgIcon /> : isMysql ? <MysqlIcon /> : <DbIcon />}
-                    </span>
-                    <HealthBadge status={status} />
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Sync Now Button — also refreshes health */}
-        <button
-          onClick={handleSyncNow}
-          disabled={!value || isSchemaLoading}
-          className="flex-shrink-0 flex items-center justify-center p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded border border-blue-100 dark:border-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Sync schema and re-check datasource health"
-        >
-          <ArrowPathIcon className={`h-4 w-4 ${isSchemaLoading ? 'animate-spin' : ''}`} />
-        </button>
         </div>
       </div>
 
       {/* Schema Browser for Selected Data Source */}
       {value && (
-        <div className="border border-gray-200 dark:border-gray-700 rounded overflow-hidden flex flex-col flex-1">
-          <div className="bg-gray-50 dark:bg-gray-900 px-2 py-1 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                Schema
+        <div className="glass rounded-3xl sleek-shadow border border-white/20 dark:border-white/5 overflow-hidden flex flex-col flex-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="bg-white/30 dark:bg-slate-800/30 px-3 py-3 border-b border-slate-200/50 dark:border-white/10 flex-shrink-0 backdrop-blur-sm">
+            <div className={`flex items-center justify-between group/search px-1 h-6 transition-all duration-500 ease-spring ${isSearchHovered || searchTerm ? 'gap-0' : 'gap-2'}`}
+                 onMouseEnter={() => setIsSearchHovered(true)}
+                 onMouseLeave={() => !searchTerm && !document.activeElement?.className.includes('search-input') && setIsSearchHovered(false)}>
+              
+              <h3 className={`text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 transition-all duration-500 whitespace-nowrap overflow-hidden ${isSearchHovered || searchTerm ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>
+                Schema Explorer
               </h3>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setShowSearchModal(true)}
-                  className="p-0.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                  title="Search tables, views, functions"
-                >
-                  <MagnifyingGlassIcon className="h-3 w-3" />
-                </button>
-                {value && lastSyncTime.get(value) && (
-                  <span className="text-[9px] text-gray-500 dark:text-gray-400">
-                    {lastSyncTime.get(value)!.toLocaleTimeString()}
-                  </span>
+
+              <div className={`relative flex items-center transition-all duration-500 ease-spring ${isSearchHovered || searchTerm ? 'flex-1 translate-x-0' : 'w-6 translate-x-1'}`}>
+                <MagnifyingGlassIcon className={`absolute left-2 h-3.5 w-3.5 text-slate-400 transition-opacity duration-300 ${isSearchHovered || searchTerm ? 'opacity-100' : 'opacity-0'}`} />
+                
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onFocus={() => setIsSearchHovered(true)}
+                  onBlur={() => !searchTerm && setIsSearchHovered(false)}
+                  placeholder="Search schema..."
+                  className={`search-input w-full bg-slate-500/5 dark:bg-white/5 border-none focus:ring-0 rounded-xl py-1 pl-7 pr-8 text-[10px] font-bold text-slate-700 dark:text-white transition-all duration-500 placeholder:text-slate-400/50 ${isSearchHovered || searchTerm ? 'opacity-100 w-full' : 'opacity-0 w-0'}`}
+                />
+
+                {!isSearchHovered && !searchTerm && (
+                  <button className="absolute right-0 p-1 text-slate-400 hover:text-blue-500 transition-colors">
+                    <MagnifyingGlassIcon className="h-4 w-4" />
+                  </button>
                 )}
-                {isSchemaLoading && (
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+
+                {searchTerm && (
+                  <button 
+                    onClick={() => {
+                      setSearchTerm('');
+                      setIsSearchHovered(false);
+                      inputRef.current?.blur();
+                    }}
+                    className="absolute right-2 p-0.5 text-slate-400 hover:text-red-500 transition-colors"
+                  >
+                    <XMarkIcon className="h-3 w-3" />
+                  </button>
                 )}
               </div>
             </div>
-
-            {/* Active Search Filter Indicator */}
-            {searchTerm && (
-              <div className="mt-1 flex items-center gap-1 text-[9px] bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded">
-                <span className="text-blue-700 dark:text-blue-300">
-                  Filter: <strong>{searchTerm}</strong>
-                </span>
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
-                >
-                  <XMarkIcon className="h-2.5 w-2.5" />
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Search Modal */}
-          {showSearchModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Search Database Objects
-                    </h3>
-                    <button
-                      onClick={() => setShowSearchModal(false)}
-                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                    >
-                      <XMarkIcon className="h-5 w-5" />
-                    </button>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <div className="relative">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search tables, views, functions..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      autoFocus
-                    />
-                  </div>
-                  {searchTerm && (() => {
-                    const currentSchema = value ? schemas.get(value) : null;
-                    if (!currentSchema) return null;
-
-                    const tables = [...currentSchema.tables.filter(t => !t.table_type || t.table_type === 'table')]
-                      .sort((a, b) => a.table_name.localeCompare(b.table_name));
-                    const views = [...(currentSchema.views || currentSchema.tables.filter(t => t.table_type === 'view'))]
-                      .sort((a, b) => {
-                        const nameA = (a as any).view_name || (a as any).table_name || '';
-                        const nameB = (b as any).view_name || (b as any).table_name || '';
-                        return nameA.localeCompare(nameB);
-                      });
-                    const functions = [...(currentSchema.functions || [])]
-                      .sort((a, b) => a.function_name.localeCompare(b.function_name));
-
-                    const filteredTables = tables.filter(t =>
-                      t.table_name.toLowerCase().includes(searchTerm.toLowerCase())
-                    );
-                    const filteredViews = views.filter(v => {
-                      const name = (v as any).view_name || (v as any).table_name || '';
-                      return name.toLowerCase().includes(searchTerm.toLowerCase());
-                    });
-                    const filteredFunctions = functions.filter(f =>
-                      f.function_name.toLowerCase().includes(searchTerm.toLowerCase())
-                    );
-
-                    return (
-                      <div className="mt-4">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                          Found {filteredTables.length + filteredViews.length + filteredFunctions.length} results
-                        </p>
-                        <div className="max-h-48 overflow-y-auto space-y-1">
-                          {filteredTables.length > 0 && (
-                            <div>
-                              <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Tables</p>
-                              {filteredTables.slice(0, 5).map((table) => (
-                                <button
-                                  key={table.table_name}
-                                  onClick={() => {
-                                    handleTableClick(table.table_name);
-                                    setShowSearchModal(false);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                >
-                                  📋 {table.table_name}
-                                </button>
-                              ))}
-                              {filteredTables.length > 5 && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 px-3">
-                                  ...and {filteredTables.length - 5} more tables
-                                </p>
-                              )}
-                            </div>
-                          )}
-                          {filteredViews.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Views</p>
-                              {filteredViews.slice(0, 5).map((view) => {
-                                const name = (view as any).view_name || (view as any).table_name;
-                                return (
-                                  <button
-                                    key={name}
-                                    onClick={() => {
-                                      handleTableClick(name);
-                                      setShowSearchModal(false);
-                                    }}
-                                    className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                  >
-                                    👁️ {name}
-                                  </button>
-                                );
-                              })}
-                              {filteredViews.length > 5 && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 px-3">
-                                  ...and {filteredViews.length - 5} more views
-                                </p>
-                              )}
-                            </div>
-                          )}
-                          {filteredFunctions.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Functions</p>
-                              {filteredFunctions.slice(0, 5).map((func) => (
-                                <button
-                                  key={func.function_name}
-                                  onClick={() => {
-                                    setShowSearchModal(false);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                >
-                                  ⚙️ {func.function_name}
-                                </button>
-                              ))}
-                              {filteredFunctions.length > 5 && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 px-3">
-                                  ...and {filteredFunctions.length - 5} more functions
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm('')}
-                      className="px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                    >
-                      Clear Filter
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setShowSearchModal(false)}
-                    className="px-3 py-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
             {(() => {
               const currentSchema = value ? schemas.get(value) : null;
               if (!currentSchema) return null;
@@ -635,13 +478,23 @@ export default function DataSourceSchemaSelector({
                       isExpanded={expandedSections.has('tables')}
                       onToggle={() => toggleSection('tables')}
                     >
-                      {filteredTables.map((table: any) => (
-                        <SchemaTableItem
-                          key={table.table_name}
-                          table={table}
-                          onTableSelect={handleTableClick}
-                        />
-                      ))}
+                      <div className="flex flex-col">
+                        {filteredTables.slice(0, tableLimit).map((table: any) => (
+                          <SchemaTableItem
+                            key={table.table_name}
+                            table={table}
+                            onTableSelect={handleTableClick}
+                          />
+                        ))}
+                        {filteredTables.length > tableLimit && (
+                          <button
+                            onClick={() => setTableLimit(prev => prev + 50)}
+                            className="w-full py-2 px-8 text-left text-[10px] font-bold text-blue-500 hover:text-blue-600 transition-colors uppercase tracking-widest bg-slate-500/5"
+                          >
+                            + Show {Math.min(50, filteredTables.length - tableLimit)} More Tables
+                          </button>
+                        )}
+                      </div>
                     </SchemaSection>
                   )}
 
@@ -654,17 +507,27 @@ export default function DataSourceSchemaSelector({
                       isExpanded={expandedSections.has('views')}
                       onToggle={() => toggleSection('views')}
                     >
-                      {filteredViews.map((view: any) => {
-                        const viewName = (view as any).view_name || (view as any).table_name || '';
-                        return (
-                          <SchemaViewItem
-                            key={viewName}
-                            view={view}
-                            viewName={viewName}
-                            onTableSelect={handleTableClick}
-                          />
-                        );
-                      })}
+                      <div className="flex flex-col">
+                        {filteredViews.slice(0, viewLimit).map((view: any) => {
+                          const viewName = (view as any).view_name || (view as any).table_name || '';
+                          return (
+                            <SchemaViewItem
+                              key={viewName}
+                              view={view}
+                              viewName={viewName}
+                              onTableSelect={handleTableClick}
+                            />
+                          );
+                        })}
+                        {filteredViews.length > viewLimit && (
+                          <button
+                            onClick={() => setViewLimit(prev => prev + 50)}
+                            className="w-full py-2 px-8 text-left text-[10px] font-bold text-purple-500 hover:text-purple-600 transition-colors uppercase tracking-widest bg-slate-500/5"
+                          >
+                            + Show {Math.min(50, filteredViews.length - viewLimit)} More Views
+                          </button>
+                        )}
+                      </div>
                     </SchemaSection>
                   )}
 
@@ -677,30 +540,40 @@ export default function DataSourceSchemaSelector({
                       isExpanded={expandedSections.has('functions')}
                       onToggle={() => toggleSection('functions')}
                     >
-                      {filteredFunctions.map((func: any) => (
-                        <div key={func.function_name} className="px-6 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer group transition-colors">
-                          <div className="flex items-center gap-2">
-                            <ServerIcon className="h-4 w-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
-                            <span className="text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
-                              {func.function_name}
-                            </span>
-                            <span className="text-xs text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors">
-                              ({func.return_type || 'void'})
-                            </span>
-                          </div>
-                          {func.parameters && (
-                            <div className="ml-6 text-xs text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
-                              {func.parameters}
+                      <div className="flex flex-col">
+                        {filteredFunctions.slice(0, functionLimit).map((func: any) => (
+                          <div key={func.function_name} className="px-6 py-2.5 text-xs hover:bg-slate-500/10 dark:hover:bg-white/10 cursor-pointer group transition-colors border-b border-white/5 last:border-none">
+                            <div className="flex items-center gap-2">
+                              <ServerIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                              <span className="text-slate-600 dark:text-slate-300 font-bold group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+                                {func.function_name}
+                              </span>
+                              <span className="text-[9px] font-bold text-slate-400 tracking-tighter">
+                                {func.return_type || 'void'}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      ))}
+                            {func.parameters && (
+                              <div className="ml-5 mt-0.5 text-[9px] leading-tight text-slate-400 group-hover:text-slate-500 transition-colors truncate">
+                                {func.parameters}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {filteredFunctions.length > functionLimit && (
+                          <button
+                            onClick={() => setFunctionLimit(prev => prev + 50)}
+                            className="w-full py-2 px-8 text-left text-[10px] font-bold text-emerald-500 hover:text-emerald-600 transition-colors uppercase tracking-widest bg-slate-500/5"
+                          >
+                            + Show {Math.min(50, filteredFunctions.length - functionLimit)} More Functions
+                          </button>
+                        )}
+                      </div>
                     </SchemaSection>
                   )}
 
                   {/* No Results */}
                   {filteredTables.length === 0 && filteredViews.length === 0 && filteredFunctions.length === 0 && (
-                    <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <div className="p-8 text-center text-xs font-medium text-slate-400 italic">
                       {searchTerm ? `No results found for "${searchTerm}"` : 'No schema information available'}
                     </div>
                   )}
@@ -726,27 +599,24 @@ interface SchemaSectionProps {
 
 function SchemaSection({ title, icon, count, isExpanded, onToggle, children }: SchemaSectionProps) {
   return (
-    <div className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+    <div className="border-b border-slate-200/50 dark:border-white/5 last:border-b-0">
       <button
         onClick={onToggle}
-        className="w-full px-2 py-1 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50"
+        className="w-full px-3 py-2 flex items-center justify-between text-left hover:bg-slate-500/5 dark:hover:bg-white/5 transition-colors"
       >
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           {isExpanded ? (
-            <ChevronDownIcon className="h-3 w-3 text-gray-500 dark:text-gray-400" />
+            <ChevronDownIcon className="h-3 w-3 text-slate-400" />
           ) : (
-            <ChevronRightIcon className="h-3 w-3 text-gray-500 dark:text-gray-400" />
+            <ChevronRightIcon className="h-3 w-3 text-slate-400" />
           )}
-          <div className="text-gray-600 dark:text-gray-300 scale-75">{icon}</div>
-          <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
-            {title}
-          </span>
-          <span className="text-[10px] text-gray-500 dark:text-gray-400">
-            ({count})
+          <div className="text-slate-500 scale-90">{icon}</div>
+          <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wide">
+            {title} <span className="text-slate-400 font-medium">({count})</span>
           </span>
         </div>
       </button>
-      {isExpanded && <div className="divide-y divide-gray-200 dark:divide-gray-700">{children}</div>}
+      {isExpanded && <div className="divide-y divide-slate-100 dark:divide-white/5 bg-white/10 dark:bg-black/10">{children}</div>}
     </div>
   );
 }
@@ -759,19 +629,19 @@ interface SchemaTableItemProps {
 
 function SchemaTableItem({ table, onTableSelect }: SchemaTableItemProps) {
   return (
-    <div className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer group transition-colors">
+    <div className="hover:bg-slate-500/10 dark:hover:bg-white/10 cursor-pointer group transition-colors">
       <button
         onClick={() => onTableSelect && onTableSelect(table.table_name)}
-        className="w-full px-3 py-1 flex items-center justify-between text-left"
+        className="w-full pl-8 pr-3 py-2 flex items-center justify-between text-left"
         title={`Click to view data: SELECT * FROM ${table.table_name} LIMIT 100`}
       >
-        <div className="flex items-center gap-1 flex-1 min-w-0">
-          <TableCellsIcon className="h-3 w-3 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 flex-shrink-0 transition-colors" />
-          <span className="text-xs text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white truncate transition-colors">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <TableCellsIcon className="h-3 w-3 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors" />
+          <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white truncate transition-colors">
             {table.table_name}
           </span>
           {table.columns && (
-            <span className="text-[9px] text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 flex-shrink-0 transition-colors">
+            <span className="text-[9px] text-slate-400 group-hover:text-slate-500 flex-shrink-0 transition-colors">
               ({table.columns.length})
             </span>
           )}
@@ -790,14 +660,14 @@ interface SchemaViewItemProps {
 
 function SchemaViewItem({ view, viewName, onTableSelect }: SchemaViewItemProps) {
   return (
-    <div className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer group transition-colors">
+    <div className="hover:bg-slate-500/10 dark:hover:bg-white/10 cursor-pointer group transition-colors">
       <button
         onClick={() => onTableSelect && onTableSelect(viewName)}
-        className="w-full px-3 py-1 flex items-center justify-between text-left"
+        className="w-full pl-8 pr-3 py-2 flex items-center justify-between text-left"
         title={`Click to view data: SELECT * FROM ${viewName} LIMIT 100`}
       >
-        <div className="flex items-center gap-1 flex-1 min-w-0">
-          <EyeIcon className="h-3 w-3 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 flex-shrink-0 transition-colors" />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <EyeIcon className="h-3 w-3 text-slate-300 dark:text-slate-600 group-hover:text-purple-500 transition-colors" />
           <span className="text-xs text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white truncate transition-colors">
             {viewName}
           </span>

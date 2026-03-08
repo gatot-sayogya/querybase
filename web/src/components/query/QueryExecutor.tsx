@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/auth-store';
@@ -33,6 +33,60 @@ export default function QueryExecutor() {
   const [writePreview, setWritePreview] = useState<WriteQueryPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [pendingWriteQuery, setPendingWriteQuery] = useState<string>('');
+
+  // Resizing state
+  const [isSidebarResizing, setIsSidebarResizing] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [isEditorResizing, setIsEditorResizing] = useState(false);
+  const [editorHeight, setEditorHeight] = useState(280);
+  const [isFullscreenResults, setIsFullscreenResults] = useState(false);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const resizerRef = useRef<HTMLDivElement>(null);
+
+  const startSidebarResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsSidebarResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsSidebarResizing(false);
+    setIsEditorResizing(false);
+  }, []);
+
+  const startEditorResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsEditorResizing(true);
+  }, []);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (isSidebarResizing) {
+      const newWidth = e.clientX - 16;
+      if (newWidth > 180 && newWidth < 600) {
+        setSidebarWidth(newWidth);
+      }
+    } else if (isEditorResizing && containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const newHeight = e.clientY - containerRect.top - 100; // Offset for header + padding
+      if (newHeight > 100 && newHeight < containerRect.height - 100) {
+        setEditorHeight(newHeight);
+      }
+    }
+  }, [isSidebarResizing, isEditorResizing]);
+
+  useEffect(() => {
+    if (isSidebarResizing || isEditorResizing) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    } else {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isSidebarResizing, isEditorResizing, resize, stopResizing]);
 
   // Redirect if not authenticated
   if (!isAuthenticated) {
@@ -366,10 +420,13 @@ export default function QueryExecutor() {
           loading={loading}
         />
       )}
-      <div className="flex h-full overflow-hidden">
+      <div className={`flex h-full overflow-hidden bg-gray-50 dark:bg-gray-900/50 p-2 gap-0 ${isSidebarResizing || isEditorResizing ? 'select-none' : ''} ${isSidebarResizing ? 'cursor-col-resize' : ''} ${isEditorResizing ? 'cursor-row-resize' : ''}`}>
         {/* Data Source & Schema Sidebar */}
-        <div className="w-64 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
-          <div className="p-2 flex flex-col flex-1 overflow-hidden">
+        <div 
+          className="flex-shrink-0 glass rounded-3xl sleek-shadow border border-white/20 dark:border-white/5 flex flex-col overflow-hidden animate-in fade-in slide-in-from-left duration-500"
+          style={{ width: `${sidebarWidth}px` }}
+        >
+          <div className="p-3 flex flex-col flex-1 overflow-hidden">
             <DataSourceSchemaSelector
               value={dataSourceId}
               onChange={setDataSourceId}
@@ -380,19 +437,29 @@ export default function QueryExecutor() {
           </div>
         </div>
 
+        {/* Resizer Handle */}
+        <div
+          ref={resizerRef}
+          onMouseDown={startSidebarResizing}
+          className={`w-2 h-full flex items-center justify-center cursor-col-resize group flex-shrink-0 z-10`}
+          title="Drag to resize workspace"
+        >
+          <div className={`w-0.5 h-12 rounded-full bg-slate-200 dark:bg-slate-700 group-hover:bg-blue-400 group-hover:h-24 transition-all duration-300 ${isSidebarResizing ? 'bg-blue-500 h-full' : ''}`}></div>
+        </div>
+
         {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right duration-500 delay-100 pr-1" ref={containerRef}>
 
           {/* Content Area */}
-          <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
-            <div className="flex-1 flex flex-col w-full h-full p-2 gap-2 overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col w-full h-full gap-3 overflow-hidden">
               {/* Show query editor only after data source is selected */}
               {!dataSourceId ? (
-                <div className="flex items-center justify-center h-96 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
-                  <div className="text-center animate-fade-in">
-                    <span className="inline-block p-4 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-500 mb-4">
+                <div className="flex flex-col items-center justify-center flex-1 border-2 border-dashed border-slate-300 dark:border-slate-700/50 rounded-3xl bg-white/50 dark:bg-slate-800/20 glass sleek-shadow animate-in zoom-in-95 duration-700 m-2">
+                  <div className="text-center">
+                    <span className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 mb-6 shadow-inner">
                       <svg
-                        className="h-12 w-12"
+                        className="h-10 w-10"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -405,32 +472,42 @@ export default function QueryExecutor() {
                         />
                       </svg>
                     </span>
-                    <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
                       Select a Data Source
                     </h3>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
-                      Choose a database from the sidebar to start writing queries and exploring your data
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                      Choose a database from the sidebar to start writing queries and exploring your telemetry data.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="animate-slide-up flex flex-col flex-1 overflow-hidden gap-3">
+                <div className="flex flex-col flex-1 overflow-hidden gap-1.5">
 
-
-                  {/* SQL Editor - Now with flexible height */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between px-2 py-1 bg-gray-50 dark:bg-gray-800/50">
-                      <label className="text-xs text-gray-500 dark:text-gray-400">
-                        Query
-                      </label>
+                  {/* SQL Editor - Glassy container */}
+                  <div className="glass rounded-3xl sleek-shadow flex flex-col flex-shrink-0 animate-in fade-in slide-in-from-top duration-500 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2 bg-white/40 dark:bg-slate-800/40 border-b border-slate-200 dark:border-white/10 backdrop-blur-sm">
+                      <div className="flex items-center gap-3">
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest shrink-0">
+                          Query Editor
+                        </label>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest shrink-0 ${
+                            canWrite
+                              ? 'bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
+                              : 'bg-slate-500/10 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                          }`}
+                        >
+                          {canWrite ? 'Read + Write' : 'Read Only'}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 bg-white dark:bg-gray-700 rounded px-2 py-0.5 border border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Limit</span>
+                        <div className="flex items-center gap-1.5 bg-white/80 dark:bg-slate-800/80 rounded-xl px-3 py-1 border border-slate-200 dark:border-white/10 hover:border-blue-400 dark:hover:border-blue-500 transition-colors sleek-shadow-sm">
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Limit</span>
                           <select
                             value={rowLimit}
                             onChange={(e) => setRowLimit(Number(e.target.value))}
                             disabled={loading}
-                            className="bg-transparent text-xs text-gray-900 dark:text-gray-100 focus:outline-none border-none p-0 pr-4 cursor-pointer font-medium appearance-none w-16 text-right"
+                            className="bg-transparent text-xs text-slate-900 dark:text-slate-100 focus:outline-none border-none p-0 pr-4 cursor-pointer font-semibold appearance-none w-14 text-right"
                             style={{ backgroundImage: 'none' }}
                           >
                             <option value={0}>None</option>
@@ -441,46 +518,59 @@ export default function QueryExecutor() {
                           </select>
                         </div>
                         
-                        <div className="h-4 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
-                        <Button
-                          onClick={handleSaveQuery}
-                          disabled={!queryText.trim()}
-                          variant="secondary"
-                          size="sm"
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          onClick={handleExecuteQuery}
-                          disabled={!queryText.trim() || (isWriteQuery && !canWrite)}
-                          loading={loading || previewLoading}
-                          variant="primary"
-                          size="sm"
-                          title={isWriteQuery && !canWrite ? "Write permission required" : ""}
-                        >
-                          {loading || previewLoading ? 'Running...' : 'Run'}
-                        </Button>
+                        <div className="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={handleSaveQuery}
+                            disabled={!queryText.trim()}
+                            variant="secondary"
+                            size="sm"
+                            className="rounded-xl font-bold hover:-translate-y-0.5 transition-all ease-spring h-8"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            onClick={handleExecuteQuery}
+                            disabled={!queryText.trim() || (isWriteQuery && !canWrite)}
+                            loading={loading || previewLoading}
+                            variant="primary"
+                            size="sm"
+                            title={isWriteQuery && !canWrite ? "Write permission required" : ""}
+                            className="rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:scale-105 transition-all ease-spring h-8"
+                          >
+                            {loading || previewLoading ? 'Running...' : 'Execute'}
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+                    <div className="bg-transparent flex-shrink-0">
                       <SQLEditor
                         value={queryText}
                         onChange={setQueryText}
                         placeholder="SELECT * FROM users LIMIT 10;"
                         readOnly={loading}
-                        height="250px"
+                        height={`${editorHeight}px`}
                         dataSourceId={dataSourceId}
                         canWrite={canWrite}
                         onWriteDetected={setIsWriteQuery}
+                        onExecute={handleExecuteQuery}
                       />
                     </div>
+                  </div>
+
+                  {/* Vertical Resize Handle */}
+                  <div 
+                    className={`h-1.5 w-full flex items-center justify-center cursor-row-resize group/handle -my-0.5 z-10 transition-colors ${isEditorResizing ? 'bg-blue-500/20' : 'bg-transparent hover:bg-blue-500/10'}`}
+                    onMouseDown={startEditorResizing}
+                  >
+                    <div className={`h-0.5 w-12 rounded-full transition-all duration-300 ${isEditorResizing ? 'bg-blue-500 w-24' : 'bg-slate-300 dark:bg-white/10 group-hover/handle:bg-blue-400 group-hover/handle:w-16'}`} />
                   </div>
                 </div>
               )}
 
               {/* Error Display */}
               {error && (
-                <div className="animate-shake">
+                <div className="animate-in fade-in slide-in-from-bottom duration-300">
                   <QueryError
                     error={error}
                     onRetry={() => {
@@ -493,28 +583,32 @@ export default function QueryExecutor() {
 
               {/* Permission Error Display */}
               {permissionError && (
-                <div className="animate-slide-up bg-white dark:bg-gray-800 border border-red-200 dark:border-red-900/50 rounded-lg shadow-sm p-4 flex flex-col items-center justify-center text-center gap-2 m-4">
-                  <span className="p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full mb-2">
+                <div className="glass rounded-3xl sleek-shadow p-6 flex flex-col items-center justify-center text-center gap-4 m-2 animate-in fade-in slide-in-from-bottom duration-500 border border-red-200 dark:border-red-900/30">
+                  <span className="p-4 bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-2xl shadow-inner">
                     <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </span>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Write Access Required
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
-                    Your groups don&apos;t have write permission on <strong>{permissionError.dataSource}</strong>. {permissionError.hint}
-                  </p>
-                  <div className="mt-4 flex gap-3">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                        Write Access Required
+                    </h3>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                        Your groups don&apos;t have write permission on <strong className="text-slate-700 dark:text-slate-300">{permissionError.dataSource}</strong>. {permissionError.hint}
+                    </p>
+                  </div>
+                  <div className="mt-2 flex gap-3">
                     <Button
                       onClick={() => router.push('/profile')}
                       variant="primary"
+                      className="rounded-xl font-bold hover:scale-105 transition-transform ease-spring"
                     >
                       View My Groups
                     </Button>
                     <Button
                       onClick={() => setPermissionError(null)}
                       variant="outline"
+                      className="rounded-xl font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
                     >
                       Dismiss
                     </Button>
@@ -522,21 +616,22 @@ export default function QueryExecutor() {
                 </div>
               )}
 
-              {/* Results - Now with flexible height */}
+              {/* Results Container */}
               {results && queryId && (
-                <div className="flex-1 flex flex-col animate-slide-up overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-sm">
-                  <div className="flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">Results</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                <div className={`flex-1 flex flex-col overflow-hidden glass rounded-3xl sleek-shadow animate-in slide-in-from-bottom fade-in duration-500 delay-150 ${isFullscreenResults ? 'fullscreen-results' : ''}`}>
+                  <div className="flex items-center justify-between px-4 py-2 bg-white/40 dark:bg-slate-800/40 border-b border-slate-200 dark:border-white/10 flex-shrink-0 backdrop-blur-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-widest">Results</span>
+                      <span className="px-2 py-0.5 bg-blue-500/10 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 rounded-lg text-[10px] font-bold tracking-widest uppercase">
                         {results.row_count} rows
                       </span>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-2">
                       <Button
                         onClick={handleExportCSV}
                         variant="outline"
                         size="sm"
+                        className="rounded-xl font-bold text-[10px] uppercase tracking-wider py-1 hover:-translate-y-0.5 transition-transform"
                       >
                         CSV
                       </Button>
@@ -544,25 +639,45 @@ export default function QueryExecutor() {
                         onClick={handleExportJSON}
                         variant="outline"
                         size="sm"
+                        className="rounded-xl font-bold text-[10px] uppercase tracking-wider py-1 hover:-translate-y-0.5 transition-transform"
                       >
                         JSON
                       </Button>
                     </div>
                   </div>
-                  <div className="flex-1 overflow-hidden bg-white dark:bg-gray-800 flex flex-col">
+                  <div className="flex-1 overflow-hidden flex flex-col bg-transparent">
                     <QueryResults
                       queryId={queryId}
                       results={results}
                       loading={loading}
                       error={error}
+                      isFullscreen={isFullscreenResults}
+                      onToggleFullscreen={() => setIsFullscreenResults(!isFullscreenResults)}
                     />
                   </div>
                 </div>
               )}
 
+              {/* Full-Screen Overlay Implementation using CSS for the container above */}
+              <style jsx global>{`
+                .fullscreen-results {
+                  position: fixed !important;
+                  top: 1rem !important;
+                  left: 1rem !important;
+                  right: 1rem !important;
+                  bottom: 1rem !important;
+                  z-index: 9999 !important;
+                  margin: 0 !important;
+                  background: rgba(255, 255, 255, 0.95);
+                }
+                .dark .fullscreen-results {
+                  background: rgba(15, 23, 42, 0.95);
+                }
+              `}</style>
+
               {/* Loading State */}
               {loading && !results && (
-                <div className="flex items-center justify-center h-64 animate-fade-in">
+                <div className="flex items-center justify-center flex-1 glass rounded-3xl mx-2 animate-in slide-in-from-bottom fade-in duration-300">
                   <Loading variant="bars" size="lg" text="Executing query..." />
                 </div>
               )}
