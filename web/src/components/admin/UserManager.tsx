@@ -69,20 +69,31 @@ export default function UserManager() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Users</h1>
-          <p className="page-subtitle">Manage user access and permissions</p>
+    <div className="max-w-[1600px] mx-auto space-y-8 pb-12 px-4 md:px-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Access Control
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">
+            Manage user accounts, authentication protocol, and system roles.
+          </p>
         </div>
-        <button
-          onClick={handleCreateNew}
-          className="btn btn-primary"
-        >
-          + Add User
-        </button>
+        
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleCreateNew}
+            className="btn btn-primary h-11 px-8 rounded-2xl text-sm font-bold sleek-shadow"
+          >
+            <span className="text-xl mr-2">+</span>
+            Enlist User
+          </button>
+        </div>
       </div>
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+
+      {/* Content */}
+      <div className="space-y-6">
         <UserList key={refreshKey} onEditUser={handleEditUser} selectedId={null} />
       </div>
 

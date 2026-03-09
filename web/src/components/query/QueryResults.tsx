@@ -33,6 +33,39 @@ export default function QueryResults({
   const [filterTerms, setFilterTerms] = useState<Record<string, string>>({});
   const [isFilterVisible, setIsFilterVisible] = useState(false);
 
+  // Sorting and Filtering logic
+  const processedData = useMemo(() => {
+    if (!results || results.data.length === 0) return [];
+    
+    let data = [...results.data];
+
+    // Apply Filter
+    Object.entries(filterTerms).forEach(([key, term]) => {
+      if (term) {
+        data = data.filter(row => 
+          String(row[key] ?? '').toLowerCase().includes(term.toLowerCase())
+        );
+      }
+    });
+
+    // Apply Sort
+    if (sortConfig.key && sortConfig.direction) {
+      data.sort((a, b) => {
+        const aVal = a[sortConfig.key];
+        const bVal = b[sortConfig.key];
+        
+        if (aVal === bVal) return 0;
+        if (aVal === undefined || aVal === null) return 1;
+        if (bVal === undefined || bVal === null) return -1;
+        
+        const comparison = aVal < bVal ? -1 : 1;
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    return data;
+  }, [results, filterTerms, sortConfig]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -67,37 +100,6 @@ export default function QueryResults({
 
   const columns = results.columns;
   const rawData = results.data;
-
-  // Sorting and Filtering logic
-  const processedData = useMemo(() => {
-    let data = [...rawData];
-
-    // Apply Filter
-    Object.entries(filterTerms).forEach(([key, term]) => {
-      if (term) {
-        data = data.filter(row => 
-          String(row[key] ?? '').toLowerCase().includes(term.toLowerCase())
-        );
-      }
-    });
-
-    // Apply Sort
-    if (sortConfig.key && sortConfig.direction) {
-      data.sort((a, b) => {
-        const aVal = a[sortConfig.key];
-        const bVal = b[sortConfig.key];
-        
-        if (aVal === bVal) return 0;
-        if (aVal === undefined || aVal === null) return 1;
-        if (bVal === undefined || bVal === null) return -1;
-        
-        const comparison = aVal < bVal ? -1 : 1;
-        return sortConfig.direction === 'asc' ? comparison : -comparison;
-      });
-    }
-
-    return data;
-  }, [rawData, filterTerms, sortConfig]);
 
   const handleSort = (key: string) => {
     setSortConfig(current => ({

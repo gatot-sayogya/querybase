@@ -9,22 +9,22 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, children, disabled, ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg active:scale-95';
+    const baseStyles = 'inline-flex items-center justify-center font-semibold animate-spring focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl active:scale-95';
 
     const variants = {
-      primary: 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md hover:-translate-y-0.5 focus-visible:ring-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600 shadow-sm',
-      secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus-visible:ring-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 hover:shadow-sm',
-      ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 focus-visible:ring-gray-500 dark:text-gray-300 dark:hover:bg-gray-800',
-      destructive: 'bg-red-600 text-white hover:bg-red-700 hover:shadow-md focus-visible:ring-red-500 dark:bg-red-500 dark:hover:bg-red-600 shadow-sm',
-      outline: 'bg-transparent border border-blue-600 text-blue-600 hover:bg-blue-50 focus-visible:ring-blue-500 dark:border-blue-500 dark:text-blue-500 dark:hover:bg-blue-950/30',
+      primary: 'bg-blue-600 text-white hover:bg-blue-700 sleek-shadow hover:shadow-glass focus-visible:ring-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600',
+      secondary: 'glass text-slate-700 dark:text-slate-100 border border-slate-200 dark:border-slate-800 hover:bg-white/50 dark:hover:bg-white/10 sleek-shadow',
+      ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/50',
+      destructive: 'bg-red-600 text-white hover:bg-red-700 sleek-shadow hover:shadow-glass focus-visible:ring-red-500',
+      outline: 'bg-transparent border border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-500 dark:hover:bg-blue-950/30',
       link: 'text-blue-600 underline-offset-4 hover:underline focus-visible:ring-blue-500 dark:text-blue-400 p-0 h-auto active:scale-100',
     };
 
     const sizes = {
-      sm: 'px-3 py-1.5 text-xs',
-      md: 'px-4 py-2 text-sm',
-      lg: 'px-6 py-3 text-base',
-      icon: 'h-10 w-10 p-2',
+      sm: 'px-4 py-2 text-xs',
+      md: 'px-6 py-2.5 text-sm',
+      lg: 'px-8 py-4 text-base',
+      icon: 'h-11 w-11 p-2.5',
     };
 
     return (

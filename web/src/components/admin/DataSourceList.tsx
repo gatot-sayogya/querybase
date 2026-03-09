@@ -109,86 +109,86 @@ export default function DataSourceList({
   }
 
   return (
-    <>
-      {dataSources.length === 0 ? (
-        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-hover)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4M0 12h18M0 12h18" />
-            </svg>
+    <div className="space-y-6">
+      <div className="space-y-3">
+        {dataSources.length === 0 ? (
+          <div className="p-20 text-center glass rounded-3xl border border-slate-100 dark:border-slate-800/50">
+            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4M0 12h18M0 12h18" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Infrastructure Bridges</h3>
+            <p className="text-slate-500 text-sm mt-1">Connect your first database to enable query execution.</p>
           </div>
-          <h3 style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>No data sources</h3>
-          <p style={{ marginTop: '4px', fontSize: '14px', color: 'var(--text-muted)' }}>Get started by adding your first data source</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5 p-6 bg-gray-50/50 dark:bg-gray-900/20">
-          {dataSources.map((dataSource) => {
-            const isPg = dataSource.type === 'postgresql';
-            const isMysql = dataSource.type === 'mysql';
-            
-            let iconClass = 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
-            if (isPg) iconClass = 'bg-[#DBEAFE] text-[#1D4ED8] dark:bg-blue-900/30 dark:text-blue-400';
-            if (isMysql) iconClass = 'bg-[#DCFCE7] text-[#166534] dark:bg-green-900/30 dark:text-green-400';
+        ) : (
+          <div className="grid gap-3">
+            {dataSources.map((dataSource) => {
+              const isPg = dataSource.type === 'postgresql';
+              const isMysql = dataSource.type === 'mysql';
+              
+              let iconClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+              if (isPg) iconClass = 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
+              if (isMysql) iconClass = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
 
-            return (
-              <div key={dataSource.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${iconClass}`}>
-                    {isPg ? <PgIcon /> : isMysql ? <MysqlIcon /> : <DbIcon />}
-                  </div>
-                  <div className="overflow-hidden">
-                    <div className="text-[15px] font-bold text-gray-900 dark:text-white truncate" title={dataSource.name}>
-                      {dataSource.name}
+              return (
+                <div 
+                  key={dataSource.id} 
+                  className="group p-5 glass rounded-3xl border border-white/50 dark:border-slate-800/50 hover:border-blue-500/30 hover:bg-white dark:hover:bg-slate-800/50 transition-all duration-300 sleek-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl border shadow-sm transition-transform group-hover:scale-105 ${iconClass}`}>
+                      {isPg ? <PgIcon /> : isMysql ? <MysqlIcon /> : <DbIcon />}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 capitalize">
-                      {dataSource.type}
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-slate-900 dark:text-white text-lg">
+                          {dataSource.name}
+                        </span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${iconClass}`}>
+                          {dataSource.type}
+                        </span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${dataSource.is_active ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-slate-500/10 text-slate-500'}`}>
+                          {dataSource.is_active ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400 font-mono mt-0.5 opacity-80">
+                         {dataSource.host}:{dataSource.port}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="text-xs font-mono text-gray-500 dark:text-gray-400 truncate mt-1" title={`${dataSource.host}:${dataSource.port}`}>
-                  {dataSource.host}:{dataSource.port}
-                </div>
-
-                <div className={`flex items-center gap-1.5 text-xs font-medium ${dataSource.is_active ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                  <div className={`w-2 h-2 rounded-full ${dataSource.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                  {dataSource.is_active ? 'Active' : 'Inactive'}
-                </div>
-
-                <div className="h-[1px] bg-gray-100 dark:bg-gray-700 mt-auto"></div>
-
-                <div className="flex gap-2 justify-end pt-1">
-                  <button
-                    onClick={() => handleTestConnection(dataSource.id)}
-                    disabled={testingId === dataSource.id}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-900/20 dark:hover:bg-green-900/40 transition-colors disabled:opacity-50"
-                  >
-                    {testingId === dataSource.id ? 'Testing...' : 'Test'}
-                  </button>
-                  {onEditDataSource && (
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
                     <button
-                      onClick={() => onEditDataSource(dataSource)}
-                      className="px-3 py-1.5 text-xs font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 transition-colors"
+                      onClick={() => handleTestConnection(dataSource.id)}
+                      disabled={testingId === dataSource.id}
+                      className="h-10 px-6 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs hover:bg-emerald-500 hover:text-white transition-all shadow-sm disabled:opacity-50"
                     >
-                      Edit 
+                      {testingId === dataSource.id ? 'Pinging...' : 'Pulse Test'}
                     </button>
-                  )}
-                  <button
-                    onClick={() => handleDelete(dataSource.id, dataSource.name)}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors ml-auto mr-1"
-                    title="Delete Data Source"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                    {onEditDataSource && (
+                      <button
+                        onClick={() => onEditDataSource(dataSource)}
+                        className="h-10 px-6 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                      >
+                        Modify
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(dataSource.id, dataSource.name)}
+                      className="h-10 px-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500 hover:text-white transition-all shadow-sm ml-2"
+                      title="Decommission Source"
+                    >
+                       Purge
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

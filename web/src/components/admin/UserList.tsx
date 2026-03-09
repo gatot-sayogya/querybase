@@ -50,18 +50,20 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'badge-teal';
+        return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
       case 'user':
-        return 'badge-blue';
+        return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
       case 'viewer':
-        return 'badge-slate';
+        return 'bg-slate-500/10 text-slate-500 border-slate-500/20';
       default:
-        return 'badge-slate';
+        return 'bg-slate-500/10 text-slate-500 border-slate-500/20';
     }
   };
 
   const getStatusBadgeColor = (isActive: boolean) => {
-    return isActive ? 'badge-green' : 'badge-slate text-red-700 bg-red-50';
+    return isActive 
+      ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' 
+      : 'bg-slate-500/10 text-slate-500 border-slate-500/20 opacity-60';
   };
 
   const getUserInitials = (name: string, email: string) => {
@@ -113,91 +115,94 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
   }
 
   return (
-    <>
-      <style>{`
-        .user-avatar-cell { display: flex; align-items: center; gap: 10px; }
-        .user-avatar-sm {
-          width: 34px; height: 34px; border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0;
-        }
-      `}</style>
-      
-      {/* User List */}
-      {filteredUsers.length === 0 ? (
-        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-hover)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
+    <div className="space-y-6">
+      {/* Local Filter Capsule */}
+      <div className="flex items-center gap-2 p-1.5 glass rounded-2xl w-fit sleek-shadow">
+        {(['all', 'active', 'inactive'] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-6 py-2 text-xs font-bold rounded-xl transition-all duration-300 ${
+              filter === f 
+                ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        {filteredUsers.length === 0 ? (
+          <div className="p-20 text-center glass rounded-3xl border border-slate-100 dark:border-slate-800/50">
+            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Personnel Found</h3>
+            <p className="text-slate-500 text-sm mt-1">Adjust your filters or enlist new users to get started.</p>
           </div>
-          <h3 style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>No users found</h3>
-          <p style={{ marginTop: '4px', fontSize: '14px', color: 'var(--text-muted)' }}>
-            {filter === 'all' && roleFilter === 'all'
-              ? 'No users yet'
-              : `No ${filter !== 'all' ? filter + ' ' : ''}${roleFilter !== 'all' ? roleFilter + ' ' : ''}users`}
-          </p>
-        </div>
-      ) : (
-        <table className="data-table compact">
-          <thead>
-            <tr>
-              <th>USER</th>
-              <th>EMAIL</th>
-              <th>ROLE</th>
-              <th>STATUS</th>
-              <th style={{ textAlign: 'right' }}>ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
+        ) : (
+          <div className="grid gap-3">
             {filteredUsers.map((user) => (
-              <tr key={user.id} className={selectedId === user.id ? 'active' : ''}>
-                <td>
-                  <div className="user-avatar-cell">
-                    <div className="user-avatar-sm" style={{ background: getAvatarColor(user.full_name || user.email) }}>
-                      {getUserInitials(user.full_name, user.email)}
+              <div 
+                key={user.id}
+                className="group p-5 glass rounded-3xl border border-white/50 dark:border-slate-800/50 hover:border-blue-500/30 hover:bg-white dark:hover:bg-slate-800/50 transition-all duration-300 sleek-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black text-white shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${getAvatarColor(user.full_name || user.email)}, #2563EB)` }}
+                  >
+                    {getUserInitials(user.full_name, user.email)}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-slate-900 dark:text-white text-lg">
+                        {user.full_name || user.username}
+                      </span>
+                      <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${getRoleBadgeColor(user.role)}`}>
+                        {user.role}
+                      </span>
+                      <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${getStatusBadgeColor(user.is_active)}`}>
+                        {user.is_active ? 'Online' : 'Hibernated'}
+                      </span>
                     </div>
-                    <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
-                      {user.full_name || user.username}
-                      {(!user.full_name && user.username !== user.email) && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>@{user.username}</span>}
-                    </span>
+                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2 mt-0.5">
+                      <span>{user.email}</span>
+                      {user.username !== user.email && (
+                        <>
+                          <span className="text-slate-300">•</span>
+                          <span className="opacity-60 italic">@{user.username}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </td>
-                <td style={{ color: 'var(--text-muted)' }}>{user.email}</td>
-                <td>
-                  <span className={`badge ${getRoleBadgeColor(user.role)}`}>
-                    {user.role}
-                  </span>
-                </td>
-                <td>
-                  <span className={`badge ${getStatusBadgeColor(user.is_active)}`}>
-                    {user.is_active ? 'active' : 'inactive'}
-                  </span>
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <div className="action-buttons" style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                    {onEditUser && (
-                      <button
-                        onClick={() => onEditUser(user)}
-                        className="btn btn-ghost btn-sm"
-                        style={{ color: 'var(--accent-blue)' }}
-                      >
-                        Edit
-                      </button>
-                    )}
+                </div>
+
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  {onEditUser && (
                     <button
-                      onClick={() => handleDelete(user.id, user.username)}
-                      className="btn btn-ghost btn-danger btn-sm"
+                      onClick={() => onEditUser(user)}
+                      className="h-10 px-6 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-500 hover:text-white transition-all shadow-sm"
                     >
-                      Delete
+                      Refactor
                     </button>
-                  </div>
-                </td>
-              </tr>
+                  )}
+                  <button
+                    onClick={() => handleDelete(user.id, user.username)}
+                    className="h-10 px-6 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                  >
+                    Decom
+                  </button>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      )}
-    </>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

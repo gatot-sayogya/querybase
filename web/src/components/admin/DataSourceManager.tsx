@@ -35,20 +35,31 @@ export default function DataSourceManager() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Data Sources</h1>
-          <p className="page-subtitle">Manage database connections available to users</p>
+    <div className="max-w-[1600px] mx-auto space-y-8 pb-12 px-4 md:px-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Data Infrastructure
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">
+            Configure system bridges and secure data source connections.
+          </p>
         </div>
-        <button
-          onClick={handleCreateNew}
-          className="btn btn-primary"
-        >
-          + Add Data Source
-        </button>
+        
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleCreateNew}
+            className="btn btn-primary h-11 px-8 rounded-2xl text-sm font-bold sleek-shadow"
+          >
+            <span className="text-xl mr-2">+</span>
+            Provision Source
+          </button>
+        </div>
       </div>
-      <div className="-mx-2 sm:mx-0">
+
+      {/* Content */}
+      <div className="space-y-6">
         <DataSourceList key={refreshKey} onEditDataSource={handleEditDataSource} selectedId={null} />
       </div>
 
