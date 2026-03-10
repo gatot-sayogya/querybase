@@ -19,7 +19,11 @@ import {
   ArrowTopRightOnSquareIcon,
   ArchiveBoxIcon,
   CircleStackIcon,
-  BoltIcon
+  BoltIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon,
+  PlayIcon
 } from '@heroicons/react/24/outline';
 
 export interface HistoryItem {
@@ -275,7 +279,7 @@ export default function QueryHistory() {
             ) : (
               <motion.div
                 key="list"
-                className="divide-y divide-slate-50 dark:divide-slate-800/50"
+                className="divide-y divide-slate-50 dark:divide-slate-800/50 max-h-[600px] overflow-y-auto scrollbar-minimal"
                 variants={containerVariants}
                 initial="initial"
                 animate="animate"
@@ -284,47 +288,43 @@ export default function QueryHistory() {
                   <motion.div
                     key={`${item.type}-${item.id}`}
                     variants={itemVariants}
-                    className="p-6 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all duration-300 group flex flex-col md:flex-row md:items-center justify-between gap-6"
+                    className="p-5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all duration-300 group flex items-center gap-6"
                     whileHover={shouldReduceMotion ? {} : { x: 4 }}
                     transition={{ duration: 0.15 }}
                   >
-                    <div className="space-y-4 flex-1 min-w-0">
-                      <div className="flex items-center gap-4">
-                        <motion.div
-                          className={`p-2 rounded-xl border ${item.type === 'read' ? 'bg-blue-500/10 border-blue-500/20 text-blue-600' : 'bg-amber-500/10 border-amber-500/20 text-amber-600'}`}
-                          whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
-                        >
-                          {item.type === 'read' ? <MagnifyingGlassIcon className="w-5 h-5" /> : <BoltIcon className="w-5 h-5" />}
-                        </motion.div>
-                        <div>
-                          <div className="font-bold text-slate-800 dark:text-gray-100 flex items-center gap-3">
-                            {item.name}
-                            <span className={`text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-lg border ${getStatusStyle(item.status)}`}>
-                              {item.status}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-4 mt-1">
-                            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold uppercase">
-                              <CircleStackIcon className="w-4 h-4 opacity-40" />
-                              {item.data_source_name}
-                            </div>
-                            <span className="text-slate-300 dark:text-slate-700">•</span>
-                            <div className="text-xs text-slate-500 font-semibold uppercase">
-                              {formatDate(item.created_at)}
-                            </div>
-                          </div>
-                        </div>
+                    <motion.div
+                      className={`p-2.5 rounded-xl border shrink-0 ${item.type === 'read' ? 'bg-blue-500/10 border-blue-500/20 text-blue-600' : 'bg-amber-500/10 border-amber-500/20 text-amber-600'}`}
+                      whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+                    >
+                      {item.type === 'read' ? <MagnifyingGlassIcon className="w-5 h-5" /> : <BoltIcon className="w-5 h-5" />}
+                    </motion.div>
+
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-slate-800 dark:text-gray-100 truncate">
+                          {item.name}
+                        </span>
+                        <span className={`text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-lg border shrink-0 ${getStatusStyle(item.status)}`}>
+                          {item.status}
+                        </span>
                       </div>
-                      <div className="font-mono text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50 truncate group-hover:bg-blue-500/5 transition-colors">
+                      <div className="font-mono text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800/50 truncate">
                         {item.query_text}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 self-end md:self-center">
+                    <div className="flex flex-col items-end gap-2 shrink-0 w-40">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold uppercase">
+                        <CircleStackIcon className="w-3.5 h-3.5 opacity-50" />
+                        <span className="truncate max-w-[120px]">{item.data_source_name}</span>
+                      </div>
+                      <div className="text-xs text-slate-400 font-medium">
+                        {formatDate(item.created_at)}
+                      </div>
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="opacity-0 group-hover:opacity-100"
+                        className="opacity-0 group-hover:opacity-100 mt-1"
                         onClick={() => {
                           if (item.type === 'read') {
                             router.push(`/dashboard/query?id=${item.id}`);
@@ -333,7 +333,7 @@ export default function QueryHistory() {
                           }
                         }}
                       >
-                        <ArrowTopRightOnSquareIcon className="w-4 h-4 mr-2" />
+                        <ArrowTopRightOnSquareIcon className="w-4 h-4 mr-1.5" />
                         Teleport
                       </Button>
                     </div>
