@@ -18,6 +18,9 @@
 }
 
 :root {
+  /* Layout */
+  --sidebar-w: 68px;
+
   /* Colors */
   --bg-page: #f8fafc;
   --bg-dark: #0f172a;
@@ -173,13 +176,17 @@ body {
 
 /* ── Sidebar ───────────────────────────────── */
 .sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
   width: var(--sidebar-w);
-  min-height: 100vh;
   background: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
   align-items: center;
   flex-shrink: 0;
+  z-index: 100;
 }
 .sidebar-logo {
   width: 100%;
@@ -501,16 +508,59 @@ body {
 /* ── App Shell ──────────────────────────────── */
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 .main-content {
   flex: 1;
-  padding: 32px;
+  margin-left: var(--sidebar-w);
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  overflow: auto;
+  height: 100vh;
+  overflow: hidden;
 }
+
+/* Minimal scrollbar for all scrollable elements */
+.scrollbar-minimal,
+.main-content > * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+.scrollbar-minimal::-webkit-scrollbar,
+.main-content > *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-minimal::-webkit-scrollbar-track,
+.main-content > *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-minimal::-webkit-scrollbar-thumb,
+.main-content > *::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.scrollbar-minimal:hover::-webkit-scrollbar-thumb,
+.main-content > *:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.6);
+}
+
+.dark .scrollbar-minimal::-webkit-scrollbar-thumb,
+.dark .main-content > *::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.3);
+}
+
+.dark .scrollbar-minimal:hover::-webkit-scrollbar-thumb,
+.dark .main-content > *:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.6);
+}
+
+/* ── Sidebar Nav Items ─────────────────────────────── */
 
 /* ── Cards ──────────────────────────────────── */
 .card {

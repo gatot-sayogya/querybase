@@ -301,7 +301,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </div>
       </nav>
 
-      <main className={pathname === '/dashboard/query' ? "flex-1 flex flex-col h-[100vh] overflow-hidden" : "main-content"}>
+      <main className="main-content scrollbar-minimal">
         {children}
       </main>
     </div>
