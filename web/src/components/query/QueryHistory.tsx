@@ -221,12 +221,12 @@ export default function QueryHistory() {
       </motion.div>
 
       <motion.div
-        className="flex-1 min-h-0"
+        className="flex-1 min-h-0 overflow-hidden"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: duration.slow, delay: 0.15 }}
       >
-        <Card variant="default" className="border-none sleek-shadow overflow-hidden h-full flex flex-col">
+        <Card variant="default" className="border-none sleek-shadow h-full flex flex-col overflow-hidden">
           <AnimatePresence mode="wait">
             {loading ? (
               <motion.div
@@ -234,7 +234,7 @@ export default function QueryHistory() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="p-20 flex justify-center"
+                className="flex-1 flex items-center justify-center"
               >
                 <Loading />
               </motion.div>
@@ -244,29 +244,31 @@ export default function QueryHistory() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="p-32 text-center space-y-4"
+                className="flex-1 flex items-center justify-center"
               >
-                <motion.div
-                  initial={{ scale: 0.8, rotate: -10 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 0.2, ...springConfig.bouncy }}
-                >
-                  <ArchiveBoxIcon className="w-16 h-16 text-slate-200 mx-auto" />
-                </motion.div>
-                <motion.div
-                  className="space-y-1"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  <h3 className="text-lg font-bold text-slate-400">Log Archive Empty</h3>
-                  <p className="text-slate-400 text-sm font-medium">No results found for current telemetry filters.</p>
-                </motion.div>
+                <div className="text-center space-y-4">
+                  <motion.div
+                    initial={{ scale: 0.8, rotate: -10 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: 0.2, ...springConfig.bouncy }}
+                  >
+                    <ArchiveBoxIcon className="w-16 h-16 text-slate-200 mx-auto" />
+                  </motion.div>
+                  <motion.div
+                    className="space-y-1"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <h3 className="text-lg font-bold text-slate-400">Log Archive Empty</h3>
+                    <p className="text-slate-400 text-sm font-medium">No results found for current telemetry filters.</p>
+                  </motion.div>
+                </div>
               </motion.div>
             ) : (
               <motion.div
                 key="list"
-                className="divide-y divide-slate-50 dark:divide-slate-800/50 flex-1 overflow-y-auto scrollbar-minimal"
+                className="flex-1 overflow-y-auto scrollbar-minimal divide-y divide-slate-50 dark:divide-slate-800/50"
                 variants={containerVariants}
                 initial="initial"
                 animate="animate"
