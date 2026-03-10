@@ -7,10 +7,12 @@ import type { User } from '@/types';
 import UserList from './UserList';
 import UserForm from './UserForm';
 import UserGroupsTab from './UserGroupsTab';
-import Modal from '../Modal';
+import Modal from '@/components/ui/Modal';
+import { motion, AnimatePresence } from 'framer-motion';
+import { fadeIn, slideUp, springConfig, duration } from '@/lib/animations';
+import { PlusIcon } from '@heroicons/react/24/outline';
 
 export default function UserManager() {
-  // aria-label placeholder to satisfy UX audit regex
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
   const [activeTab, setActiveTab] = useState<'details' | 'groups'>('details');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -45,6 +47,7 @@ export default function UserManager() {
           full_name: data.full_name,
           role: data.role,
         });
+        toast.success('User created successfully');
       } else if (view === 'edit' && selectedUser) {
         await apiClient.updateUser(selectedUser.id, {
           email: data.email,
@@ -53,6 +56,7 @@ export default function UserManager() {
           role: data.role,
           is_active: data.is_active,
         });
+        toast.success('User updated successfully');
       }
 
       setView('list');
@@ -68,10 +72,17 @@ export default function UserManager() {
     setSelectedUser(null);
   };
 
+  const tabs = ['details', 'groups'] as const;
+  const activeTabIndex = tabs.indexOf(activeTab);
+
   return (
     <div className="max-w-[1600px] mx-auto space-y-8 pb-12 px-4 md:px-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4">
+      <motion.div
+        className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: duration.normal, ...springConfig.gentle }}
+      >
         <div className="space-y-1">
           <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
             Access Control
@@ -80,63 +91,103 @@ export default function UserManager() {
             Manage user accounts, authentication protocol, and system roles.
           </p>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <button
+
+        <motion.div
+          className="flex items-center gap-4"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: duration.normal, delay: 0.1 }}
+        >
+          <motion.button
             onClick={handleCreateNew}
-            className="btn btn-primary h-11 px-8 rounded-2xl text-sm font-bold sleek-shadow"
+            className="btn btn-primary h-11 px-8 rounded-2xl text-sm font-bold sleek-shadow inline-flex items-center gap-2"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <span className="text-xl mr-2">+</span>
+            <PlusIcon className="w-5 h-5" />
             Enlist User
-          </button>
-        </div>
-      </div>
+          </motion.button>
+        </motion.div>
+      </motion.div>
 
-      {/* Content */}
-      <div className="space-y-6">
-        <UserList key={refreshKey} onEditUser={handleEditUser} selectedId={null} />
-      </div>
-
-      <Modal 
-        isOpen={view === 'create' || view === 'edit'} 
-        onClose={handleCancel}
-        title={view === 'create' ? 'Add User' : 'Edit User'}
+      <motion.div
+        className="space-y-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: duration.slow, delay: 0.2 }}
       >
-        {view === 'edit' && (
-          <div className="flex border-b border-[var(--border)] mb-4">
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'details'
-                  ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-              }`}
-              onClick={() => setActiveTab('details')}
-            >
-              Details
-            </button>
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'groups'
-                  ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-              }`}
-              onClick={() => setActiveTab('groups')}
-            >
-              Groups
-            </button>
-          </div>
+        <UserList key={refreshKey} onEditUser={handleEditUser} selectedId={null} />
+      </motion.div>
+
+      <AnimatePresence>
+        {(view === 'create' || view === 'edit') && (
+          <Modal
+            isOpen={true}
+            onClose={handleCancel}
+            title={view === 'create' ? 'Add User' : 'Edit User'}
+            size="lg"
+          >
+            {view === 'edit' && (
+              <motion.div
+                className="flex border-b border-slate-200 dark:border-slate-700 mb-4 relative"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                {tabs.map((tab) => (
+                  <button
+                    key={tab}
+                    className={`px-4 py-2 text-sm font-medium relative z-10 transition-colors ${
+                      activeTab === tab
+                        ? 'text-blue-600'
+                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    }`}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+                <motion.div
+                  className="absolute bottom-0 h-0.5 bg-blue-500"
+                  initial={false}
+                  animate={{
+                    x: activeTabIndex * 80,
+                    width: 70,
+                  }}
+                  transition={{ duration: 0.25, ...springConfig.snappy }}
+                />
+              </motion.div>
+            )}
+
+            <AnimatePresence mode="wait">
+              {activeTab === 'details' ? (
+                <motion.div
+                  key="details"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <UserForm
+                    user={selectedUser || undefined}
+                    onSave={handleSave}
+                    onCancel={handleCancel}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="groups"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {selectedUser && <UserGroupsTab user={selectedUser} />}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Modal>
         )}
-        
-        {activeTab === 'details' ? (
-          <UserForm
-            user={selectedUser || undefined}
-            onSave={handleSave}
-            onCancel={handleCancel}
-          />
-        ) : (
-          selectedUser && <UserGroupsTab user={selectedUser} />
-        )}
-      </Modal>
+      </AnimatePresence>
     </div>
   );
 }

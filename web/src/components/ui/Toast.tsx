@@ -1,5 +1,9 @@
+'use client';
+
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { toastSlide, springConfig, duration, reducedMotionVariants } from '@/lib/animations';
 import { CheckCircleIcon, XCircleIcon, InformationCircleIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
@@ -13,31 +17,31 @@ export interface ToastProps {
     onDismiss: (id: string) => void;
 }
 
-export default function Toast({ id, type, title, message, duration = 5000, onDismiss }: ToastProps) {
+export default function Toast({ id, type, title, message, duration: toastDuration = 5000, onDismiss }: ToastProps) {
     const [isExiting, setIsExiting] = useState(false);
     const [progress, setProgress] = useState(100);
+    const shouldReduceMotion = useReducedMotion();
 
     useEffect(() => {
         const timer = setTimeout(() => {
             handleDismiss();
-        }, duration);
+        }, toastDuration);
 
-        // Progress bar animation
         const interval = setInterval(() => {
-            setProgress((prev) => Math.max(0, prev - (100 / (duration / 100))));
+            setProgress((prev) => Math.max(0, prev - (100 / (toastDuration / 100))));
         }, 100);
 
         return () => {
             clearTimeout(timer);
             clearInterval(interval);
         };
-    }, [duration]); // Removed handleDismiss from deps to avoid infinite loop
+    }, [toastDuration]);
 
     const handleDismiss = () => {
         setIsExiting(true);
         setTimeout(() => {
             onDismiss(id);
-        }, 300); // Wait for exit animation
+        }, 200);
     };
 
     const icons = {
@@ -54,13 +58,21 @@ export default function Toast({ id, type, title, message, duration = 5000, onDis
         warning: 'border-l-4 border-l-amber-500',
     };
 
+    const variants = shouldReduceMotion ? reducedMotionVariants : toastSlide;
+    const transition = shouldReduceMotion
+        ? { duration: duration.fast }
+        : { ...springConfig.snappy, duration: duration.slow };
+
     return (
-        <div
+        <motion.div
             className={cn(
-                "pointer-events-auto w-full max-w-sm overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 transition-all duration-300 transform",
-                isExiting ? "translate-x-full opacity-0" : "animate-slide-left translate-x-0 opacity-100",
+                "pointer-events-auto w-full max-w-sm overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5",
                 styles[type]
             )}
+            variants={variants}
+            initial="initial"
+            animate={isExiting ? "exit" : "animate"}
+            transition={transition}
             role="alert"
         >
             <div className="p-4">
@@ -100,6 +112,16 @@ export default function Toast({ id, type, title, message, duration = 5000, onDis
                 )}
                 style={{ width: `${progress}%` }}
             />
+        </motion.div>
+    );
+}
+
+export function ToastContainer({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none">
+            <AnimatePresence mode="popLayout">
+                {children}
+            </AnimatePresence>
         </div>
     );
 }

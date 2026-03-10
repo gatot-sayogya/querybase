@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/stores/auth-store';
 import { apiClient } from '@/lib/api-client';
 import DataSourceSchemaSelector from './DataSourceSchemaSelector';
@@ -13,6 +14,7 @@ import { QueryError } from '@/components/ui/Alert';
 import type { QueryResult, WriteQueryPreview } from '@/types';
 import dynamic from 'next/dynamic';
 import WritePreviewModal from './WritePreviewModal';
+import { springConfig, staggerContainer, staggerItem } from '@/lib/animations';
 
 const SQLEditor = dynamic(() => import('./SQLEditor'), { ssr: false });
 
@@ -411,20 +413,25 @@ export default function QueryExecutor() {
 
   return (
     <>
-      {writePreview && (
-        <WritePreviewModal
-          preview={writePreview}
-          queryText={pendingWriteQuery}
-          onConfirm={handleConfirmWriteQuery}
-          onCancel={() => { setWritePreview(null); setPendingWriteQuery(''); }}
-          loading={loading}
-        />
-      )}
+      <AnimatePresence>
+        {writePreview && (
+          <WritePreviewModal
+            preview={writePreview}
+            queryText={pendingWriteQuery}
+            onConfirm={handleConfirmWriteQuery}
+            onCancel={() => { setWritePreview(null); setPendingWriteQuery(''); }}
+            loading={loading}
+          />
+        )}
+      </AnimatePresence>
       <div className={`flex h-full overflow-hidden bg-gray-50 dark:bg-gray-900/50 p-2 gap-0 ${isSidebarResizing || isEditorResizing ? 'select-none' : ''} ${isSidebarResizing ? 'cursor-col-resize' : ''} ${isEditorResizing ? 'cursor-row-resize' : ''}`}>
         {/* Data Source & Schema Sidebar */}
-        <div 
-          className="flex-shrink-0 glass rounded-3xl sleek-shadow border border-white/20 dark:border-white/5 flex flex-col overflow-hidden animate-in fade-in slide-in-from-left duration-500"
+        <motion.div 
+          className="flex-shrink-0 glass rounded-3xl sleek-shadow border border-white/20 dark:border-white/5 flex flex-col overflow-hidden"
           style={{ width: `${sidebarWidth}px` }}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
         >
           <div className="p-3 flex flex-col flex-1 overflow-hidden">
             <DataSourceSchemaSelector
@@ -435,7 +442,7 @@ export default function QueryExecutor() {
               onWritePermissionChange={setCanWrite}
             />
           </div>
-        </div>
+        </motion.div>
 
         {/* Resizer Handle */}
         <div
@@ -448,43 +455,73 @@ export default function QueryExecutor() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right duration-500 delay-100 pr-1" ref={containerRef}>
+        <motion.div 
+          className="flex-1 flex flex-col overflow-hidden pr-1" 
+          ref={containerRef}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: 'easeOut' }}
+        >
 
           {/* Content Area */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 flex flex-col w-full h-full gap-3 overflow-hidden">
               {/* Show query editor only after data source is selected */}
-              {!dataSourceId ? (
-                <div className="flex flex-col items-center justify-center flex-1 border-2 border-dashed border-slate-300 dark:border-slate-700/50 rounded-3xl bg-white/50 dark:bg-slate-800/20 glass sleek-shadow animate-in zoom-in-95 duration-700 m-2">
-                  <div className="text-center">
-                    <span className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 mb-6 shadow-inner">
-                      <svg
-                        className="h-10 w-10"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+              <AnimatePresence mode="wait">
+                {!dataSourceId ? (
+                  <motion.div 
+                    key="placeholder"
+                    className="flex flex-col items-center justify-center flex-1 border-2 border-dashed border-slate-300 dark:border-slate-700/50 rounded-3xl bg-white/50 dark:bg-slate-800/20 glass sleek-shadow m-2"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                  >
+                    <div className="text-center">
+                      <motion.span 
+                        className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 mb-6 shadow-inner"
+                        animate={{ y: [0, -5, 0] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
-                        />
-                      </svg>
-                    </span>
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
-                      Select a Data Source
-                    </h3>
-                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
-                      Choose a database from the sidebar to start writing queries and exploring your telemetry data.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col flex-1 overflow-hidden gap-1.5">
+                        <svg
+                          className="h-10 w-10"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
+                          />
+                        </svg>
+                      </motion.span>
+                      <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
+                        Select a Data Source
+                      </h3>
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                        Choose a database from the sidebar to start writing queries and exploring your telemetry data.
+                      </p>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div 
+                    key="editor"
+                    className="flex flex-col flex-1 overflow-hidden gap-1.5"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
 
-                  {/* SQL Editor - Glassy container */}
-                  <div className="glass rounded-3xl sleek-shadow flex flex-col flex-shrink-0 animate-in fade-in slide-in-from-top duration-500 overflow-hidden">
+                    {/* SQL Editor - Glassy container */}
+                    <motion.div 
+                      className="glass rounded-3xl sleek-shadow flex flex-col flex-shrink-0 overflow-hidden"
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: 0.1 }}
+                    >
                     <div className="flex items-center justify-between px-4 py-2 bg-white/40 dark:bg-slate-800/40 border-b border-slate-200 dark:border-white/10 backdrop-blur-sm">
                       <div className="flex items-center gap-3">
                         <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest shrink-0">
@@ -556,7 +593,7 @@ export default function QueryExecutor() {
                         onExecute={handleExecuteQuery}
                       />
                     </div>
-                  </div>
+                  </motion.div>
 
                   {/* Vertical Resize Handle */}
                   <div 
@@ -565,61 +602,88 @@ export default function QueryExecutor() {
                   >
                     <div className={`h-0.5 w-12 rounded-full transition-all duration-300 ${isEditorResizing ? 'bg-blue-500 w-24' : 'bg-slate-300 dark:bg-white/10 group-hover/handle:bg-blue-400 group-hover/handle:w-16'}`} />
                   </div>
-                </div>
-              )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Error Display */}
-              {error && (
-                <div className="animate-in fade-in slide-in-from-bottom duration-300">
-                  <QueryError
-                    error={error}
-                    onRetry={() => {
-                      setError(null);
-                      handleExecuteQuery();
-                    }}
-                  />
-                </div>
-              )}
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <QueryError
+                      error={error}
+                      onRetry={() => {
+                        setError(null);
+                        handleExecuteQuery();
+                      }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Permission Error Display */}
-              {permissionError && (
-                <div className="glass rounded-3xl sleek-shadow p-6 flex flex-col items-center justify-center text-center gap-4 m-2 animate-in fade-in slide-in-from-bottom duration-500 border border-red-200 dark:border-red-900/30">
-                  <span className="p-4 bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-2xl shadow-inner">
-                    <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </span>
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                        Write Access Required
-                    </h3>
-                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-                        Your groups don&apos;t have write permission on <strong className="text-slate-700 dark:text-slate-300">{permissionError.dataSource}</strong>. {permissionError.hint}
-                    </p>
-                  </div>
-                  <div className="mt-2 flex gap-3">
-                    <Button
-                      onClick={() => router.push('/profile')}
-                      variant="primary"
-                      className="rounded-xl font-bold hover:scale-105 transition-transform ease-spring"
-                    >
-                      View My Groups
-                    </Button>
-                    <Button
-                      onClick={() => setPermissionError(null)}
-                      variant="outline"
-                      className="rounded-xl font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <AnimatePresence>
+                {permissionError && (
+                  <motion.div 
+                    className="glass rounded-3xl sleek-shadow p-6 flex flex-col items-center justify-center text-center gap-4 m-2 border border-red-200 dark:border-red-900/30"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.4 }}
+                  >
+                    <span className="p-4 bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-2xl shadow-inner">
+                      <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </span>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                          Write Access Required
+                      </h3>
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                          Your groups don&apos;t have write permission on <strong className="text-slate-700 dark:text-slate-300">{permissionError.dataSource}</strong>. {permissionError.hint}
+                      </p>
+                    </div>
+                    <div className="mt-2 flex gap-3">
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={springConfig.micro}>
+                        <Button
+                          onClick={() => router.push('/profile')}
+                          variant="primary"
+                          className="rounded-xl font-bold"
+                        >
+                          View My Groups
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={springConfig.micro}>
+                        <Button
+                          onClick={() => setPermissionError(null)}
+                          variant="outline"
+                          className="rounded-xl font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                        >
+                          Dismiss
+                        </Button>
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Results Container */}
-              {results && queryId && (
-                <div className={`flex-1 flex flex-col overflow-hidden glass rounded-3xl sleek-shadow animate-in slide-in-from-bottom fade-in duration-500 delay-150 ${isFullscreenResults ? 'fullscreen-results' : ''}`}>
-                  <div className="flex items-center justify-between px-4 py-2 bg-white/40 dark:bg-slate-800/40 border-b border-slate-200 dark:border-white/10 flex-shrink-0 backdrop-blur-sm">
+              <AnimatePresence>
+                {results && queryId && (
+                  <motion.div 
+                    className={`flex-1 flex flex-col overflow-hidden glass rounded-3xl sleek-shadow ${isFullscreenResults ? 'fullscreen-results' : ''}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.5, delay: 0.15 }}
+                  >
+                    <div className="flex items-center justify-between px-4 py-2 bg-white/40 dark:bg-slate-800/40 border-b border-slate-200 dark:border-white/10 flex-shrink-0 backdrop-blur-sm">
                     <div className="flex items-center gap-3">
                       <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-widest">Results</span>
                       <span className="px-2 py-0.5 bg-blue-500/10 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 rounded-lg text-[10px] font-bold tracking-widest uppercase">
@@ -627,22 +691,26 @@ export default function QueryExecutor() {
                       </span>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        onClick={handleExportCSV}
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl font-bold text-[10px] uppercase tracking-wider py-1 hover:-translate-y-0.5 transition-transform"
-                      >
-                        CSV
-                      </Button>
-                      <Button
-                        onClick={handleExportJSON}
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl font-bold text-[10px] uppercase tracking-wider py-1 hover:-translate-y-0.5 transition-transform"
-                      >
-                        JSON
-                      </Button>
+                      <motion.div whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }} transition={springConfig.micro}>
+                        <Button
+                          onClick={handleExportCSV}
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl font-bold text-[10px] uppercase tracking-wider py-1"
+                        >
+                          CSV
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }} transition={springConfig.micro}>
+                        <Button
+                          onClick={handleExportJSON}
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl font-bold text-[10px] uppercase tracking-wider py-1"
+                        >
+                          JSON
+                        </Button>
+                      </motion.div>
                     </div>
                   </div>
                   <div className="flex-1 overflow-hidden flex flex-col bg-transparent">
@@ -655,8 +723,9 @@ export default function QueryExecutor() {
                       onToggleFullscreen={() => setIsFullscreenResults(!isFullscreenResults)}
                     />
                   </div>
-                </div>
-              )}
+                </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Full-Screen Overlay Implementation using CSS for the container above */}
               <style jsx global>{`
@@ -676,14 +745,22 @@ export default function QueryExecutor() {
               `}</style>
 
               {/* Loading State */}
-              {loading && !results && (
-                <div className="flex items-center justify-center flex-1 glass rounded-3xl mx-2 animate-in slide-in-from-bottom fade-in duration-300">
-                  <Loading variant="bars" size="lg" text="Executing query..." />
-                </div>
-              )}
+              <AnimatePresence>
+                {loading && !results && (
+                  <motion.div 
+                    className="flex items-center justify-center flex-1 glass rounded-3xl mx-2"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Loading variant="bars" size="lg" text="Executing query..." />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </>
   );

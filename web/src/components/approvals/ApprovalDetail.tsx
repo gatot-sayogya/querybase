@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import type { ApprovalRequest, ApprovalReview, TransactionPreview, AuditMode, WriteQueryPreview } from '@/types';
 import DataChangesPanel from './DataChangesPanel';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ApprovalDetailProps {
   approvalId: string | null;

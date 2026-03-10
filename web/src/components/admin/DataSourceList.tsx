@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import { apiClient } from '@/lib/api-client';
 import type { DataSource } from '@/types';
+import { staggerContainer, staggerItem, springConfig } from '@/lib/animations';
 
 interface DataSourceListProps {
   onSelectDataSource?: (dataSourceId: string) => void;
@@ -109,10 +111,18 @@ export default function DataSourceList({
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      className="space-y-6"
+      initial="hidden"
+      animate="visible"
+      variants={staggerContainer}
+    >
       <div className="space-y-3">
         {dataSources.length === 0 ? (
-          <div className="p-20 text-center glass rounded-3xl border border-slate-100 dark:border-slate-800/50">
+          <motion.div 
+            className="p-20 text-center glass rounded-3xl border border-slate-100 dark:border-slate-800/50"
+            variants={staggerItem}
+          >
             <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
               <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4M0 12h18M0 12h18" />
@@ -120,10 +130,10 @@ export default function DataSourceList({
             </div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Infrastructure Bridges</h3>
             <p className="text-slate-500 text-sm mt-1">Connect your first database to enable query execution.</p>
-          </div>
+          </motion.div>
         ) : (
           <div className="grid gap-3">
-            {dataSources.map((dataSource) => {
+            {dataSources.map((dataSource, index) => {
               const isPg = dataSource.type === 'postgresql';
               const isMysql = dataSource.type === 'mysql';
               
@@ -132,14 +142,21 @@ export default function DataSourceList({
               if (isMysql) iconClass = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
 
               return (
-                <div 
+                <motion.div 
                   key={dataSource.id} 
                   className="group p-5 glass rounded-3xl border border-white/50 dark:border-slate-800/50 hover:border-blue-500/30 hover:bg-white dark:hover:bg-slate-800/50 transition-all duration-300 sleek-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  variants={staggerItem}
+                  custom={index}
+                  whileHover={{ y: -2, transition: { duration: 0.2 } }}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl border shadow-sm transition-transform group-hover:scale-105 ${iconClass}`}>
+                    <motion.div 
+                      className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl border shadow-sm ${iconClass}`}
+                      whileHover={{ scale: 1.05, rotate: 2 }}
+                      transition={springConfig.micro}
+                    >
                       {isPg ? <PgIcon /> : isMysql ? <MysqlIcon /> : <DbIcon />}
-                    </div>
+                    </motion.div>
                     <div>
                       <div className="flex items-center gap-3">
                         <span className="font-bold text-slate-900 dark:text-white text-lg">
@@ -159,36 +176,45 @@ export default function DataSourceList({
                   </div>
 
                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                    <button
+                    <motion.button
                       onClick={() => handleTestConnection(dataSource.id)}
                       disabled={testingId === dataSource.id}
                       className="h-10 px-6 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs hover:bg-emerald-500 hover:text-white transition-all shadow-sm disabled:opacity-50"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={springConfig.micro}
                     >
                       {testingId === dataSource.id ? 'Pinging...' : 'Pulse Test'}
-                    </button>
+                    </motion.button>
                     {onEditDataSource && (
-                      <button
+                      <motion.button
                         onClick={() => onEditDataSource(dataSource)}
                         className="h-10 px-6 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={springConfig.micro}
                       >
                         Modify
-                      </button>
+                      </motion.button>
                     )}
-                    <button
+                    <motion.button
                       onClick={() => handleDelete(dataSource.id, dataSource.name)}
                       className="h-10 px-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500 hover:text-white transition-all shadow-sm ml-2"
                       title="Decommission Source"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={springConfig.micro}
                     >
-                       Purge
-                    </button>
+                         Purge
+                    </motion.button>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 

@@ -2,9 +2,11 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { useAuthStore } from '@/stores/auth-store';
 import AppLayout from '@/components/layout/AppLayout';
 import GroupManager from '@/components/admin/GroupManager';
+import Loading from '@/components/ui/Loading';
 
 export default function GroupsPage() {
   const router = useRouter();
@@ -25,7 +27,13 @@ export default function GroupsPage() {
   if (isHydrating || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Loading variant="spinner" size="lg" text="Loading groups..." />
+        </motion.div>
       </div>
     );
   }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import { apiClient } from '@/lib/api-client';
 import type { Group } from '@/types';
 import GroupList from './GroupList';
@@ -9,6 +10,7 @@ import GroupForm from './GroupForm';
 import GroupMembersTab from './GroupMembersTab';
 import GroupDataSourcesTab from './GroupDataSourcesTab';
 import Modal from '../Modal';
+import { springConfig, staggerContainer, staggerItem } from '@/lib/animations';
 
 export default function GroupManager() {
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
@@ -50,9 +52,17 @@ export default function GroupManager() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-8 pb-12 px-4 md:px-6">
+    <motion.div 
+      className="max-w-[1600px] mx-auto space-y-8 pb-12 px-4 md:px-6"
+      initial="hidden"
+      animate="visible"
+      variants={staggerContainer}
+    >
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4">
+      <motion.div 
+        className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4"
+        variants={staggerItem}
+      >
         <div className="space-y-1">
           <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
             Permission Groups
@@ -62,21 +72,30 @@ export default function GroupManager() {
           </p>
         </div>
         
-        <div className="flex items-center gap-4">
-          <button
+        <motion.div 
+          className="flex items-center gap-4"
+          variants={staggerItem}
+        >
+          <motion.button
             onClick={handleCreateNew}
             className="btn btn-primary h-11 px-8 rounded-2xl text-sm font-bold sleek-shadow"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={springConfig.micro}
           >
             <span className="text-xl mr-2">+</span>
             New Ensemble
-          </button>
-        </div>
-      </div>
+          </motion.button>
+        </motion.div>
+      </motion.div>
 
       {/* Content */}
-      <div className="space-y-6">
+      <motion.div 
+        className="space-y-6"
+        variants={staggerItem}
+      >
         <GroupList key={refreshKey} onEditGroup={handleEditGroup} selectedId={null} />
-      </div>
+      </motion.div>
 
       <Modal 
         isOpen={view === 'create' || view === 'edit'} 
@@ -85,11 +104,11 @@ export default function GroupManager() {
         size={view === 'edit' ? 'lg' : 'md'}
       >
         {view === 'edit' && (
-          <div className="flex border-b border-[var(--border)] mb-4">
+          <div className="flex border-b border-[var(--border)] mb-4 relative">
             <button
-              className={`px-4 py-2 text-sm font-medium ${
+              className={`px-4 py-2 text-sm font-medium relative ${
                 activeTab === 'details'
-                  ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]'
+                  ? 'text-[var(--accent-blue)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
               onClick={() => setActiveTab('details')}
@@ -97,9 +116,9 @@ export default function GroupManager() {
               Details
             </button>
             <button
-              className={`px-4 py-2 text-sm font-medium ${
+              className={`px-4 py-2 text-sm font-medium relative ${
                 activeTab === 'members'
-                  ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]'
+                  ? 'text-[var(--accent-blue)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
               onClick={() => setActiveTab('members')}
@@ -107,15 +126,24 @@ export default function GroupManager() {
               Members
             </button>
             <button
-              className={`px-4 py-2 text-sm font-medium ${
+              className={`px-4 py-2 text-sm font-medium relative ${
                 activeTab === 'data-sources'
-                  ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]'
+                  ? 'text-[var(--accent-blue)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
               onClick={() => setActiveTab('data-sources')}
             >
               Data Sources
             </button>
+            <motion.div
+              className="absolute bottom-0 h-0.5 bg-[var(--accent-blue)]"
+              initial={false}
+              animate={{
+                left: activeTab === 'details' ? '0%' : activeTab === 'members' ? '33.33%' : '66.66%',
+                width: '33.33%'
+              }}
+              transition={springConfig.smooth}
+            />
           </div>
         )}
         
@@ -135,6 +163,6 @@ export default function GroupManager() {
           <GroupDataSourcesTab group={selectedGroup} />
         )}
       </Modal>
-    </div>
+    </motion.div>
   );
 }
