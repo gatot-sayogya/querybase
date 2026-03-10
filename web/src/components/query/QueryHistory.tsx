@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import toast from 'react-hot-toast';
@@ -45,6 +45,8 @@ export default function QueryHistory() {
   const [total, setTotal] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   const shouldReduceMotion = useReducedMotion();
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [tabIndicator, setTabIndicator] = useState({ left: 0, width: 0 });
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -59,6 +61,25 @@ export default function QueryHistory() {
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    const updateIndicator = () => {
+      const activeTabEl = tabRefs.current[tabs.indexOf(activeTab)];
+      if (activeTabEl) {
+        const parentRect = activeTabEl.parentElement?.getBoundingClientRect();
+        const tabRect = activeTabEl.getBoundingClientRect();
+        if (parentRect) {
+          setTabIndicator({
+            left: tabRect.left - parentRect.left,
+            width: tabRect.width
+          });
+        }
+      }
+    };
+    updateIndicator();
+    window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [activeTab]);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -158,7 +179,6 @@ export default function QueryHistory() {
   const itemVariants = shouldReduceMotion ? reducedMotionVariants : staggerItem;
 
   const tabs = ['all', 'reads', 'writes'] as const;
-  const activeIndex = tabs.indexOf(activeTab);
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-6 pb-6 px-4 md:px-6 h-full flex flex-col">
@@ -178,6 +198,7 @@ export default function QueryHistory() {
           {tabs.map((tab, index) => (
             <button
               key={tab}
+              ref={(el) => { tabRefs.current[index] = el; }}
               onClick={() => { setActiveTab(tab); setPage(1); }}
               className={`px-6 py-2 text-sm font-bold rounded-xl transition-colors duration-200 relative z-10 ${
                 activeTab === tab
@@ -194,8 +215,8 @@ export default function QueryHistory() {
               className="absolute top-1.5 bottom-1.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm"
               initial={false}
               animate={{
-                x: activeIndex * 96 + 6,
-                width: 84,
+                left: tabIndicator.left,
+                width: tabIndicator.width,
               }}
               transition={{ duration: 0.25, ...springConfig.snappy }}
             />
