@@ -15,15 +15,10 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { staggerContainer, staggerItem, fadeIn, springConfig, duration, reducedMotionVariants } from '@/lib/animations';
 import {
   MagnifyingGlassIcon,
-  FunnelIcon,
   ArrowTopRightOnSquareIcon,
   ArchiveBoxIcon,
   CircleStackIcon,
-  BoltIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  PlayIcon
+  BoltIcon
 } from '@heroicons/react/24/outline';
 
 export interface HistoryItem {
@@ -166,25 +161,49 @@ export default function QueryHistory() {
   const activeIndex = tabs.indexOf(activeTab);
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-8 pb-12 px-4 md:px-6">
+    <div className="max-w-[1600px] mx-auto space-y-6 pb-6 px-4 md:px-6 h-full flex flex-col">
 
       <motion.div
-        className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4 shrink-0"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: duration.normal, ...springConfig.gentle }}
       >
-        <div className="space-y-1">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Execution History
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">
-            A comprehensive log of all system queries and state changes.
-          </p>
-        </div>
+        <motion.div
+          className="flex items-center gap-2 p-1.5 glass rounded-2xl w-fit sleek-shadow relative"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: duration.normal }}
+        >
+          {tabs.map((tab, index) => (
+            <button
+              key={tab}
+              onClick={() => { setActiveTab(tab); setPage(1); }}
+              className={`px-6 py-2 text-sm font-bold rounded-xl transition-colors duration-200 relative z-10 ${
+                activeTab === tab
+                  ? 'text-blue-600'
+                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              {tab === 'all' ? 'All Logs' : tab === 'reads' ? 'Reads' : 'Writes'}
+            </button>
+          ))}
+
+          {!shouldReduceMotion && (
+            <motion.div
+              className="absolute top-1.5 bottom-1.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm"
+              initial={false}
+              animate={{
+                x: activeIndex * 96 + 6,
+                width: 84,
+              }}
+              transition={{ duration: 0.25, ...springConfig.snappy }}
+            />
+          )}
+        </motion.div>
 
         <motion.div
-          className="relative w-full md:w-96 group"
+          className="relative w-full md:w-80 group"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: duration.normal, delay: 0.1 }}
@@ -202,44 +221,12 @@ export default function QueryHistory() {
       </motion.div>
 
       <motion.div
-        className="flex items-center gap-2 p-1.5 glass rounded-2xl w-fit sleek-shadow relative"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: duration.normal, delay: 0.15 }}
-      >
-        {tabs.map((tab, index) => (
-          <button
-            key={tab}
-            onClick={() => { setActiveTab(tab); setPage(1); }}
-            className={`px-6 py-2 text-sm font-bold rounded-xl transition-colors duration-200 relative z-10 ${
-              activeTab === tab
-                ? 'text-blue-600'
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            {tab === 'all' ? 'All Logs' : tab === 'reads' ? 'Reads' : 'Writes'}
-          </button>
-        ))}
-
-        {!shouldReduceMotion && (
-          <motion.div
-            className="absolute top-1.5 bottom-1.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm"
-            initial={false}
-            animate={{
-              x: activeIndex * 96 + 6,
-              width: 84,
-            }}
-            transition={{ duration: 0.25, ...springConfig.snappy }}
-          />
-        )}
-      </motion.div>
-
-      <motion.div
+        className="flex-1 min-h-0"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: duration.slow, delay: 0.2 }}
+        transition={{ duration: duration.slow, delay: 0.15 }}
       >
-        <Card variant="default" className="border-none sleek-shadow overflow-hidden">
+        <Card variant="default" className="border-none sleek-shadow overflow-hidden h-full flex flex-col">
           <AnimatePresence mode="wait">
             {loading ? (
               <motion.div
@@ -279,7 +266,7 @@ export default function QueryHistory() {
             ) : (
               <motion.div
                 key="list"
-                className="divide-y divide-slate-50 dark:divide-slate-800/50 max-h-[600px] overflow-y-auto scrollbar-minimal"
+                className="divide-y divide-slate-50 dark:divide-slate-800/50 flex-1 overflow-y-auto scrollbar-minimal"
                 variants={containerVariants}
                 initial="initial"
                 animate="animate"
