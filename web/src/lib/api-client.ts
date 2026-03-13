@@ -23,11 +23,15 @@ import type {
   WriteQueryPreview,
 } from '@/types';
 
+type AuthErrorHandler = () => void;
+
 class ApiClient {
   private client: AxiosInstance;
   private token: string | null = null;
   private isRefreshing = false;
   private refreshSubscribers: ((token: string) => void)[] = [];
+  private onAuthErrorCallback: AuthErrorHandler | null = null;
+  private isRedirecting = false;
 
   constructor() {
     const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -62,9 +66,15 @@ class ApiClient {
         if (error.response?.status === 401 && !originalRequest._retry) {
           // If already on login page or it was a login/refresh request, give up
           const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh');
+          const isLoginPage = typeof window !== 'undefined' && window.location.pathname === '/login';
           
-          if (isAuthEndpoint) {
+          if (isAuthEndpoint || isLoginPage) {
             this.clearToken();
+            return Promise.reject(error);
+          }
+
+          // Prevent multiple redirects
+          if (this.isRedirecting) {
             return Promise.reject(error);
           }
 
@@ -92,9 +102,16 @@ class ApiClient {
           } catch (refreshError) {
             this.isRefreshing = false;
             this.clearToken();
-            if (typeof window !== 'undefined') {
+            
+            // Call the auth error handler if set (for toast + proper state clearing)
+            if (this.onAuthErrorCallback && !this.isRedirecting) {
+              this.isRedirecting = true;
+              this.onAuthErrorCallback();
+            } else if (typeof window !== 'undefined' && !this.isRedirecting) {
+              // Fallback: clear storage and redirect
+              this.isRedirecting = true;
               localStorage.removeItem('auth-storage');
-              window.location.href = '/login';
+              window.location.href = '/login?session=expired';
             }
             return Promise.reject(refreshError);
           }
@@ -102,6 +119,10 @@ class ApiClient {
         return Promise.reject(error);
       }
     );
+  }
+
+  setOnAuthErrorHandler(callback: AuthErrorHandler) {
+    this.onAuthErrorCallback = callback;
   }
 
   private onRefreshed(token: string) {

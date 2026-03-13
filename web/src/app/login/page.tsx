@@ -1,17 +1,26 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { staggerContainer, staggerItem, shake, springConfig, duration, reducedMotionVariants } from '@/lib/animations';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, isLoading, error } = useAuthStore();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [sessionExpired, setSessionExpired] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    // Check if session expired
+    if (searchParams.get('session') === 'expired') {
+      setSessionExpired(true);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +81,29 @@ export default function LoginPage() {
           <h1>Welcome back</h1>
           <p>Sign in to your account to continue</p>
         </motion.div>
+
+        <AnimatePresence mode="wait">
+          {sessionExpired && (
+            <motion.div
+              className="info-msg show"
+              variants={errorVariants}
+              initial="initial"
+              animate="animate"
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.4 }}
+              style={{ 
+                backgroundColor: '#dbeafe', 
+                color: '#1e40af',
+                border: '1px solid #93c5fd'
+              }}
+            >
+              <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Your session has expired. Please log in again.
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <form className="form-fields" onSubmit={handleSubmit}>
           <motion.div className="form-group" variants={itemVariants}>
@@ -164,5 +196,17 @@ export default function LoginPage() {
         </motion.p>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-900">
+        <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

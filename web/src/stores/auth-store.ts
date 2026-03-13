@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import toast from 'react-hot-toast';
 import type { User } from '@/types';
 import { apiClient } from '@/lib/api-client';
 
@@ -17,6 +18,7 @@ interface AuthState {
   loadUser: () => Promise<void>;
   clearError: () => void;
   setHydrating: (loading: boolean) => void;
+  handleAuthError: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -82,6 +84,27 @@ export const useAuthStore = create<AuthState>()(
       },
 
       clearError: () => set({ error: null }),
+
+      handleAuthError: () => {
+        // Clear auth state
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+        
+        // Show toast notification
+        toast.error('Your session has expired. Please log in again.', {
+          duration: 5000,
+          id: 'auth-error', // Prevent duplicate toasts
+        });
+        
+        // Redirect to login page with session expired flag
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login?session=expired';
+        }
+      },
     }),
     {
       name: 'auth-storage',
@@ -99,3 +122,13 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Set up the auth error handler on the api client
+// This needs to be done after store creation to avoid circular dependencies
+if (typeof window !== 'undefined') {
+  // Use a timeout to ensure the store is fully initialized
+  setTimeout(() => {
+    const { handleAuthError } = useAuthStore.getState();
+    apiClient.setOnAuthErrorHandler(handleAuthError);
+  }, 0);
+}
