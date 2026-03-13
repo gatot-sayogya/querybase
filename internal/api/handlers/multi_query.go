@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -57,8 +58,11 @@ func (h *MultiQueryHandler) PreviewMultiQuery(c *gin.Context) {
 		return
 	}
 
+	// Join all query texts with semicolons for parsing
+	fullQueryText := strings.Join(req.QueryTexts, "; ")
+
 	// Validate and parse queries
-	parseResult := service.ValidateMultiQuery(req.QueryTexts[0]) // For now, support single query text that gets split
+	parseResult := service.ValidateMultiQuery(fullQueryText)
 	if len(parseResult.Errors) > 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":  "Invalid queries",
@@ -140,8 +144,11 @@ func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
 		return
 	}
 
+	// Join all query texts with semicolons for parsing
+	fullQueryText := strings.Join(req.QueryTexts, "; ")
+
 	// Validate and parse queries
-	parseResult := service.ValidateMultiQuery(req.QueryTexts[0])
+	parseResult := service.ValidateMultiQuery(fullQueryText)
 	if len(parseResult.Errors) > 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":  "Invalid queries",
@@ -150,7 +157,7 @@ func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
 		return
 	}
 
-	// Extract query texts
+	// Extract query texts from parsed result
 	queryTexts := make([]string, len(parseResult.Statements))
 	for i, stmt := range parseResult.Statements {
 		queryTexts[i] = stmt.QueryText
