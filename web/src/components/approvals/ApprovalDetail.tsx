@@ -184,30 +184,27 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
 
   // Handle multi-query execution from preview modal
   const handleExecuteMultiQuery = async () => {
-    if (!multiQueryPreview || !approval) return;
+    if (!multiQueryPreview || !approval || !approvalId) return;
     
     setSubmitting(true);
     try {
-      const queryTexts = multiQueryPreview.statements.map(s => s.query_text);
-      const response = await executeMultiQuery(
-        approval.data_source_id,
-        queryTexts
-      );
+      // Use the approval workflow - start transaction then commit
+      // This ensures we're executing the approved query, not creating a new one
+      const txData = await apiClient.startApprovalTransaction(approvalId, { audit_mode: auditMode });
+      setTransaction(txData);
       
-      if (response.requires_approval) {
-        toast.success('Multi-query submitted for approval');
-      } else {
-        toast.success('Multi-query executed successfully');
-        await fetchApprovalDetails();
-        if (onRefresh) onRefresh();
+      if (txData.preview?.audit_mode) {
+        setAuditMode(txData.preview.audit_mode);
       }
       
-      // Close the modal
+      // Close the modal and move to transaction ready phase
       setMultiQueryPreview(null);
-      setPhase('idle');
+      setPhase('tx_ready');
+      
+      toast.success('Transaction started. Review the execution preview and click Commit to apply changes.');
     } catch (err: any) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to execute multi-query');
-      setError(err.response?.data?.error || err.message || 'Failed to execute multi-query');
+      toast.error(err.response?.data?.error || err.message || 'Failed to start multi-query transaction');
+      setError(err.response?.data?.error || err.message || 'Failed to start multi-query transaction');
     } finally {
       setSubmitting(false);
     }

@@ -1222,96 +1222,147 @@ func (s *QueryService) ExecuteQueryInTransaction(ctx context.Context, approval *
 		return nil, nil, fmt.Errorf("failed to begin transaction: %w", tx.Error)
 	}
 
-	// Detect if this is a write query (INSERT/UPDATE/DELETE/DDL)
-	operationType := DetectOperationType(approval.QueryText)
-	isWriteQuery := operationType != models.OperationSelect
-
-	// Normalize the query text to fix common non-standard SQL variants before execution
-	queryToExecute := normalizeSQLForExecution(approval.QueryText)
+	// Check if this is a multi-query
+	parseResult := ParseMultipleQueries(approval.QueryText)
+	isMultiQuery := len(parseResult.Statements) > 1
 
 	var results []map[string]interface{}
 	var columns []string
-
 	var capturedAuditResult *AuditResult
+	totalAffectedRows := 0
 
-	if isWriteQuery {
-		// Use AuditService to execute the query and capture before/after row data
-		var execResult *AuditResult
-		var err error
+	if isMultiQuery {
+		// Execute multiple statements sequentially
+		for i, stmt := range parseResult.Statements {
+			queryToExecute := normalizeSQLForExecution(stmt.QueryText)
+			operationType := DetectOperationType(stmt.QueryText)
+			isWriteQuery := operationType != models.OperationSelect
 
-		if s.auditService != nil {
-			execResult, err = s.auditService.ExecuteWithAudit(ctx, tx, queryToExecute, dataSource, models.AuditModeFull, 100)
-		} else {
-			// Fallback to simple Exec if audit service is missing
-			dbRes := tx.Exec(queryToExecute)
-			err = dbRes.Error
-			if err == nil {
-				execResult = &AuditResult{
-					AffectedRows: int(dbRes.RowsAffected),
-					AuditMode:    models.AuditModeCountOnly,
+			if isWriteQuery {
+				var execResult *AuditResult
+				var err error
+
+				if s.auditService != nil {
+					execResult, err = s.auditService.ExecuteWithAudit(ctx, tx, queryToExecute, dataSource, models.AuditModeFull, 100)
+				} else {
+					dbRes := tx.Exec(queryToExecute)
+					err = dbRes.Error
+					if err == nil {
+						execResult = &AuditResult{
+							AffectedRows: int(dbRes.RowsAffected),
+							AuditMode:    models.AuditModeCountOnly,
+						}
+					}
+				}
+
+				if err != nil {
+					tx.Rollback()
+					return nil, nil, fmt.Errorf("statement %d execution failed: %w", i+1, err)
+				}
+
+				totalAffectedRows += execResult.AffectedRows
+				if capturedAuditResult == nil {
+					capturedAuditResult = execResult
+				} else {
+					// Merge audit results
+					capturedAuditResult.AffectedRows += execResult.AffectedRows
+					capturedAuditResult.BeforeData = append(capturedAuditResult.BeforeData, execResult.BeforeData...)
+					capturedAuditResult.AfterData = append(capturedAuditResult.AfterData, execResult.AfterData...)
 				}
 			}
+			// Skip SELECT queries in multi-query transaction mode
 		}
 
-		if err != nil {
-			tx.Rollback()
-			return nil, nil, fmt.Errorf("query execution failed: %w", err)
-		}
-
-		capturedAuditResult = execResult
-
-		// Build a summary result for the preview display
-		columns = []string{"operation", "rows_affected", "status"}
+		// Build summary result for multi-query
+		columns = []string{"statements", "total_affected", "status"}
 		results = []map[string]interface{}{
 			{
-				"operation":     string(operationType),
-				"rows_affected": execResult.AffectedRows,
-				"status":        "executed_in_transaction",
+				"statements":     len(parseResult.Statements),
+				"total_affected": totalAffectedRows,
+				"status":         "executed_in_transaction",
 			},
 		}
 	} else {
-		// For SELECT queries, use Raw().Rows() to get result set
-		rows, err := tx.Raw(approval.QueryText).Rows()
-		if err != nil {
-			tx.Rollback()
-			return nil, nil, fmt.Errorf("query execution failed: %w", err)
-		}
-		defer rows.Close()
+		// Single query execution (original logic)
+		operationType := DetectOperationType(approval.QueryText)
+		isWriteQuery := operationType != models.OperationSelect
+		queryToExecute := normalizeSQLForExecution(approval.QueryText)
 
-		// Parse results
-		cols, err := rows.Columns()
-		if err != nil {
-			tx.Rollback()
-			return nil, nil, fmt.Errorf("failed to get columns: %w", err)
-		}
-		columns = cols
+		if isWriteQuery {
+			var execResult *AuditResult
+			var err error
 
-		for rows.Next() {
-			values := make([]interface{}, len(columns))
-			valuePtrs := make([]interface{}, len(columns))
-
-			for i := range columns {
-				valuePtrs[i] = &values[i]
-			}
-
-			if err := rows.Scan(valuePtrs...); err != nil {
-				tx.Rollback()
-				return nil, nil, fmt.Errorf("failed to scan row: %w", err)
-			}
-
-			row := make(map[string]interface{})
-			for i, col := range columns {
-				var v interface{}
-				val := values[i]
-				b, ok := val.([]byte)
-				if ok {
-					v = string(b)
-				} else {
-					v = val
+			if s.auditService != nil {
+				execResult, err = s.auditService.ExecuteWithAudit(ctx, tx, queryToExecute, dataSource, models.AuditModeFull, 100)
+			} else {
+				dbRes := tx.Exec(queryToExecute)
+				err = dbRes.Error
+				if err == nil {
+					execResult = &AuditResult{
+						AffectedRows: int(dbRes.RowsAffected),
+						AuditMode:    models.AuditModeCountOnly,
+					}
 				}
-				row[col] = v
 			}
-			results = append(results, row)
+
+			if err != nil {
+				tx.Rollback()
+				return nil, nil, fmt.Errorf("query execution failed: %w", err)
+			}
+
+			capturedAuditResult = execResult
+
+			columns = []string{"operation", "rows_affected", "status"}
+			results = []map[string]interface{}{
+				{
+					"operation":     string(operationType),
+					"rows_affected": execResult.AffectedRows,
+					"status":        "executed_in_transaction",
+				},
+			}
+		} else {
+			// For SELECT queries, use Raw().Rows() to get result set
+			rows, err := tx.Raw(approval.QueryText).Rows()
+			if err != nil {
+				tx.Rollback()
+				return nil, nil, fmt.Errorf("query execution failed: %w", err)
+			}
+			defer rows.Close()
+
+			cols, err := rows.Columns()
+			if err != nil {
+				tx.Rollback()
+				return nil, nil, fmt.Errorf("failed to get columns: %w", err)
+			}
+			columns = cols
+
+			for rows.Next() {
+				values := make([]interface{}, len(columns))
+				valuePtrs := make([]interface{}, len(columns))
+
+				for i := range columns {
+					valuePtrs[i] = &values[i]
+				}
+
+				if err := rows.Scan(valuePtrs...); err != nil {
+					tx.Rollback()
+					return nil, nil, fmt.Errorf("failed to scan row: %w", err)
+				}
+
+				row := make(map[string]interface{})
+				for i, col := range columns {
+					var v interface{}
+					val := values[i]
+					b, ok := val.([]byte)
+					if ok {
+						v = string(b)
+					} else {
+						v = val
+					}
+					row[col] = v
+				}
+				results = append(results, row)
+			}
 		}
 	}
 
