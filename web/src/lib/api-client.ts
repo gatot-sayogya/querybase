@@ -490,6 +490,112 @@ class ApiClient {
     );
     return response.data;
   }
+
+  // Multi-Query Operations
+  async previewMultiQuery(dataSourceId: string, queryTexts: string[]): Promise<{
+    statement_count: number;
+    total_estimated_rows: number;
+    statements: Array<{
+      sequence: number;
+      query_text: string;
+      operation_type: string;
+      estimated_rows: number;
+      preview_rows?: Record<string, unknown>[];
+      columns?: { name: string; type: string }[];
+      error?: string;
+    }>;
+    requires_approval: boolean;
+  }> {
+    const response = await this.client.post('/api/v1/queries/multi/preview', {
+      data_source_id: dataSourceId,
+      query_texts: queryTexts,
+    });
+    return response.data;
+  }
+
+  async executeMultiQuery(
+    dataSourceId: string,
+    queryTexts: string[],
+    name?: string,
+    description?: string
+  ): Promise<{
+    query_id?: string;
+    transaction_id?: string;
+    status: string;
+    is_multi_query: boolean;
+    statement_count: number;
+    total_affected_rows: number;
+    execution_time_ms: number;
+    statements: Array<{
+      sequence: number;
+      query_text: string;
+      operation_type: string;
+      status: string;
+      affected_rows: number;
+      row_count: number;
+      columns?: { name: string; type: string }[];
+      data?: Record<string, unknown>[];
+      error_message?: string;
+      execution_time_ms: number;
+    }>;
+    error_message?: string;
+    requires_approval: boolean;
+    approval_id?: string;
+  }> {
+    const response = await this.client.post('/api/v1/queries/multi/execute', {
+      data_source_id: dataSourceId,
+      query_texts: queryTexts,
+      name,
+      description,
+    });
+    return response.data;
+  }
+
+  async getMultiQueryStatements(transactionId: string): Promise<Array<{
+    sequence: number;
+    query_text: string;
+    operation_type: string;
+    status: string;
+    affected_rows: number;
+    row_count: number;
+    columns?: { name: string; type: string }[];
+    data?: Record<string, unknown>[];
+    error_message?: string;
+    execution_time_ms: number;
+  }>> {
+    const response = await this.client.get(`/api/v1/queries/multi/${transactionId}/statements`);
+    return response.data;
+  }
+
+  async commitMultiQuery(transactionId: string): Promise<{
+    query_id?: string;
+    transaction_id?: string;
+    status: string;
+    is_multi_query: boolean;
+    statement_count: number;
+    total_affected_rows: number;
+    execution_time_ms: number;
+    statements: Array<{
+      sequence: number;
+      query_text: string;
+      operation_type: string;
+      status: string;
+      affected_rows: number;
+      row_count: number;
+      columns?: { name: string; type: string }[];
+      data?: Record<string, unknown>[];
+      error_message?: string;
+      execution_time_ms: number;
+    }>;
+    error_message?: string;
+  }> {
+    const response = await this.client.post(`/api/v1/queries/multi/${transactionId}/commit`);
+    return response.data;
+  }
+
+  async rollbackMultiQuery(transactionId: string): Promise<void> {
+    await this.client.post(`/api/v1/queries/multi/${transactionId}/rollback`);
+  }
 }
 
 // Export singleton instance

@@ -1,4 +1,4 @@
-import { apiClient } from './api-client';
+import { apiClient } from '@/lib/api-client';
 
 export interface StatementPreview {
   sequence: number;
@@ -40,7 +40,7 @@ export interface MultiQueryResponse {
   execution_time_ms: number;
   statements: StatementResult[];
   error_message?: string;
-  requires_approval: boolean;
+  requires_approval?: boolean;
   approval_id?: string;
 }
 
@@ -51,11 +51,7 @@ export async function previewMultiQuery(
   dataSourceId: string,
   queryTexts: string[]
 ): Promise<MultiQueryPreviewResponse> {
-  const response = await apiClient.post('/queries/multi/preview', {
-    data_source_id: dataSourceId,
-    query_texts: queryTexts
-  });
-  return response.data;
+  return apiClient.previewMultiQuery(dataSourceId, queryTexts);
 }
 
 /**
@@ -67,13 +63,7 @@ export async function executeMultiQuery(
   name?: string,
   description?: string
 ): Promise<MultiQueryResponse> {
-  const response = await apiClient.post('/queries/multi/execute', {
-    data_source_id: dataSourceId,
-    query_texts: queryTexts,
-    name,
-    description
-  });
-  return response.data;
+  return apiClient.executeMultiQuery(dataSourceId, queryTexts, name, description);
 }
 
 /**
@@ -82,8 +72,7 @@ export async function executeMultiQuery(
 export async function getMultiQueryStatements(
   transactionId: string
 ): Promise<StatementResult[]> {
-  const response = await apiClient.get(`/queries/multi/${transactionId}/statements`);
-  return response.data;
+  return apiClient.getMultiQueryStatements(transactionId);
 }
 
 /**
@@ -92,8 +81,7 @@ export async function getMultiQueryStatements(
 export async function commitMultiQuery(
   transactionId: string
 ): Promise<MultiQueryResponse> {
-  const response = await apiClient.post(`/queries/multi/${transactionId}/commit`);
-  return response.data;
+  return apiClient.commitMultiQuery(transactionId);
 }
 
 /**
@@ -102,5 +90,5 @@ export async function commitMultiQuery(
 export async function rollbackMultiQuery(
   transactionId: string
 ): Promise<void> {
-  await apiClient.post(`/queries/multi/${transactionId}/rollback`);
+  return apiClient.rollbackMultiQuery(transactionId);
 }
