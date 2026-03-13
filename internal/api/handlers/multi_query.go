@@ -31,7 +31,7 @@ func NewMultiQueryHandler(db *gorm.DB, multiQuerySvc *service.MultiQueryService,
 
 // PreviewMultiQuery generates previews for multiple queries
 func (h *MultiQueryHandler) PreviewMultiQuery(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
@@ -115,7 +115,7 @@ func (h *MultiQueryHandler) PreviewMultiQuery(c *gin.Context) {
 
 // ExecuteMultiQuery executes multiple queries in a transaction
 func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
