@@ -113,7 +113,12 @@ class ApiClient {
               localStorage.removeItem('auth-storage');
               window.location.href = '/login?session=expired';
             }
-            return Promise.reject(refreshError);
+            
+            // Create a clean error without axios details for auth failures
+            // This prevents console noise while still rejecting properly
+            const authError = new Error('Session expired');
+            (authError as any).__authHandled = true;
+            return Promise.reject(authError);
           }
         }
         return Promise.reject(error);
