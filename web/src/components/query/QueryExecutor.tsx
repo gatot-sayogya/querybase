@@ -15,6 +15,11 @@ import type { QueryResult, WriteQueryPreview } from '@/types';
 import dynamic from 'next/dynamic';
 import WritePreviewModal from './WritePreviewModal';
 import { springConfig, staggerContainer, staggerItem } from '@/lib/animations';
+import { isMultiQuery, parseMultipleQueries } from '@/lib/query-parser';
+import { MultiQueryPreviewModal } from './MultiQueryPreviewModal';
+import { MultiQueryResults } from './MultiQueryResults';
+import { previewMultiQuery, executeMultiQuery } from '@/lib/api/multi-query';
+import type { MultiQueryPreviewResponse, MultiQueryResponse } from '@/lib/api/multi-query';
 
 const SQLEditor = dynamic(() => import('./SQLEditor'), { ssr: false });
 
@@ -35,6 +40,11 @@ export default function QueryExecutor() {
   const [writePreview, setWritePreview] = useState<WriteQueryPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [pendingWriteQuery, setPendingWriteQuery] = useState<string>('');
+  
+  // Multi-query state
+  const [multiQueryPreview, setMultiQueryPreview] = useState<MultiQueryPreviewResponse | null>(null);
+  const [multiQueryResults, setMultiQueryResults] = useState<MultiQueryResponse | null>(null);
+  const [showMultiQueryPreview, setShowMultiQueryPreview] = useState(false);
 
   // Resizing state
   const [isSidebarResizing, setIsSidebarResizing] = useState(false);
@@ -114,6 +124,26 @@ export default function QueryExecutor() {
     setQueryId(null);
 
     try {
+      // Check if this is a multi-query (semicolon-separated)
+      if (isMultiQuery(queryText)) {
+        const parseResult = parseMultipleQueries(queryText);
+        
+        // Show preview for multi-query
+        setPreviewLoading(true);
+        try {
+          const queryTexts = parseResult.statements.map(s => s.queryText);
+          const preview = await previewMultiQuery(dataSourceId, queryTexts);
+          setMultiQueryPreview(preview);
+          setShowMultiQueryPreview(true);
+        } catch (previewErr: any) {
+          setError(previewErr.response?.data?.error || previewErr.message || 'Failed to preview multi-query');
+        } finally {
+          setPreviewLoading(false);
+          setLoading(false);
+        }
+        return;
+      }
+
       // Add LIMIT if not present and query is SELECT
       let finalQuery = queryText.trim();
       const isSelectQuery = /^\s*SELECT\s/i.test(finalQuery);
@@ -411,6 +441,32 @@ export default function QueryExecutor() {
     }
   };
 
+  // Handle multi-query execution after approval
+  const handleExecuteMultiQuery = async () => {
+    if (!multiQueryPreview || !dataSourceId) return;
+
+    setLoading(true);
+    setShowMultiQueryPreview(false);
+
+    try {
+      const queryTexts = multiQueryPreview.statements.map(s => s.query_text);
+      const response = await executeMultiQuery(dataSourceId, queryTexts);
+      
+      if (response.requires_approval) {
+        toast.success('Multi-query submitted for approval');
+        // TODO: Navigate to approvals page
+      } else {
+        setMultiQueryResults(response);
+        toast.success('Multi-query executed successfully');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Failed to execute multi-query');
+      toast.error('Failed to execute multi-query');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <AnimatePresence>
@@ -424,10 +480,31 @@ export default function QueryExecutor() {
           />
         )}
       </AnimatePresence>
+
+      {/* Multi-Query Preview Modal */}
+      {multiQueryPreview && (
+        <MultiQueryPreviewModal
+          isOpen={showMultiQueryPreview}
+          onClose={() => { 
+            setShowMultiQueryPreview(false); 
+            setMultiQueryPreview(null); 
+            setLoading(false);
+          }}
+          statements={multiQueryPreview.statements}
+          totalEstimatedRows={multiQueryPreview.total_estimated_rows}
+          onApprove={handleExecuteMultiQuery}
+          onReject={() => { 
+            setShowMultiQueryPreview(false); 
+            setMultiQueryPreview(null); 
+            setLoading(false);
+          }}
+          loading={loading}
+        />
+      )}
       <div className={`flex h-full overflow-hidden bg-gray-50 dark:bg-gray-900/50 p-2 gap-0 ${isSidebarResizing || isEditorResizing ? 'select-none' : ''} ${isSidebarResizing ? 'cursor-col-resize' : ''} ${isEditorResizing ? 'cursor-row-resize' : ''}`}>
         {/* Data Source & Schema Sidebar */}
         <motion.div 
-          className="flex-shrink-0 glass rounded-3xl sleek-shadow border border-white/20 dark:border-white/5 flex flex-col overflow-hidden"
+          className="flex-shrink-0 glass rounded-xl sleek-shadow border border-white/20 dark:border-white/5 flex flex-col overflow-hidden"
           style={{ width: `${sidebarWidth}px` }}
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -471,7 +548,7 @@ export default function QueryExecutor() {
                 {!dataSourceId ? (
                   <motion.div 
                     key="placeholder"
-                    className="flex flex-col items-center justify-center flex-1 border-2 border-dashed border-slate-300 dark:border-slate-700/50 rounded-3xl bg-white/50 dark:bg-slate-800/20 glass sleek-shadow m-2"
+                    className="flex flex-col items-center justify-center flex-1 border-2 border-dashed border-slate-300 dark:border-slate-700/50 rounded-xl bg-white/50 dark:bg-slate-800/20 glass sleek-shadow m-2"
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -517,7 +594,7 @@ export default function QueryExecutor() {
 
                     {/* SQL Editor - Glassy container */}
                     <motion.div 
-                      className="glass rounded-3xl sleek-shadow flex flex-col flex-shrink-0 overflow-hidden"
+                      className="glass rounded-xl sleek-shadow flex flex-col flex-shrink-0 overflow-hidden"
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.4, delay: 0.1 }}
@@ -630,7 +707,7 @@ export default function QueryExecutor() {
               <AnimatePresence>
                 {permissionError && (
                   <motion.div 
-                    className="glass rounded-3xl sleek-shadow p-6 flex flex-col items-center justify-center text-center gap-4 m-2 border border-red-200 dark:border-red-900/30"
+                    className="glass rounded-xl sleek-shadow p-6 flex flex-col items-center justify-center text-center gap-4 m-2 border border-red-200 dark:border-red-900/30"
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -677,7 +754,7 @@ export default function QueryExecutor() {
               <AnimatePresence>
                 {results && queryId && (
                   <motion.div 
-                    className={`flex-1 flex flex-col overflow-hidden glass rounded-3xl sleek-shadow ${isFullscreenResults ? 'fullscreen-results' : ''}`}
+                    className={`flex-1 flex flex-col overflow-hidden glass rounded-xl sleek-shadow ${isFullscreenResults ? 'fullscreen-results' : ''}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
@@ -727,6 +804,30 @@ export default function QueryExecutor() {
                 )}
               </AnimatePresence>
 
+              {/* Multi-Query Results */}
+              <AnimatePresence>
+                {multiQueryResults && (
+                  <motion.div 
+                    className="flex-1 flex flex-col overflow-hidden glass rounded-xl sleek-shadow"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.5, delay: 0.15 }}
+                  >
+                    <div className="flex-1 overflow-auto p-4">
+                      <MultiQueryResults
+                        transactionId={multiQueryResults.transaction_id}
+                        statements={multiQueryResults.statements}
+                        totalExecutionTime={multiQueryResults.execution_time_ms}
+                        totalAffectedRows={multiQueryResults.total_affected_rows}
+                        status={multiQueryResults.status === 'success' ? 'success' : multiQueryResults.status === 'failed' ? 'failed' : 'pending'}
+                        errorMessage={multiQueryResults.error_message}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Full-Screen Overlay Implementation using CSS for the container above */}
               <style jsx global>{`
                 .fullscreen-results {
@@ -748,7 +849,7 @@ export default function QueryExecutor() {
               <AnimatePresence>
                 {loading && !results && (
                   <motion.div 
-                    className="flex items-center justify-center flex-1 glass rounded-3xl mx-2"
+                    className="flex items-center justify-center flex-1 glass rounded-xl mx-2"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}

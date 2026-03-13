@@ -600,6 +600,8 @@ func (s *AuditService) deleteToCount(query, upper string) (string, error) {
 		return "", fmt.Errorf("cannot parse DELETE query")
 	}
 
+	// Trim trailing semicolon and whitespace
+	rest = strings.TrimRight(rest, "; ")
 	return "SELECT COUNT(*) FROM " + strings.TrimSpace(rest), nil
 }
 
@@ -623,6 +625,8 @@ func (s *AuditService) updateToCount(query, upper string) (string, error) {
 	}
 
 	whereClause := query[whereIdx:]
+	// Trim trailing semicolon
+	whereClause = strings.TrimRight(whereClause, "; ")
 	return fmt.Sprintf("SELECT COUNT(*) FROM %s%s", tableName, whereClause), nil
 }
 

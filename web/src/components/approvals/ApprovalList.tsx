@@ -107,7 +107,7 @@ export default function ApprovalList({
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
               <motion.span
-                className={`inline-flex items-center justify-center px-1.5 min-w-[18px] h-[18px] text-[10px] font-bold rounded-full ${
+                className={`inline-flex items-center justify-center px-1.5 min-w-[18px] h-[18px] text-[10px] font-bold ${
                   filter === status
                     ? 'bg-blue-100 text-blue-600'
                     : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
@@ -125,7 +125,7 @@ export default function ApprovalList({
 
         {!shouldReduceMotion && (
           <motion.div
-            className="absolute bottom-0 h-0.5 bg-blue-500 rounded-full"
+            className="absolute bottom-0 h-0.5 bg-blue-500"
             initial={false}
             animate={{
               x: activeFilterIndex * 90,
@@ -145,12 +145,12 @@ export default function ApprovalList({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin h-8 w-8 border-b-2 border-blue-600"></div>
           </motion.div>
         ) : error ? (
           <motion.div
             key="error"
-            className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 m-4"
+            className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 m-4"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}

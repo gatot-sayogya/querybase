@@ -211,7 +211,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
 
   if (!approvalId) {
     return (
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center">
+      <div className="bg-gray-50 dark:bg-gray-800 p-8 text-center">
         <svg
           className="mx-auto h-12 w-12 text-gray-400"
           fill="none"
@@ -237,7 +237,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       </div>
     );
@@ -271,7 +271,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 mb-4">
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         </div>
       )}
@@ -295,7 +295,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
         <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
           <div className="detail-section-label">Comments (optional)</div>
           <textarea
-            className="comment-area focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none w-full p-3 border rounded-md"
+            className="comment-area focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none w-full p-3 border"
             placeholder="Add a comment for the requester..."
             value={comment}
             onChange={(e) => setComment(e.target.value)}
@@ -333,7 +333,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
 
       {/* Phase 2: Preview ready — show the dry-run data table */}
       {isPending && phase === 'preview_ready' && writePreview && approval.can_approve && (
-        <div className="mt-6 border-t border-orange-200 dark:border-orange-900 pt-6 bg-orange-50 dark:bg-orange-900/10 -mx-6 px-6 pb-6 rounded-b-lg">
+          <div className="mt-6 border-t border-orange-200 dark:border-orange-900 pt-6 bg-orange-50 dark:bg-orange-900/10 -mx-6 px-6 pb-6">
           <h3 className="text-lg font-medium text-orange-900 dark:text-orange-300 mb-4 flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -343,7 +343,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
           </h3>
 
           {/* Impact Summary identical to WritePreviewModal */}
-          <div className="bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden mb-4">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 overflow-hidden mb-4">
             <div className="p-5 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-6">
                 <div>
@@ -366,7 +366,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
                 {writePreview.total_affected > (writePreview.preview_rows?.length || 0) && (
                   <>
                     <div className="h-12 w-px bg-gray-200 dark:bg-gray-700" />
-                    <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                       <svg className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
@@ -464,7 +464,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
 
       {/* Phase 3: Transaction open — Commit/Rollback */}
       {isPending && phase === 'tx_ready' && transaction && (
-        <div className="mt-6 border-t border-blue-200 dark:border-blue-900 pt-6 bg-blue-50 dark:bg-blue-900/10 -mx-6 px-6 pb-6 rounded-b-lg">
+          <div className="mt-6 border-t border-blue-200 dark:border-blue-900 pt-6 bg-blue-50 dark:bg-blue-900/10 -mx-6 px-6 pb-6">
           <h3 className="text-lg font-medium text-blue-900 dark:text-blue-300 mb-4 flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -472,7 +472,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
             Execution Preview Ready
           </h3>
           
-          <div className="bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden mb-4">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 overflow-hidden mb-4">
             
             {/* Impact Summary */}
             <div className="p-5 border-b border-gray-200 dark:border-gray-700">
@@ -498,7 +498,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
                 {transaction.preview?.estimated_rows > (transaction.preview?.data?.length || 0) && (
                   <>
                     <div className="h-12 w-px bg-gray-200 dark:bg-gray-700" />
-                    <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                       <svg className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
@@ -575,14 +575,14 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
             )}
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-md p-4 mb-4 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 p-4 mb-4 border border-gray-200 dark:border-gray-700">
             <div className="mb-4">
               <label htmlFor="audit-mode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Audit Capture Mode
               </label>
               <select
                 id="audit-mode"
-                className="w-full sm:w-64 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                className="w-full sm:w-64 p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                 value={auditMode}
                 onChange={(e) => setAuditMode(e.target.value as AuditMode)}
                 disabled={submitting}
@@ -605,7 +605,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
             
             <div className="detail-section-label">Comments (optional)</div>
             <textarea
-              className="comment-area focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none w-full p-3 border rounded-md"
+            className="comment-area focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none w-full p-3 border"
               placeholder="Add final commit notes..."
               value={comment}
               onChange={(e) => setComment(e.target.value)}

@@ -57,6 +57,21 @@ func TestAuditService_BuildCountQuery(t *testing.T) {
 			query:       "SELECT * FROM users",
 			expectError: true,
 		},
+		{
+			name:     "DELETE with trailing semicolon",
+			query:    "DELETE FROM users WHERE id = 5;",
+			expected: "SELECT COUNT(*) FROM users WHERE id = 5",
+		},
+		{
+			name:     "UPDATE with trailing semicolon",
+			query:    "UPDATE users SET name = 'test' WHERE id > 10;",
+			expected: "SELECT COUNT(*) FROM users WHERE id > 10",
+		},
+		{
+			name:     "Complex UPDATE with IN clause and semicolon",
+			query:    "UPDATE product_masters SET conversion = 1 WHERE id IN (902594,711472);",
+			expected: "SELECT COUNT(*) FROM product_masters WHERE id IN (902594,711472)",
+		},
 	}
 
 	for _, tt := range tests {

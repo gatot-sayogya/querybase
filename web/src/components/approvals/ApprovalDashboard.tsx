@@ -36,7 +36,7 @@ export default function ApprovalDashboard() {
   return (
     <div className="approvals-grid">
       <motion.div
-        className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-sm p-6 approval-list"
+        className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-6 approval-list"
         variants={listVariants}
         initial="initial"
         animate="animate"
@@ -51,7 +51,7 @@ export default function ApprovalDashboard() {
       </motion.div>
 
       <motion.div
-        className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-sm p-6 detail-col"
+        className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-6 detail-col"
         variants={detailVariants}
         initial="initial"
         animate="animate"

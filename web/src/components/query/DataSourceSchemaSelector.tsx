@@ -392,7 +392,7 @@ export default function DataSourceSchemaSelector({
 
       {/* Schema Browser for Selected Data Source */}
       {value && (
-        <div className="glass rounded-3xl sleek-shadow border border-white/20 dark:border-white/5 overflow-hidden flex flex-col flex-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="glass rounded-3xl sleek-shadow overflow-hidden flex flex-col flex-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div className="bg-white/30 dark:bg-slate-800/30 px-3 py-3 border-b border-slate-200/50 dark:border-white/10 flex-shrink-0 backdrop-blur-sm">
             <div className={`flex items-center justify-between group/search px-1 h-6 transition-all duration-500 ease-spring ${isSearchHovered || searchTerm ? 'gap-0' : 'gap-2'}`}
                  onMouseEnter={() => setIsSearchHovered(true)}

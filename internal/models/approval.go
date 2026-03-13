@@ -89,26 +89,29 @@ const (
 
 // QueryTransaction represents an active database transaction for preview
 type QueryTransaction struct {
-	ID            uuid.UUID         `gorm:"type:uuid;primary_key" json:"id"`
-	ApprovalID    uuid.UUID         `gorm:"type:uuid;not null;uniqueIndex" json:"approval_id"`
-	DataSourceID  uuid.UUID         `gorm:"type:uuid;not null" json:"data_source_id"`
-	QueryText     string            `gorm:"type:text;not null" json:"query_text"`
-	StartedBy     uuid.UUID         `gorm:"type:uuid;not null" json:"started_by"`
-	Status        TransactionStatus `gorm:"default:'active'" json:"status"`
-	PreviewData   string            `gorm:"type:jsonb" json:"preview_data"`
-	AffectedRows  int               `json:"affected_rows"`
-	EstimatedRows int               `gorm:"default:0" json:"estimated_rows"`
-	AuditMode     AuditMode         `gorm:"default:'count_only'" json:"audit_mode"`
-	BeforeData    string            `gorm:"type:jsonb" json:"before_data"`
-	AfterData     string            `gorm:"type:jsonb" json:"after_data"`
-	ErrorMessage  string            `json:"error_message"`
-	StartedAt     time.Time         `gorm:"default:CURRENT_TIMESTAMP" json:"started_at"`
-	CompletedAt   *time.Time        `json:"completed_at"`
+	ID             uuid.UUID         `gorm:"type:uuid;primary_key" json:"id"`
+	ApprovalID     uuid.UUID         `gorm:"type:uuid;not null;uniqueIndex" json:"approval_id"`
+	DataSourceID   uuid.UUID         `gorm:"type:uuid;not null" json:"data_source_id"`
+	QueryText      string            `gorm:"type:text;not null" json:"query_text"`
+	StartedBy      uuid.UUID         `gorm:"type:uuid;not null" json:"started_by"`
+	Status         TransactionStatus `gorm:"default:'active'" json:"status"`
+	PreviewData    string            `gorm:"type:jsonb" json:"preview_data"`
+	AffectedRows   int               `json:"affected_rows"`
+	EstimatedRows  int               `gorm:"default:0" json:"estimated_rows"`
+	AuditMode      AuditMode         `gorm:"default:'count_only'" json:"audit_mode"`
+	BeforeData     string            `gorm:"type:jsonb" json:"before_data"`
+	AfterData      string            `gorm:"type:jsonb" json:"after_data"`
+	ErrorMessage   string            `json:"error_message"`
+	StartedAt      time.Time         `gorm:"default:CURRENT_TIMESTAMP" json:"started_at"`
+	CompletedAt    *time.Time        `json:"completed_at"`
+	IsMultiQuery   bool              `gorm:"default:false" json:"is_multi_query"`
+	StatementCount int               `gorm:"default:1" json:"statement_count"`
 
 	// Foreign key relationships
-	Approval      ApprovalRequest `gorm:"foreignKey:ApprovalID" json:"-"`
-	DataSource    DataSource      `gorm:"foreignKey:DataSourceID" json:"-"`
-	StartedByUser User            `gorm:"foreignKey:StartedBy" json:"-"`
+	Approval      ApprovalRequest             `gorm:"foreignKey:ApprovalID" json:"-"`
+	DataSource    DataSource                  `gorm:"foreignKey:DataSourceID" json:"-"`
+	StartedByUser User                        `gorm:"foreignKey:StartedBy" json:"-"`
+	Statements    []QueryTransactionStatement `gorm:"foreignKey:TransactionID" json:"statements,omitempty"`
 }
 
 // TableName specifies the table name for QueryTransaction

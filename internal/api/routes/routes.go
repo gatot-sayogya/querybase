@@ -14,7 +14,7 @@ import (
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHandler *handlers.QueryHandler, approvalHandler *handlers.ApprovalHandler, dataSourceHandler *handlers.DataSourceHandler, groupHandler *handlers.GroupHandler, schemaHandler *handlers.SchemaHandler, webSocketHandler *handlers.WebSocketHandler, statsHandler *handlers.StatsHandler, jwtManager *auth.JWTManager, blacklist *service.TokenBlacklistService) {
+func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHandler *handlers.QueryHandler, approvalHandler *handlers.ApprovalHandler, dataSourceHandler *handlers.DataSourceHandler, groupHandler *handlers.GroupHandler, schemaHandler *handlers.SchemaHandler, webSocketHandler *handlers.WebSocketHandler, statsHandler *handlers.StatsHandler, multiQueryHandler *handlers.MultiQueryHandler, jwtManager *auth.JWTManager, blacklist *service.TokenBlacklistService) {
 	// Serve static files from the "web/out" directory
 	// This assumes the frontend has been built to this directory
 	router.Use(func(c *gin.Context) {
@@ -176,6 +176,13 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 
 				// Query preview route (for DELETE/UPDATE)
 				queries.POST("/preview", queryHandler.PreviewWriteQuery)
+
+				// Multi-query routes
+				queries.POST("/multi/preview", multiQueryHandler.PreviewMultiQuery)
+				queries.POST("/multi/execute", multiQueryHandler.ExecuteMultiQuery)
+				queries.GET("/multi/:id/statements", multiQueryHandler.GetMultiQueryStatements)
+				queries.POST("/multi/:id/commit", multiQueryHandler.CommitMultiQuery)
+				queries.POST("/multi/:id/rollback", multiQueryHandler.RollbackMultiQuery)
 			}
 
 			// Approval routes

@@ -508,6 +508,16 @@ func TestConvertDeleteToSelect(t *testing.T) {
 			deleteSQL:         "DELETE FROM public.users WHERE id = 1",
 			expectedSelectSQL: "SELECT * FROM public.users WHERE id = 1",
 		},
+		{
+			name:              "DELETE with trailing semicolon",
+			deleteSQL:         "DELETE FROM users WHERE id = 1;",
+			expectedSelectSQL: "SELECT * FROM users WHERE id = 1",
+		},
+		{
+			name:              "DELETE with semicolon and whitespace",
+			deleteSQL:         "DELETE FROM users WHERE id IN (1,2,3);  ",
+			expectedSelectSQL: "SELECT * FROM users WHERE id IN (1,2,3)",
+		},
 	}
 
 	for _, tt := range tests {
@@ -515,6 +525,75 @@ func TestConvertDeleteToSelect(t *testing.T) {
 			result := convertDeleteToSelect(tt.deleteSQL)
 			if result != tt.expectedSelectSQL {
 				t.Errorf("convertDeleteToSelect() = %q, want %q", result, tt.expectedSelectSQL)
+			}
+		})
+	}
+}
+
+// TestConvertUpdateToSelect tests the UPDATE to SELECT conversion
+func TestConvertUpdateToSelect(t *testing.T) {
+	tests := []struct {
+		name              string
+		updateSQL         string
+		expectedSelectSQL string
+	}{
+		{
+			name:              "Simple UPDATE",
+			updateSQL:         "UPDATE users SET name = 'John' WHERE id = 1",
+			expectedSelectSQL: "SELECT * FROM users WHERE id = 1",
+		},
+		{
+			name:              "UPDATE with multiple columns",
+			updateSQL:         "UPDATE users SET name = 'John', email = 'john@example.com' WHERE id = 1",
+			expectedSelectSQL: "SELECT * FROM users WHERE id = 1",
+		},
+		{
+			name:              "UPDATE with IN clause",
+			updateSQL:         "UPDATE product_masters SET conversion = 1 WHERE id IN (902594,711472)",
+			expectedSelectSQL: "SELECT * FROM product_masters WHERE id IN (902594,711472)",
+		},
+		{
+			name:              "UPDATE with trailing semicolon",
+			updateSQL:         "UPDATE users SET name = 'John' WHERE id = 1;",
+			expectedSelectSQL: "SELECT * FROM users WHERE id = 1",
+		},
+		{
+			name:              "UPDATE with semicolon and whitespace",
+			updateSQL:         "UPDATE users SET name = 'John' WHERE id IN (1,2,3);  ",
+			expectedSelectSQL: "SELECT * FROM users WHERE id IN (1,2,3)",
+		},
+		{
+			name:              "UPDATE without WHERE",
+			updateSQL:         "UPDATE users SET status = 'active'",
+			expectedSelectSQL: "SELECT * FROM users",
+		},
+		{
+			name:              "UPDATE with lowercase",
+			updateSQL:         "update users set name = 'John' where id = 1",
+			expectedSelectSQL: "SELECT * FROM users where id = 1",
+		},
+		{
+			name:              "UPDATE with comments",
+			updateSQL:         "-- Update user\nUPDATE users SET name = 'John' WHERE id = 1",
+			expectedSelectSQL: "SELECT * FROM users WHERE id = 1",
+		},
+		{
+			name:              "UPDATE with schema-qualified table",
+			updateSQL:         "UPDATE public.users SET name = 'John' WHERE id = 1",
+			expectedSelectSQL: "SELECT * FROM public.users WHERE id = 1",
+		},
+		{
+			name:              "Complex UPDATE with timestamps",
+			updateSQL:         "UPDATE product_masters SET conversion = 1, updated_at = '2026-03-08 16:16:16', updated_by = 5285816 WHERE id IN (902594,711472);",
+			expectedSelectSQL: "SELECT * FROM product_masters WHERE id IN (902594,711472)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertUpdateToSelect(tt.updateSQL)
+			if result != tt.expectedSelectSQL {
+				t.Errorf("convertUpdateToSelect() = %q, want %q", result, tt.expectedSelectSQL)
 			}
 		})
 	}

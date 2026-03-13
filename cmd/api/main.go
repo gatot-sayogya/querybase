@@ -99,6 +99,7 @@ func main() {
 	schemaHandler := handlers.NewSchemaHandler(db, schemaService)
 	webSocketHandler := handlers.NewWebSocketHandler(wsHub, schemaService)
 	statsHandler := handlers.NewStatsHandler(statsService)
+	multiQueryHandler := handlers.NewMultiQueryHandler(db, service.NewMultiQueryService(db, queryService, auditService, approvalService), queryService, approvalService)
 
 	// Register WebSocket broadcast callback
 	statsService.SetStatsChangedCallback(func() {
@@ -135,7 +136,7 @@ func main() {
 	})
 
 	// Setup routes
-	routes.SetupRoutes(router, authHandler, queryHandler, approvalHandler, dataSourceHandler, groupHandler, schemaHandler, webSocketHandler, statsHandler, jwtManager, blacklistService)
+	routes.SetupRoutes(router, authHandler, queryHandler, approvalHandler, dataSourceHandler, groupHandler, schemaHandler, webSocketHandler, statsHandler, multiQueryHandler, jwtManager, blacklistService)
 
 	// Start server
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)

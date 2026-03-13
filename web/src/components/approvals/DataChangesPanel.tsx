@@ -36,14 +36,14 @@ export default function DataChangesPanel({
   const dataExists = (beforeData && beforeData.length > 0) || (afterData && afterData.length > 0);
 
   return (
-    <div className="mt-6 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden flex flex-col">
+    <div className="mt-6 border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
       <div 
         className="bg-gray-50 dark:bg-gray-800/50 p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div>
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+            <span className="flex h-6 w-6 items-center justify-center bg-green-100 dark:bg-green-900/30">
               <svg className="h-4 w-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
@@ -56,7 +56,7 @@ export default function DataChangesPanel({
             </span>
             <span>&bull;</span>
             <span className="flex items-center gap-1">
-              Audit mode: <span className="px-1.5 py-0.5 rounded text-xs font-mono bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">{auditMode}</span>
+              Audit mode: <span className="px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">{auditMode}</span>
             </span>
             {completedAt && (
               <>
@@ -72,7 +72,7 @@ export default function DataChangesPanel({
             )}
           </div>
         </div>
-        <button className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:text-gray-300 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:text-gray-300 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
           <svg
             className={`h-5 w-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
             fill="none"

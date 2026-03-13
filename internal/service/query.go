@@ -740,8 +740,9 @@ func (s *QueryService) DryRunDelete(ctx context.Context, queryText string, dataS
 func convertDeleteToSelect(queryText string) string {
 	trimmedSQL := strings.TrimSpace(queryText)
 
-	// Remove comments
+	// Remove comments and trailing semicolon
 	trimmedSQL = SanitizeSQL(trimmedSQL)
+	trimmedSQL = strings.TrimRight(trimmedSQL, "; ")
 	upperSQL := strings.ToUpper(trimmedSQL)
 
 	// Pattern: DELETE [FROM] table_name [WHERE ...]
@@ -767,6 +768,7 @@ func convertDeleteToSelect(queryText string) string {
 func convertUpdateToSelect(queryText string) string {
 	trimmedSQL := strings.TrimSpace(queryText)
 	trimmedSQL = SanitizeSQL(trimmedSQL)
+	trimmedSQL = strings.TrimRight(trimmedSQL, "; ")
 	upperSQL := strings.ToUpper(trimmedSQL)
 
 	// Extract table name: UPDATE table_name SET ...
