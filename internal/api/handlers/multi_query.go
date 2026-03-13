@@ -203,9 +203,10 @@ func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
 	// If approval required, create approval request
 	if requiresApproval {
 		approval := &models.ApprovalRequest{
+			ID:            uuid.New(),
 			RequestedBy:   userUUID,
 			OperationType: models.OperationUpdate, // Use most restrictive type
-			QueryText:     req.QueryTexts[0],
+			QueryText:     fullQueryText,
 			DataSourceID:  dataSourceID,
 			Status:        models.ApprovalStatusPending,
 		}
