@@ -225,11 +225,47 @@ func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
 		return
 	}
 
-	// Execute immediately (SELECT only or admin with bypass)
-	// For now, return not implemented for direct execution
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"error": "Direct execution of multi-query not yet implemented. Use approval flow.",
-	})
+	// Execute immediately for admins or SELECT-only queries
+	// Create a temporary transaction and execute it
+	transaction, err := h.multiQuerySvc.CreateMultiQueryTransaction(c.Request.Context(), uuid.Nil, queryTexts, userUUID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction: " + err.Error()})
+		return
+	}
+
+	// Execute the multi-query
+	result, err := h.multiQuerySvc.ExecuteMultiQuery(c.Request.Context(), transaction.ID, models.AuditModeCountOnly)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to execute multi-query: " + err.Error()})
+		return
+	}
+
+	// Return the execution result
+	response := dto.MultiQueryResponse{
+		TransactionID:     result.TransactionID.String(),
+		Status:            result.Status,
+		IsMultiQuery:      true,
+		StatementCount:    len(result.Statements),
+		TotalAffectedRows: result.TotalAffectedRows,
+		ExecutionTimeMs:   int(result.ExecutionTimeMs),
+		Statements:        make([]dto.StatementResult, len(result.Statements)),
+		ErrorMessage:      result.ErrorMessage,
+		RequiresApproval:  false,
+	}
+
+	for i, stmt := range result.Statements {
+		response.Statements[i] = dto.StatementResult{
+			Sequence:        stmt.Sequence,
+			QueryText:       stmt.QueryText,
+			OperationType:   string(stmt.OperationType),
+			Status:          string(stmt.Status),
+			AffectedRows:    stmt.AffectedRows,
+			ErrorMessage:    stmt.ErrorMessage,
+			ExecutionTimeMs: stmt.ExecutionTimeMs,
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // GetMultiQueryStatements retrieves all statements for a transaction
