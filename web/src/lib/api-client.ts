@@ -272,8 +272,8 @@ class ApiClient {
     return response.data;
   }
 
-  async getQuery(id: string): Promise<Query & { results?: QueryResult }> {
-    const response = await this.client.get<Query & { results?: QueryResult }>(`/api/v1/queries/${id}`);
+  async getQuery(id: string): Promise<Query & { result?: QueryResult; results?: QueryResult }> {
+    const response = await this.client.get<Query & { result?: QueryResult; results?: QueryResult }>(`/api/v1/queries/${id}`);
     return response.data;
   }
 

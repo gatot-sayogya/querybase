@@ -20,6 +20,8 @@ import { MultiQueryPreviewModal } from './MultiQueryPreviewModal';
 import { MultiQueryResults } from './MultiQueryResults';
 import { previewMultiQuery, executeMultiQuery } from '@/lib/api/multi-query';
 import type { MultiQueryPreviewResponse, MultiQueryResponse } from '@/lib/api/multi-query';
+import QueryValidationModal from './QueryValidationModal';
+import QueryStatusIndicator, { useQueryStatus } from './QueryStatusIndicator';
 
 const SQLEditor = dynamic(() => import('./SQLEditor'), { ssr: false });
 
@@ -45,6 +47,13 @@ export default function QueryExecutor() {
   const [multiQueryPreview, setMultiQueryPreview] = useState<MultiQueryPreviewResponse | null>(null);
   const [multiQueryResults, setMultiQueryResults] = useState<MultiQueryResponse | null>(null);
   const [showMultiQueryPreview, setShowMultiQueryPreview] = useState(false);
+
+  // Validation state
+  const [validationResult, setValidationResult] = useState<any>(null);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+
+  // Query status management
+  const queryStatus = useQueryStatus();
 
   // Resizing state
   const [isSidebarResizing, setIsSidebarResizing] = useState(false);
@@ -122,6 +131,9 @@ export default function QueryExecutor() {
     setPermissionError(null);
     setResults(null);
     setQueryId(null);
+    queryStatus.setRunning();
+
+    const startTime = Date.now();
 
     try {
       // Check if this is a multi-query (semicolon-separated)
@@ -150,6 +162,8 @@ export default function QueryExecutor() {
 
       // Add LIMIT if not present and query is SELECT
       let finalQuery = queryText.trim();
+      // Remove trailing semicolon for LIMIT check and addition
+      finalQuery = finalQuery.replace(/;+\s*$/, '');
       const isSelectQuery = /^\s*SELECT\s/i.test(finalQuery);
       const isDeleteQuery = /^\s*DELETE\s/i.test(finalQuery);
       const isUpdateQuery = /^\s*UPDATE\s/i.test(finalQuery);
@@ -183,6 +197,20 @@ export default function QueryExecutor() {
       });
 
       console.log('Query response:', response);
+      console.log('Response data:', (response as any).data);
+      console.log('Response columns:', (response as any).columns);
+      console.log('Response row_count:', (response as any).row_count);
+      console.log('Response status:', response.status);
+
+      // Check for validation result (no_match status)
+      if (response.status === 'no_match' && (response as any).validation) {
+        console.log('Query validation returned no_match:', (response as any).validation);
+        setValidationResult((response as any).validation);
+        setShowValidationModal(true);
+        queryStatus.setNoMatch((response as any).validation?.message);
+        setLoading(false);
+        return;
+      }
 
       // Backend returns query_id (not id) in ExecuteQueryResponse
       const qid = (response as any).query_id || response.id;
@@ -195,36 +223,61 @@ export default function QueryExecutor() {
       setQueryId(qid);
 
       // Check if results are included in the response
-      const hasData = (response as any).data && Array.isArray((response as any).data);
-      const hasColumns = (response as any).columns && Array.isArray((response as any).columns);
+      const hasData = (response as any).data && Array.isArray((response as any).data) && (response as any).data.length > 0;
+      const hasColumns = (response as any).columns && Array.isArray((response as any).columns) && (response as any).columns.length > 0;
+
+      console.log('Has data:', hasData, 'Has columns:', hasColumns);
 
       // Poll for results if query is still running
       if (response.status === 'running' || response.status === 'pending') {
-        pollForResult(qid);
+        console.log('Query still running/pending, polling for results');
+        pollForResult(qid, startTime);
       } else if (response.status === 'completed' && hasData && hasColumns) {
         // Use the results from the response directly
+        console.log('Using results from initial response');
+        const executionTime = Date.now() - startTime;
+        const rowCount = (response as any).row_count || 0;
         setResults({
           query_id: qid,
-          row_count: (response as any).row_count || 0,
+          row_count: rowCount,
           columns: (response as any).columns,
           data: (response as any).data,
         });
+        queryStatus.setCompleted(executionTime, rowCount);
         setLoading(false);
       } else if (response.status === 'completed') {
         // Fetch results from server
+        console.log('Fetching results for query:', qid);
         const queryWithResults = await apiClient.getQuery(qid);
-        if (queryWithResults.results) {
-          setResults(queryWithResults.results);
+        console.log('Got query with results:', queryWithResults);
+        const resultData = queryWithResults.results || queryWithResults.result;
+        const executionTime = Date.now() - startTime;
+        if (resultData && resultData.data && resultData.columns) {
+          console.log('Setting results:', resultData);
+          const rowCount = resultData.row_count || 0;
+          setResults({
+            query_id: resultData.query_id || qid,
+            row_count: rowCount,
+            columns: resultData.columns,
+            data: resultData.data,
+          });
+          queryStatus.setCompleted(executionTime, rowCount);
+        } else {
+          console.log('No results found in query response or data is null:', resultData);
+          queryStatus.setCompleted(executionTime, 0);
         }
         setLoading(false);
       } else if (response.status === 'failed') {
         setError(response.error_message || 'Query execution failed');
+        queryStatus.setFailed(response.error_message);
         setLoading(false);
       } else {
         setLoading(false);
+        queryStatus.reset();
       }
     } catch (err: any) {
       console.error('Query execution error:', err);
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to execute query';
       if (err.response?.data?.code === 'PERMISSION_DENIED_WRITE') {
         const data = err.response.data;
         setPermissionError({
@@ -233,18 +286,21 @@ export default function QueryExecutor() {
           dataSource: data.data_source
         });
         setError(null);
+        queryStatus.setFailed('Permission denied');
       } else {
-        setError(err.response?.data?.error || err.message || 'Failed to execute query');
+        setError(errorMessage);
         setPermissionError(null);
+        queryStatus.setFailed(errorMessage);
       }
       setLoading(false);
     }
   };
 
-  const pollForResult = async (id: string) => {
+  const pollForResult = async (id: string, startTime: number) => {
     if (!id) {
       console.error('pollForResult called with invalid ID:', id);
       setError('Invalid query ID');
+      queryStatus.setFailed('Invalid query ID');
       setLoading(false);
       return;
     }
@@ -260,23 +316,32 @@ export default function QueryExecutor() {
 
         if (query.status === 'completed') {
           clearInterval(interval);
+          const executionTime = Date.now() - startTime;
           if (query.results) {
+            const rowCount = query.results.row_count || 0;
             setResults(query.results);
+            queryStatus.setCompleted(executionTime, rowCount);
+          } else {
+            queryStatus.setCompleted(executionTime, 0);
           }
           setLoading(false);
         } else if (query.status === 'failed') {
           clearInterval(interval);
           setError(query.error_message || 'Query execution failed');
+          queryStatus.setFailed(query.error_message);
           setLoading(false);
         } else if (attempts >= maxAttempts) {
           clearInterval(interval);
           setError('Query execution timed out');
+          queryStatus.setFailed('Query execution timed out');
           setLoading(false);
         }
       } catch (err) {
         clearInterval(interval);
         console.error('Poll result error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch query status');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch query status';
+        setError(errorMessage);
+        queryStatus.setFailed(errorMessage);
         setLoading(false);
       }
     }, 1000);
@@ -456,9 +521,12 @@ export default function QueryExecutor() {
       const queryTexts = multiQueryPreview.statements.map(s => s.query_text);
       const response = await executeMultiQuery(dataSourceId, queryTexts);
       
-      if (response.requires_approval) {
-        toast.success('Multi-query submitted for approval');
-        // TODO: Navigate to approvals page
+      if (response.requires_approval && response.approval_id) {
+        toast.success('Query submitted for approval');
+        router.push(`/dashboard/approvals?id=${response.approval_id}`);
+      } else if (response.requires_approval) {
+        toast.success('Query submitted for approval');
+        router.push('/dashboard/approvals');
       } else {
         setMultiQueryResults(response);
         toast.success('Multi-query executed successfully');
@@ -505,6 +573,22 @@ export default function QueryExecutor() {
           loading={loading}
         />
       )}
+
+      {/* Query Validation Modal */}
+      <QueryValidationModal
+        isOpen={showValidationModal}
+        validation={validationResult}
+        queryText={queryText}
+        onEdit={() => {
+          setShowValidationModal(false);
+          setValidationResult(null);
+          // Keep query text for editing
+        }}
+        onCancel={() => {
+          setShowValidationModal(false);
+          setValidationResult(null);
+        }}
+      />
       <div className={`flex h-full overflow-hidden bg-gray-50 dark:bg-gray-900/50 p-2 gap-0 ${isSidebarResizing || isEditorResizing ? 'select-none' : ''} ${isSidebarResizing ? 'cursor-col-resize' : ''} ${isEditorResizing ? 'cursor-row-resize' : ''}`}>
         {/* Data Source & Schema Sidebar */}
         <motion.div 
@@ -795,6 +879,24 @@ export default function QueryExecutor() {
                     </div>
                   </div>
                   <div className="flex-1 overflow-hidden flex flex-col bg-transparent">
+                    {/* Query Status Indicator */}
+                    <AnimatePresence>
+                      {queryStatus.status !== 'idle' && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="px-4 pt-2"
+                        >
+                          <QueryStatusIndicator
+                            status={queryStatus.status}
+                            executionTime={queryStatus.executionTime}
+                            rowCount={queryStatus.rowCount}
+                            message={queryStatus.message}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                     <QueryResults
                       queryId={queryId}
                       results={results}

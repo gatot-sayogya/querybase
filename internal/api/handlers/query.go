@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -61,8 +62,28 @@ func (h *QueryHandler) ExecuteQuery(c *gin.Context) {
 	// Detect operation type
 	operationType := service.DetectOperationType(req.QueryText)
 
-	// For write operations, create approval request
+	// For write operations, validate first before creating approval
 	if service.RequiresApproval(operationType) {
+		// Validate the write query to check if it would affect any rows
+		validation, err := h.queryService.PreviewAndValidateWriteQuery(c, req.QueryText, &dataSource)
+		if err != nil {
+			log.Printf("[ExecuteQuery] Validation error: %v", err)
+			// If validation fails, proceed with approval creation anyway (fail open)
+			h.createApprovalForQuery(c, req, dataSource, userID, operationType)
+			return
+		}
+
+		// If validation shows no rows would be affected, return early
+		if validation != nil && validation.Status == "no_match" {
+			c.JSON(http.StatusOK, dto.ExecuteQueryResponse{
+				QueryID:    "",
+				Status:     "no_match",
+				Validation: validation,
+			})
+			return
+		}
+
+		// Validation passed, proceed with approval creation
 		h.createApprovalForQuery(c, req, dataSource, userID, operationType)
 		return
 	}
@@ -107,9 +128,21 @@ func (h *QueryHandler) ExecuteQuery(c *gin.Context) {
 
 	executionTime := int(time.Since(startTime).Milliseconds())
 
+	log.Printf("[ExecuteQuery] Query executed: ID=%s, RowCount=%d, DataLength=%d, ColumnNames=%s",
+		query.ID.String(), result.RowCount, len(result.Data), result.ColumnNames)
+
 	// Parse results
 	var data []map[string]interface{}
-	json.Unmarshal([]byte(result.Data), &data)
+	if result.Data != "" {
+		if err := json.Unmarshal([]byte(result.Data), &data); err != nil {
+			log.Printf("[ExecuteQuery] Failed to parse data JSON: %v", err)
+			data = []map[string]interface{}{}
+		}
+	} else {
+		data = []map[string]interface{}{}
+	}
+
+	log.Printf("[ExecuteQuery] Parsed data: %d rows", len(data))
 
 	// Parse column names from JSON string
 	var columnNames []string
@@ -219,7 +252,29 @@ func (h *QueryHandler) GetQuery(c *gin.Context) {
 
 	var data []map[string]interface{}
 	if result.Data != "" {
-		json.Unmarshal([]byte(result.Data), &data)
+		if err := json.Unmarshal([]byte(result.Data), &data); err != nil {
+			log.Printf("[GetQuery] Failed to parse data JSON: %v", err)
+			data = []map[string]interface{}{}
+		}
+	} else {
+		data = []map[string]interface{}{}
+	}
+
+	// Parse column names from JSON string
+	var columnNames []string
+	if result.ColumnNames != "" {
+		if err := json.Unmarshal([]byte(result.ColumnNames), &columnNames); err != nil {
+			log.Printf("[GetQuery] Failed to parse column names JSON: %v", err)
+			columnNames = []string{}
+		}
+	} else {
+		columnNames = []string{}
+	}
+
+	// Build column info
+	columns := make([]dto.ColumnInfo, len(columnNames))
+	for i, col := range columnNames {
+		columns[i] = dto.ColumnInfo{Name: col, Type: "unknown"}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -232,9 +287,10 @@ func (h *QueryHandler) GetQuery(c *gin.Context) {
 		"status":         string(query.Status),
 		"user_id":        query.UserID.String(),
 		"created_at":     query.CreatedAt,
-		"result": gin.H{
+		"results": gin.H{
+			"query_id":  result.QueryID.String(),
 			"row_count": result.RowCount,
-			"columns":   result.ColumnNames,
+			"columns":   columns,
 			"data":      data,
 		},
 	})

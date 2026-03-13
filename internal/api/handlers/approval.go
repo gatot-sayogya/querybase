@@ -283,11 +283,11 @@ func (h *ApprovalHandler) formatApprovalResponse(approval models.ApprovalRequest
 		var tx models.QueryTransaction
 		if err := h.db.Where("approval_id = ? AND status = ?", approval.ID, models.TransactionStatusCommitted).First(&tx).Error; err == nil {
 			var beforeData, afterData []map[string]interface{}
-			if tx.BeforeData != "" {
-				json.Unmarshal([]byte(tx.BeforeData), &beforeData)
+			if tx.BeforeData != nil && *tx.BeforeData != "" {
+				json.Unmarshal([]byte(*tx.BeforeData), &beforeData)
 			}
-			if tx.AfterData != "" {
-				json.Unmarshal([]byte(tx.AfterData), &afterData)
+			if tx.AfterData != nil && *tx.AfterData != "" {
+				json.Unmarshal([]byte(*tx.AfterData), &afterData)
 			}
 
 			txData := gin.H{
@@ -403,8 +403,8 @@ func (h *ApprovalHandler) StartTransaction(c *gin.Context) {
 	var previewData []map[string]interface{}
 	var columns []string
 
-	if transaction.PreviewData != "" {
-		json.Unmarshal([]byte(transaction.PreviewData), &previewData)
+	if transaction.PreviewData != nil && *transaction.PreviewData != "" {
+		json.Unmarshal([]byte(*transaction.PreviewData), &previewData)
 	}
 
 	// Get column names from the result
@@ -433,9 +433,13 @@ func (h *ApprovalHandler) StartTransaction(c *gin.Context) {
 	}
 
 	// Format response
+	approvalIDStr := ""
+	if transaction.ApprovalID != nil {
+		approvalIDStr = transaction.ApprovalID.String()
+	}
 	c.JSON(http.StatusOK, dto.TransactionResponse{
 		TransactionID: transaction.ID.String(),
-		ApprovalID:    transaction.ApprovalID.String(),
+		ApprovalID:    approvalIDStr,
 		Status:        string(transaction.Status),
 		QueryText:     transaction.QueryText,
 		DataSourceID:  transaction.DataSourceID.String(),
@@ -484,18 +488,23 @@ func (h *ApprovalHandler) CommitTransaction(c *gin.Context) {
 
 	// Parse before/after data
 	var beforeData, afterData []map[string]interface{}
-	if updatedTx.BeforeData != "" {
-		json.Unmarshal([]byte(updatedTx.BeforeData), &beforeData)
+	if updatedTx.BeforeData != nil && *updatedTx.BeforeData != "" {
+		json.Unmarshal([]byte(*updatedTx.BeforeData), &beforeData)
 	}
-	if updatedTx.AfterData != "" {
-		json.Unmarshal([]byte(updatedTx.AfterData), &afterData)
+	if updatedTx.AfterData != nil && *updatedTx.AfterData != "" {
+		json.Unmarshal([]byte(*updatedTx.AfterData), &afterData)
+	}
+
+	approvalIDStr := ""
+	if transaction.ApprovalID != nil {
+		approvalIDStr = transaction.ApprovalID.String()
 	}
 
 	c.JSON(http.StatusOK, dto.CommitTransactionResponse{
 		TransactionID: transactionID,
 		Status:        "committed",
 		Message:       "Transaction committed successfully",
-		ApprovalID:    transaction.ApprovalID.String(),
+		ApprovalID:    approvalIDStr,
 		AffectedRows:  updatedTx.AffectedRows,
 		AuditMode:     string(updatedTx.AuditMode),
 		BeforeData:    beforeData,
@@ -528,11 +537,16 @@ func (h *ApprovalHandler) RollbackTransaction(c *gin.Context) {
 		return
 	}
 
+	approvalIDStr := ""
+	if transaction.ApprovalID != nil {
+		approvalIDStr = transaction.ApprovalID.String()
+	}
+
 	c.JSON(http.StatusOK, dto.RollbackTransactionResponse{
 		TransactionID: transactionID,
 		Status:        "rolled_back",
 		Message:       "Transaction rolled back successfully",
-		ApprovalID:    transaction.ApprovalID.String(),
+		ApprovalID:    approvalIDStr,
 	})
 }
 
@@ -561,9 +575,14 @@ func (h *ApprovalHandler) GetTransactionStatus(c *gin.Context) {
 	}
 
 	// Format response
+	approvalIDStr := ""
+	if transaction.ApprovalID != nil {
+		approvalIDStr = transaction.ApprovalID.String()
+	}
+
 	response := dto.TransactionStatusResponse{
 		TransactionID: transaction.ID.String(),
-		ApprovalID:    transaction.ApprovalID.String(),
+		ApprovalID:    approvalIDStr,
 		Status:        string(transaction.Status),
 		QueryText:     transaction.QueryText,
 		DataSourceID:  transaction.DataSourceID.String(),

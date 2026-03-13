@@ -67,11 +67,17 @@ export interface Query {
   query_text: string;
   name?: string;
   description?: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'no_match';
   created_at: string;
   executed_at?: string;
   row_count?: number;
   error_message?: string;
+  // These fields are returned when executing a query
+  data?: Record<string, unknown>[];
+  columns?: ColumnInfo[];
+  execution_time_ms?: number;
+  requires_approval?: boolean;
+  approval_id?: string;
 }
 
 export interface QueryResult {

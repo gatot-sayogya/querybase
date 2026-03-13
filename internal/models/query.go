@@ -36,6 +36,7 @@ const (
 	OperationCreateTable OperationType = "create_table"
 	OperationDropTable   OperationType = "drop_table"
 	OperationAlterTable  OperationType = "alter_table"
+	OperationSet         OperationType = "set"
 )
 
 // Compatibility constants with OperationType prefix

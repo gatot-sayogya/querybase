@@ -142,25 +142,45 @@ docker-logs: ## View Docker logs
 migrate-up: ## Run database migrations
 	@echo "Running database migrations..."
 	@echo "  → Applying migration 000001: Initial schema..."
-	@psql -h localhost -U querybase -d querybase -f migrations/000001_init_schema.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000001_init_schema.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
 	@echo "  → Applying migration 000002: Update query_results schema..."
-	@psql -h localhost -U querybase -d querybase -f migrations/000002_update_query_results_schema.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000002_update_query_results_schema.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
 	@echo "  → Applying migration 000003: Remove caching, rename columns..."
-	@psql -h localhost -U querybase -d querybase -f migrations/000003_remove_caching_rename_columns.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000003_remove_caching_rename_columns.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
 	@echo "  → Applying migration 000004: Add query_transactions table..."
-	@psql -h localhost -U querybase -d querybase -f migrations/000004_add_query_transactions.up.sql
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000004_add_query_transactions.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
+	@echo "  → Applying migration 000005: Add approval comments..."
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000005_add_approval_comments.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
+	@echo "  → Applying migration 000006: Add audit execution..."
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000006_add_audit_execution.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
+	@echo "  → Applying migration 000006: Group role policies..."
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000006_group_role_policies.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
+	@echo "  → Applying migration 000007: Add multi-query statements..."
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000007_add_multi_query_statements.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
+	@echo "  → Applying migration 000008: Make approval_id nullable..."
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000008_make_approval_id_nullable.up.sql 2>/dev/null || echo "    (Already applied or error occurred)"
 	@echo "✅ Migrations applied successfully"
 
 migrate-down: ## Rollback database migrations
 	@echo "Rolling back database migrations..."
+	@echo "  → Rolling back migration 000008..."
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000008_make_approval_id_nullable.down.sql 2>/dev/null || echo "    (Error occurred)"
+	@echo "  → Rolling back migration 000007..."
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000007_add_multi_query_statements.down.sql 2>/dev/null || echo "    (Error occurred)"
+	@echo "  → Rolling back migration 000006: Group role policies..."
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000006_group_role_policies.down.sql 2>/dev/null || echo "    (Error occurred)"
+	@echo "  → Rolling back migration 000006: Audit execution..."
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000006_add_audit_execution.down.sql 2>/dev/null || echo "    (Error occurred)"
+	@echo "  → Rolling back migration 000005..."
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000005_add_approval_comments.down.sql 2>/dev/null || echo "    (Error occurred)"
 	@echo "  → Rolling back migration 000004..."
-	@psql -h localhost -U querybase -d querybase -f migrations/000004_add_query_transactions.down.sql
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000004_add_query_transactions.down.sql 2>/dev/null || echo "    (Error occurred)"
 	@echo "  → Rolling back migration 000003..."
-	@psql -h localhost -U querybase -d querybase -f migrations/000003_remove_caching_rename_columns.down.sql
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000003_remove_caching_rename_columns.down.sql 2>/dev/null || echo "    (Error occurred)"
 	@echo "  → Rolling back migration 000002..."
-	@psql -h localhost -U querybase -d querybase -f migrations/000002_update_query_results_schema.down.sql
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000002_update_query_results_schema.down.sql 2>/dev/null || echo "    (Error occurred)"
 	@echo "  → Rolling back migration 000001..."
-	@psql -h localhost -U querybase -d querybase -f migrations/000001_init_schema.down.sql
+	@psql -h localhost -U querybase -d querybase -f migrations/postgresql/000001_init_schema.down.sql 2>/dev/null || echo "    (Error occurred)"
 	@echo "✅ Migrations rolled back"
 
 migrate-status: ## Check migration status

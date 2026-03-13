@@ -7,12 +7,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yourorg/querybase/internal/api/dto"
 	"github.com/yourorg/querybase/internal/models"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -166,6 +168,8 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 		}, nil
 	}
 
+	log.Printf("[ExecuteQuery] Executing on DB: %s", query.QueryText)
+
 	rows, err := dataSourceDB.Raw(query.QueryText).Rows()
 	if err != nil {
 		// Update query status to failed
@@ -183,6 +187,8 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 	if err != nil {
 		return nil, fmt.Errorf("failed to get columns: %w", err)
 	}
+
+	log.Printf("[ExecuteQuery] Got %d columns from DB", len(columns))
 
 	// Get column types from the result set
 	columnTypes, err := rows.ColumnTypes()
@@ -244,6 +250,8 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 		return nil, fmt.Errorf("failed to serialize column types: %w", err)
 	}
 
+	log.Printf("[ExecuteQuery] Scanned %d rows from DB", len(results))
+
 	// Create query result
 	queryResult := &models.QueryResult{
 		ID:          uuid.New(), // Generate proper UUID
@@ -254,6 +262,8 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 		Data:        string(resultsJSON),
 		StoredAt:    time.Now(),
 	}
+
+	log.Printf("[ExecuteQuery] Returning result: RowCount=%d, DataLength=%d", queryResult.RowCount, len(queryResult.Data))
 
 	// Save result to database
 	if err := s.db.Create(queryResult).Error; err != nil {
@@ -884,6 +894,119 @@ func (s *QueryService) PreviewWriteQuery(ctx context.Context, queryText string, 
 		PreviewLimit:  previewLimit,
 		SelectQuery:   selectQuery,
 		OperationType: operationType,
+	}, nil
+}
+
+// PreviewAndValidateWriteQuery validates a write query before creating an approval request
+// It checks if the query would affect any rows and returns a validation result
+func (s *QueryService) PreviewAndValidateWriteQuery(ctx context.Context, queryText string, dataSource *models.DataSource) (*dto.ValidationResult, error) {
+	operationType := DetectOperationType(queryText)
+
+	// Only validate DELETE and UPDATE queries
+	if operationType != models.OperationDelete && operationType != models.OperationUpdate {
+		return nil, fmt.Errorf("validation is only available for DELETE and UPDATE queries")
+	}
+
+	// Convert write query to SELECT for counting
+	var selectQuery string
+	if operationType == models.OperationDelete {
+		selectQuery = convertDeleteToSelect(queryText)
+	} else {
+		selectQuery = convertUpdateToSelect(queryText)
+	}
+
+	if selectQuery == queryText {
+		return nil, fmt.Errorf("failed to convert query for validation")
+	}
+
+	// Connect to data source
+	dataSourceDB, err := s.connectToDataSource(dataSource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to data source: %w", err)
+	}
+
+	// Run COUNT(*) to get total affected rows
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS count_table", selectQuery)
+	var totalAffected int64
+	if err := dataSourceDB.Raw(countQuery).Scan(&totalAffected).Error; err != nil {
+		return nil, fmt.Errorf("failed to count affected rows: %w", err)
+	}
+
+	// If no rows would be affected, return early with no_match status
+	if totalAffected == 0 {
+		// Extract WHERE clause for the message
+		whereClause := ""
+		if whereIdx := strings.Index(strings.ToUpper(queryText), " WHERE "); whereIdx != -1 {
+			whereClause = strings.TrimSpace(queryText[whereIdx+7:])
+			// Remove any trailing semicolon
+			whereClause = strings.TrimRight(whereClause, "; ")
+		}
+
+		message := "Your query would affect 0 rows"
+		suggestion := "Check your WHERE clause values or verify the data exists"
+
+		if whereClause != "" {
+			message = fmt.Sprintf("Your query would affect 0 rows where %s", whereClause)
+		}
+
+		return &dto.ValidationResult{
+			Valid:        false,
+			Status:       "no_match",
+			Message:      message,
+			AffectedRows: 0,
+			Suggestion:   suggestion,
+		}, nil
+	}
+
+	// Get preview rows (first few rows that would be affected)
+	previewLimit := 5
+	limitedQuery := selectQuery
+	upperQ := strings.ToUpper(limitedQuery)
+	if !strings.Contains(upperQ, " LIMIT ") {
+		limitedQuery += fmt.Sprintf(" LIMIT %d", previewLimit)
+	}
+
+	rows, err := dataSourceDB.Raw(limitedQuery).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute preview query: %w", err)
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get columns: %w", err)
+	}
+
+	var previewRows []map[string]interface{}
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+		if err := rows.Scan(valuePtrs...); err != nil {
+			continue
+		}
+		row := make(map[string]interface{})
+		for i, col := range columns {
+			val := values[i]
+			if b, ok := val.([]byte); ok {
+				row[col] = string(b)
+			} else {
+				row[col] = val
+			}
+		}
+		previewRows = append(previewRows, row)
+	}
+
+	return &dto.ValidationResult{
+		Valid:        true,
+		Status:       "ok",
+		Message:      fmt.Sprintf("Query will affect %d row(s)", totalAffected),
+		AffectedRows: int(totalAffected),
+		PreviewRows:  previewRows,
+		Columns:      columns,
+		Suggestion:   "Review the preview rows before confirming",
 	}, nil
 }
 

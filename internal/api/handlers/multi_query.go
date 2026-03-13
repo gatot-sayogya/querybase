@@ -170,33 +170,35 @@ func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
 		return
 	}
 
-	// Check if any write operations require approval
+	// Check if user has basic read permission
+	if !perms.CanSelect {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: SELECT not allowed"})
+		return
+	}
+
+	// Check if any write operations require approval (same logic as regular queries)
 	requiresApproval := false
 	for _, stmt := range parseResult.Statements {
-		switch stmt.OperationType {
-		case models.OperationInsert:
-			if !perms.CanInsert {
-				c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: INSERT not allowed"})
-				return
+		if service.RequiresApproval(stmt.OperationType) {
+			// Check specific write permission
+			switch stmt.OperationType {
+			case models.OperationInsert:
+				if !perms.CanInsert {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: INSERT not allowed"})
+					return
+				}
+			case models.OperationUpdate:
+				if !perms.CanUpdate {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: UPDATE not allowed"})
+					return
+				}
+			case models.OperationDelete:
+				if !perms.CanDelete {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: DELETE not allowed"})
+					return
+				}
 			}
 			requiresApproval = true
-		case models.OperationUpdate:
-			if !perms.CanUpdate {
-				c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: UPDATE not allowed"})
-				return
-			}
-			requiresApproval = true
-		case models.OperationDelete:
-			if !perms.CanDelete {
-				c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: DELETE not allowed"})
-				return
-			}
-			requiresApproval = true
-		case models.OperationSelect:
-			if !perms.CanSelect {
-				c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: SELECT not allowed"})
-				return
-			}
 		}
 	}
 
@@ -226,8 +228,8 @@ func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
 	}
 
 	// Execute immediately for admins or SELECT-only queries
-	// Create a temporary transaction and execute it
-	transaction, err := h.multiQuerySvc.CreateMultiQueryTransaction(c.Request.Context(), uuid.Nil, queryTexts, userUUID)
+	// Create a temporary transaction and execute it (no approval needed, so pass nil)
+	transaction, err := h.multiQuerySvc.CreateMultiQueryTransaction(c.Request.Context(), nil, dataSourceID, queryTexts, userUUID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction: " + err.Error()})
 		return

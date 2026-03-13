@@ -327,18 +327,19 @@ func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, star
 	}
 
 	// Build the transaction record to save
+	emptyArray := "[]"
 	transaction := &models.QueryTransaction{
 		ID:            uuid.New(),
-		ApprovalID:    approval.ID,
+		ApprovalID:    &approval.ID,
 		DataSourceID:  approval.DataSourceID,
 		QueryText:     approval.QueryText,
 		StartedBy:     startedByUUID,
 		Status:        models.TransactionStatusActive,
 		AuditMode:     effectiveMode,
 		EstimatedRows: estimatedRows,
-		BeforeData:    "[]",
-		AfterData:     "[]",
-		PreviewData:   "[]",
+		BeforeData:    &emptyArray,
+		AfterData:     &emptyArray,
+		PreviewData:   &emptyArray,
 	}
 
 	log.Printf("[StartTransaction] Executing query for approval=%s, queryText=%q", approvalID, approval.QueryText)
@@ -358,10 +359,11 @@ func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, star
 	// are in auditResult.BeforeData. The result.Data is just metadata (e.g. "operation, rows_affected...").
 	if auditResult != nil && len(auditResult.BeforeData) > 0 {
 		if beforeJSON, err := json.Marshal(auditResult.BeforeData); err == nil {
-			transaction.PreviewData = string(beforeJSON)
+			beforeStr := string(beforeJSON)
+			transaction.PreviewData = &beforeStr
 		}
 	} else if result.Data != "" {
-		transaction.PreviewData = result.Data
+		transaction.PreviewData = &result.Data
 	}
 	transaction.AffectedRows = result.RowCount
 
@@ -369,12 +371,14 @@ func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, star
 	if auditResult != nil {
 		if len(auditResult.BeforeData) > 0 {
 			if beforeJSON, err := json.Marshal(auditResult.BeforeData); err == nil {
-				transaction.BeforeData = string(beforeJSON)
+				beforeStr := string(beforeJSON)
+				transaction.BeforeData = &beforeStr
 			}
 		}
 		if len(auditResult.AfterData) > 0 {
 			if afterJSON, err := json.Marshal(auditResult.AfterData); err == nil {
-				transaction.AfterData = string(afterJSON)
+				afterStr := string(afterJSON)
+				transaction.AfterData = &afterStr
 			}
 		}
 		if auditResult.AffectedRows > 0 {
@@ -429,13 +433,15 @@ func (s *ApprovalService) CommitTransaction(ctx context.Context, transactionID s
 	transaction.CompletedAt = &now
 	s.db.Save(&transaction)
 
-	// Update approval status to approved
-	s.db.Model(&models.ApprovalRequest{}).
-		Where("id = ?", transaction.ApprovalID).
-		Updates(map[string]interface{}{
-			"status":       models.ApprovalStatusApproved,
-			"completed_at": now,
-		})
+	// Update approval status to approved (only if there's an associated approval)
+	if transaction.ApprovalID != nil {
+		s.db.Model(&models.ApprovalRequest{}).
+			Where("id = ?", *transaction.ApprovalID).
+			Updates(map[string]interface{}{
+				"status":       models.ApprovalStatusApproved,
+				"completed_at": now,
+			})
+	}
 
 	return nil
 }
@@ -468,14 +474,16 @@ func (s *ApprovalService) RollbackTransaction(ctx context.Context, transactionID
 	transaction.CompletedAt = &now
 	s.db.Save(&transaction)
 
-	// Update approval status to rejected (rolled back)
-	s.db.Model(&models.ApprovalRequest{}).
-		Where("id = ?", transaction.ApprovalID).
-		Updates(map[string]interface{}{
-			"status":           models.ApprovalStatusRejected,
-			"rejection_reason": "Transaction rolled back by approver",
-			"completed_at":     now,
-		})
+	// Update approval status to rejected (rolled back) - only if there's an associated approval
+	if transaction.ApprovalID != nil {
+		s.db.Model(&models.ApprovalRequest{}).
+			Where("id = ?", *transaction.ApprovalID).
+			Updates(map[string]interface{}{
+				"status":           models.ApprovalStatusRejected,
+				"rejection_reason": "Transaction rolled back by approver",
+				"completed_at":     now,
+			})
+	}
 
 	return nil
 }

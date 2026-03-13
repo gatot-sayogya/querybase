@@ -19,6 +19,7 @@ type ExecuteQueryResponse struct {
 	ErrorMessage     string                   `json:"error_message,omitempty"`
 	RequiresApproval bool                     `json:"requires_approval"`
 	ApprovalID       string                   `json:"approval_id,omitempty"`
+	Validation       *ValidationResult        `json:"validation,omitempty"`
 }
 
 // ColumnInfo represents column metadata
@@ -120,4 +121,22 @@ type PreviewWriteQueryResponse struct {
 	PreviewLimit  int                      `json:"preview_limit"`
 	SelectQuery   string                   `json:"select_query"`
 	OperationType string                   `json:"operation_type"`
+}
+
+// ValidationResult represents the result of validating a write query before creating approval
+type ValidationResult struct {
+	Valid        bool                     `json:"valid"`
+	Status       string                   `json:"status"` // "ok", "no_match", "error"
+	Message      string                   `json:"message"`
+	AffectedRows int                      `json:"affected_rows"`
+	PreviewRows  []map[string]interface{} `json:"preview_rows,omitempty"`
+	Columns      []string                 `json:"columns,omitempty"`
+	Suggestion   string                   `json:"suggestion,omitempty"`
+}
+
+// ValidateWriteQueryResponse represents the response for write query validation
+type ValidateWriteQueryResponse struct {
+	QueryID    string           `json:"query_id"`
+	Status     string           `json:"status"` // "validated", "no_match", "error"
+	Validation ValidationResult `json:"validation"`
 }

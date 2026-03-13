@@ -25,9 +25,9 @@ type QueryTransactionStatement struct {
 	Status          StatementStatus `gorm:"default:'pending'" json:"status"`
 	AffectedRows    int             `json:"affected_rows"`
 	ErrorMessage    string          `json:"error_message"`
-	PreviewData     string          `gorm:"type:jsonb" json:"preview_data"`
-	BeforeData      string          `gorm:"type:jsonb" json:"before_data"`
-	AfterData       string          `gorm:"type:jsonb" json:"after_data"`
+	PreviewData     *string         `gorm:"type:jsonb" json:"preview_data"`
+	BeforeData      *string         `gorm:"type:jsonb" json:"before_data"`
+	AfterData       *string         `gorm:"type:jsonb" json:"after_data"`
 	ExecutionTimeMs int             `json:"execution_time_ms"`
 	CreatedAt       time.Time       `json:"created_at"`
 

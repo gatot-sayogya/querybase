@@ -35,7 +35,7 @@ export default function QueryResults({
 
   // Sorting and Filtering logic
   const processedData = useMemo(() => {
-    if (!results || results.data.length === 0) return [];
+    if (!results || !results.data || results.data.length === 0) return [];
     
     let data = [...results.data];
 
@@ -88,7 +88,11 @@ export default function QueryResults({
     );
   }
 
-  if (!results || results.data.length === 0) {
+  // Check if we have columns but no data (empty result set)
+  const hasColumns = results?.columns && results.columns.length > 0;
+  const hasData = results?.data && results.data.length > 0;
+  
+  if (!results || (!hasColumns && !hasData)) {
     return (
       <EmptyState
         illustration="no-results"
@@ -136,9 +140,15 @@ export default function QueryResults({
       <div className="flex items-center justify-between px-4 py-2 bg-transparent text-xs border-b border-slate-200/50 dark:border-white/10">
         <div className="flex items-center gap-4">
           <div className="text-slate-500 dark:text-slate-400 font-medium">
-            Showing <strong className="text-slate-700 dark:text-slate-200">{processedData.length > 0 ? startIndex + 1 : 0}-{Math.min(endIndex, processedData.length)}</strong> of <strong className="text-slate-700 dark:text-slate-200">{processedData.length}</strong>
-            {processedData.length !== rawData.length && (
-              <span className="ml-2 text-blue-500 font-bold shrink-0">(Filtered)</span>
+            {processedData.length === 0 && rawData.length === 0 ? (
+              <span><strong className="text-slate-700 dark:text-slate-200">0 rows</strong> returned</span>
+            ) : (
+              <>
+                Showing <strong className="text-slate-700 dark:text-slate-200">{processedData.length > 0 ? startIndex + 1 : 0}-{Math.min(endIndex, processedData.length)}</strong> of <strong className="text-slate-700 dark:text-slate-200">{processedData.length}</strong>
+                {processedData.length !== rawData.length && (
+                  <span className="ml-2 text-blue-500 font-bold shrink-0">(Filtered)</span>
+                )}
+              </>
             )}
           </div>
           
@@ -229,19 +239,40 @@ export default function QueryResults({
             )}
           </thead>
           <tbody className="bg-transparent divide-y divide-slate-100 dark:divide-white/5">
-            {paginatedData.map((row, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors group">
-                {columns.map((column) => (
-                  <td
-                    key={column.name}
-                    className="px-4 py-2 text-xs text-slate-700 dark:text-slate-300 max-w-xs truncate group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
-                    title={String(row[column.name])}
-                  >
-                    {formatCellValue(row[column.name])}
-                  </td>
-                ))}
+            {paginatedData.length > 0 ? (
+              paginatedData.map((row, rowIndex) => (
+                <tr key={rowIndex} className="hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors group">
+                  {columns.map((column) => (
+                    <td
+                      key={column.name}
+                      className="px-4 py-2 text-xs text-slate-700 dark:text-slate-300 max-w-xs truncate group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
+                      title={String(row[column.name])}
+                    >
+                      {formatCellValue(row[column.name])}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-12">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <div className="w-16 h-16 mb-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                      <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      No rows match your query
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
+                      Your query executed successfully but returned 0 rows. 
+                      Try adjusting your WHERE clause or removing filters to see more data.
+                    </p>
+                  </div>
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

@@ -131,18 +131,12 @@ func (s *MultiQueryService) PreviewMultiQuery(ctx context.Context, dataSourceID 
 }
 
 // CreateMultiQueryTransaction creates a new multi-query transaction
-func (s *MultiQueryService) CreateMultiQueryTransaction(ctx context.Context, approvalID uuid.UUID, queryTexts []string, startedBy uuid.UUID) (*models.QueryTransaction, error) {
-	// Get approval
-	var approval models.ApprovalRequest
-	if err := s.db.First(&approval, "id = ?", approvalID).Error; err != nil {
-		return nil, fmt.Errorf("approval not found: %w", err)
-	}
-
+func (s *MultiQueryService) CreateMultiQueryTransaction(ctx context.Context, approvalID *uuid.UUID, dataSourceID uuid.UUID, queryTexts []string, startedBy uuid.UUID) (*models.QueryTransaction, error) {
 	// Create transaction record
 	transaction := &models.QueryTransaction{
 		ID:             uuid.New(),
 		ApprovalID:     approvalID,
-		DataSourceID:   approval.DataSourceID,
+		DataSourceID:   dataSourceID,
 		QueryText:      strings.Join(queryTexts, "; "),
 		StartedBy:      startedBy,
 		Status:         models.TransactionStatusActive,

@@ -14,6 +14,11 @@ func DetectOperationType(sql string) models.OperationType {
 	trimmedSQL := strings.TrimSpace(sql)
 	upperSQL := strings.ToUpper(trimmedSQL)
 
+	// Check for SET statements first (for user variables)
+	if matchRegex(upperSQL, `^\s*SET\s+@`) {
+		return models.OperationSet
+	}
+
 	// Check for write operations first (they take precedence)
 
 	// Common DDL operations
@@ -117,7 +122,7 @@ func normalizeSQLForExecution(sql string) string {
 // RequiresApproval returns true if the operation type requires approval
 func RequiresApproval(operationType models.OperationType) bool {
 	switch operationType {
-	case models.OperationSelect:
+	case models.OperationSelect, models.OperationSet:
 		return false
 	case models.OperationInsert,
 		models.OperationUpdate,

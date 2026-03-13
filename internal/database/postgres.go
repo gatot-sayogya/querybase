@@ -57,6 +57,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.ApprovalRequest{},
 		&models.ApprovalReview{},
 		&models.QueryTransaction{},
+		&models.QueryTransactionStatement{},
+		&models.ApprovalComment{},
 		&models.NotificationConfig{},
 		&models.Notification{},
 	)
