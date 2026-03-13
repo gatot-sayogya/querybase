@@ -4,11 +4,87 @@ This document describes advanced query testing and analysis features in QueryBas
 
 ## Table of Contents
 
+- [Query Result Handling](#query-result-handling)
 - [EXPLAIN Queries](#explain-queries)
-- [Dry Run DELETE](#dry-run-delete)
+- [Dry Run DELETE & UPDATE](#dry-run-delete--update)
+- [Early Validation](#early-validation)
 - [API Reference](#api-reference)
 - [Usage Examples](#usage-examples)
 - [Best Practices](#best-practices)
+
+## Query Result Handling
+
+### Overview
+
+QueryBase provides clear visual feedback for all query execution states, making it easy to understand what happened with your query.
+
+### Visual States
+
+When you execute a query, the system displays a status indicator showing exactly what's happening:
+
+#### 🔄 Running
+- **Visual**: Animated spinner with blue theme
+- **Message**: "Executing query..."
+- **When**: Query is being processed by the database
+
+#### ✅ Completed (With Data)
+- **Visual**: Green checkmark
+- **Message**: "Query completed successfully"
+- **Details**: Shows execution time and row count
+- **When**: SELECT query returns 1 or more rows
+
+#### ✅ Completed (Empty)
+- **Visual**: Green checkmark with lighter styling
+- **Message**: "Query completed, 0 rows"
+- **Details**: Shows execution time
+- **When**: SELECT query returns 0 rows
+- **Note**: Table structure with column headers is still displayed
+
+#### ❌ Failed
+- **Visual**: Red X icon
+- **Message**: "Query failed"
+- **Details**: Shows error message
+- **When**: Query has syntax error or execution fails
+
+#### ℹ️ No Match
+- **Visual**: Blue info icon
+- **Message**: "No rows match"
+- **Details**: Shows specific message about why no rows matched
+- **When**: UPDATE/DELETE query would affect 0 rows
+
+#### ⏳ Pending Approval
+- **Visual**: Amber clock icon
+- **Message**: "Pending approval"
+- **Details**: Query submitted for approval
+- **When**: Write query submitted, waiting for approver
+
+### Empty Result Sets
+
+When a SELECT query returns 0 rows, QueryBase still shows the table structure:
+
+```
+┌─────────────────────────────────────────────────┐
+│ ✅ Query completed in 45ms                      │
+│ Rows returned: 0                                │
+├─────────────────────────────────────────────────┤
+│ id │ name │ email │ created_at │ status        │  ← Column headers visible
+├────┼──────┼───────┼────────────┼───────────────┤
+│                                                 │
+│   📭 No rows match your query conditions.      │
+│                                                 │
+│   💡 Tip: Check your WHERE clause values or    │
+│      try broadening your search criteria.      │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+**Benefits:**
+- See table schema even when no data matches
+- Understand what columns are available
+- Get helpful troubleshooting tips
+- Verify your query syntax is correct
+
+---
 
 ## EXPLAIN Queries
 
@@ -359,6 +435,138 @@ curl -X POST http://localhost:8080/api/v1/queries/dry-run \
 
 ---
 
+## Early Validation
+
+### Overview
+
+QueryBase automatically validates UPDATE and DELETE queries **before** creating an approval request. This prevents wasting approver time on queries that would affect 0 rows.
+
+### How It Works
+
+1. **User Submits Query**: User clicks "Run" on an UPDATE or DELETE query
+2. **Automatic Validation**: System runs a COUNT(*) query to check how many rows match
+3. **Zero Rows Detected**: If no rows match, show validation modal immediately
+4. **No Approval Created**: Query never creates an approval request
+5. **User Can Edit**: User can modify query and try again
+
+### Validation Modal
+
+When a query would affect 0 rows, you'll see:
+
+```
+┌─────────────────────────────────────────────────┐
+│  ℹ️  Query Would Affect 0 Rows                  │
+├─────────────────────────────────────────────────┤
+│                                                  │
+│   Your UPDATE query matches no existing rows.   │
+│                                                  │
+│   Query: UPDATE users SET status = 'active'    │
+│   WHERE id = 99999                              │
+│                                                  │
+│   💡 The row with id = 99999 doesn't exist.   │
+│                                                 │
+│   [Edit Query] [Cancel]                         │
+│                                                  │
+└─────────────────────────────────────────────────┘
+```
+
+### Benefits
+
+- **Save Time**: No waiting for approval on queries that do nothing
+- **Catch Errors**: Find typos in WHERE clauses immediately
+- **Reduce Noise**: Approvers only see queries that will actually change data
+- **Immediate Feedback**: Know right away if your query conditions are wrong
+
+### Examples
+
+#### Example 1: Non-existent ID
+
+**Query:**
+```sql
+UPDATE sales_orders SET status = 'shipped' WHERE id = 999999
+```
+
+**Validation Result:**
+- Status: `no_match`
+- Message: "Your query would affect 0 rows where id = 999999"
+- Suggestion: "Check your WHERE clause values or verify the data exists"
+
+**Action:** Edit query to use correct ID
+
+#### Example 2: Wrong Status Value
+
+**Query:**
+```sql
+DELETE FROM users WHERE status = 'deactivated'
+```
+
+**Validation Result:**
+- Status: `no_match` 
+- Message: "Your query would affect 0 rows"
+- Suggestion: "Check your WHERE clause values or verify the data exists"
+
+**Action:** Check actual status values in database
+
+#### Example 3: Future Date
+
+**Query:**
+```sql
+UPDATE events SET cancelled = true WHERE date > '2025-12-31'
+```
+
+**Validation Result:**
+- Status: `no_match`
+- Message: "Your query would affect 0 rows"
+- Suggestion: "Check your WHERE clause values or verify the data exists"
+
+**Action:** Fix date range in query
+
+### What Gets Validated
+
+✅ **Validated:**
+- UPDATE queries
+- DELETE queries
+
+❌ **Not Validated:**
+- SELECT queries (shown immediately)
+- INSERT queries (cannot validate row existence)
+
+### Response Format
+
+When validation detects 0 rows:
+
+```json
+{
+  "query_id": "",
+  "status": "no_match",
+  "validation": {
+    "valid": false,
+    "status": "no_match",
+    "message": "Your query would affect 0 rows where id = 999999",
+    "affected_rows": 0,
+    "suggestion": "Check your WHERE clause values or verify the data exists"
+  }
+}
+```
+
+When validation passes:
+
+```json
+{
+  "query_id": "abc-123",
+  "status": "pending_approval",
+  "validation": {
+    "valid": true,
+    "status": "ok",
+    "message": "Query will affect 15 row(s)",
+    "affected_rows": 15,
+    "suggestion": "Review the preview rows before confirming"
+  }
+}
+```
+
+---
+
 ## Usage Examples
 
 ### Example 1: Optimize Slow Query
@@ -680,11 +888,24 @@ curl -X POST http://localhost:8080/api/v1/queries/explain \
 
 ## API Endpoints Summary
 
-| Feature               | Endpoint                  | Method | Auth     | Permissions |
-| --------------------- | ------------------------- | ------ | -------- | ----------- |
-| EXPLAIN Query         | `/api/v1/queries/explain` | POST   | Required | `can_read`  |
-| Dry Run DELETE        | `/api/v1/queries/dry-run` | POST   | Required | `can_write` |
-| Preview DELETE/UPDATE | `/api/v1/queries/preview` | POST   | Required | `can_write` |
+| Feature               | Endpoint                          | Method | Auth     | Permissions |
+| --------------------- | --------------------------------- | ------ | -------- | ----------- |
+| Execute Query         | `/api/v1/queries`                 | POST   | Required | `can_read`  |
+| EXPLAIN Query         | `/api/v1/queries/explain`         | POST   | Required | `can_read`  |
+| Dry Run DELETE        | `/api/v1/queries/dry-run`         | POST   | Required | `can_write` |
+| Preview DELETE/UPDATE | `/api/v1/queries/preview`         | POST   | Required | `can_write` |
+| Multi-Query Preview   | `/api/v1/queries/multi/preview`   | POST   | Required | `can_read`  |
+| Multi-Query Execute   | `/api/v1/queries/multi/execute`   | POST   | Required | `can_write` |
+
+**Response Status Codes:**
+
+| Status        | Description                                           |
+| ------------- | ----------------------------------------------------- |
+| `running`     | Query is being executed                               |
+| `completed`   | Query executed successfully                           |
+| `failed`      | Query execution failed                                |
+| `no_match`    | UPDATE/DELETE would affect 0 rows (validation failed) |
+| `pending`     | Query submitted, waiting for execution                |
 
 ---
 

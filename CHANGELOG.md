@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Enhanced Query Result Handling**:
+  - **Empty Result Display**: SELECT queries returning 0 rows now show table structure with column headers and helpful empty state message
+  - **Query Status Indicator**: Visual status component showing execution state (running, completed, empty, failed, no_match, pending_approval) with distinct colors and icons
+  - **useQueryStatus Hook**: React hook for managing query execution state throughout the component lifecycle
+
+- **Early Validation for Write Queries**:
+  - **Automatic Validation**: UPDATE and DELETE queries are validated before creating approval requests
+  - **Zero-Row Detection**: Queries that would affect 0 rows show validation modal immediately without creating approval
+  - **QueryValidationModal Component**: New modal component displaying validation results with query preview and suggestions
+  - **PreviewAndValidateWriteQuery Service**: Backend service method to validate write queries and count affected rows
+  - **ValidationResult DTO**: New API response structure for validation results
+
+### Changed
+
+- **QueryResults Component**: Updated to handle empty data arrays while preserving column header display
+- **QueryExecutor Component**: Integrated status indicator and validation handling
+- **ExecuteQuery Handler**: Modified to validate write queries before approval creation
+- **Query Status Type**: Added 'no_match' status to Query interface
+
+### Fixed
+
+- **Null Data Errors**: Fixed "Cannot read properties of null (reading 'length')" errors in QueryResults
+- **Empty State UX**: Improved user experience for queries with no results
+
 ## [0.4.0] - 2026-02-28
 
 ### Added
