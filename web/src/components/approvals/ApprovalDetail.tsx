@@ -6,6 +6,9 @@ import { apiClient } from '@/lib/api-client';
 import type { ApprovalRequest, ApprovalReview, TransactionPreview, AuditMode, WriteQueryPreview } from '@/types';
 import DataChangesPanel from './DataChangesPanel';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isMultiQuery } from '@/lib/query-parser';
+import { previewMultiQuery } from '@/lib/api/multi-query';
+import type { MultiQueryPreviewResponse } from '@/lib/api/multi-query';
 
 interface ApprovalDetailProps {
   approvalId: string | null;
@@ -25,6 +28,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
   // 3-phase transaction state
   const [phase, setPhase] = useState<PreviewPhase>('idle');
   const [writePreview, setWritePreview] = useState<WriteQueryPreview | null>(null);
+  const [multiQueryPreview, setMultiQueryPreview] = useState<MultiQueryPreviewResponse | null>(null);
   const [transaction, setTransaction] = useState<TransactionPreview | null>(null);
   const [auditMode, setAuditMode] = useState<AuditMode>('full');
   
@@ -86,12 +90,22 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
     setPhase('loading_preview');
     setError(null);
     try {
-      const preview = await apiClient.previewWriteQuery(
-        approval.data_source_id,
-        approval.query_text
-      );
-      setWritePreview(preview);
-      setPhase('preview_ready');
+      // Check if this is a multi-query
+      if (isMultiQuery(approval.query_text)) {
+        const preview = await previewMultiQuery(
+          approval.data_source_id,
+          [approval.query_text]
+        );
+        setMultiQueryPreview(preview);
+        setPhase('preview_ready');
+      } else {
+        const preview = await apiClient.previewWriteQuery(
+          approval.data_source_id,
+          approval.query_text
+        );
+        setWritePreview(preview);
+        setPhase('preview_ready');
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to fetch preview data');
       setError(err instanceof Error ? err.message : 'Failed to fetch preview data');
