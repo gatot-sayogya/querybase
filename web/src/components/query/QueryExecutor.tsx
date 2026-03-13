@@ -132,10 +132,14 @@ export default function QueryExecutor() {
         setPreviewLoading(true);
         try {
           const queryTexts = parseResult.statements.map(s => s.queryText);
+          console.log('Sending multi-query preview request:', { dataSourceId, queryTexts });
           const preview = await previewMultiQuery(dataSourceId, queryTexts);
+          console.log('Received multi-query preview response:', preview);
           setMultiQueryPreview(preview);
           setShowMultiQueryPreview(true);
+          console.log('Multi-query preview modal should be open now');
         } catch (previewErr: any) {
+          console.error('Multi-query preview error:', previewErr);
           setError(previewErr.response?.data?.error || previewErr.message || 'Failed to preview multi-query');
         } finally {
           setPreviewLoading(false);
