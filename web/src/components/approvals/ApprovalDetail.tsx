@@ -7,8 +7,9 @@ import type { ApprovalRequest, ApprovalReview, TransactionPreview, AuditMode, Wr
 import DataChangesPanel from './DataChangesPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isMultiQuery } from '@/lib/query-parser';
-import { previewMultiQuery } from '@/lib/api/multi-query';
+import { previewMultiQuery, executeMultiQuery } from '@/lib/api/multi-query';
 import type { MultiQueryPreviewResponse } from '@/lib/api/multi-query';
+import { MultiQueryPreviewModal } from '@/components/query/MultiQueryPreviewModal';
 
 interface ApprovalDetailProps {
   approvalId: string | null;
@@ -176,6 +177,37 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to rollback transaction');
       setError(err instanceof Error ? err.message : 'Failed to rollback transaction');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Handle multi-query execution from preview modal
+  const handleExecuteMultiQuery = async () => {
+    if (!multiQueryPreview || !approval) return;
+    
+    setSubmitting(true);
+    try {
+      const queryTexts = multiQueryPreview.statements.map(s => s.query_text);
+      const response = await executeMultiQuery(
+        approval.data_source_id,
+        queryTexts
+      );
+      
+      if (response.requires_approval) {
+        toast.success('Multi-query submitted for approval');
+      } else {
+        toast.success('Multi-query executed successfully');
+        await fetchApprovalDetails();
+        if (onRefresh) onRefresh();
+      }
+      
+      // Close the modal
+      setMultiQueryPreview(null);
+      setPhase('idle');
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to execute multi-query');
+      setError(err.response?.data?.error || err.message || 'Failed to execute multi-query');
     } finally {
       setSubmitting(false);
     }
@@ -474,6 +506,25 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
             </div>
           </div>
         </div>
+      )}
+
+      {/* Multi-Query Preview Modal */}
+      {multiQueryPreview && (
+        <MultiQueryPreviewModal
+          isOpen={!!multiQueryPreview}
+          onClose={() => { 
+            setMultiQueryPreview(null); 
+            setPhase('idle');
+          }}
+          statements={multiQueryPreview.statements}
+          totalEstimatedRows={multiQueryPreview.total_estimated_rows}
+          onApprove={handleExecuteMultiQuery}
+          onReject={() => { 
+            setMultiQueryPreview(null); 
+            setPhase('idle');
+          }}
+          loading={submitting}
+        />
       )}
 
       {/* Phase 3: Transaction open — Commit/Rollback */}
