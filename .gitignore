@@ -89,3 +89,6 @@ pprof/
 /package.json
 /test-results/
 
+
+# Dolt database files (added by bd init)
+.dolt/
