@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Multi-Query Transaction Support**:
+  - **Multi-Query Preview**: Preview multiple semicolon-separated queries before execution with estimated row counts per statement
+  - **Operation Type Detection**: Each query analyzed for SELECT, INSERT, UPDATE, DELETE, DDL operations
+  - **Zero-Row Validation**: UPDATE/DELETE operations blocked when 0 rows would be affected; INSERT operations can proceed to approval
+  - **MultiQueryPreviewModal Component**: New modal showing all statements with expandable details, operation type badges, and row estimates
+  - **MultiQueryService**: Backend service for parsing, previewing, and executing multi-query transactions atomically
+  - **Defense-in-Depth Protection**: Both frontend (disabled button) and backend (API rejection) block pointless UPDATE/DELETE operations
+
 - **Enhanced Query Result Handling**:
   - **Empty Result Display**: SELECT queries returning 0 rows now show table structure with column headers and helpful empty state message
   - **Query Status Indicator**: Visual status component showing execution state (running, completed, empty, failed, no_match, pending_approval) with distinct colors and icons
@@ -30,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Operation Type Case Sensitivity**: Fixed bug where multi-query preview modal didn't recognize write operations due to lowercase operation types from backend ('update' vs 'UPDATE'). Now properly converts to uppercase for comparison.
 - **Null Data Errors**: Fixed "Cannot read properties of null (reading 'length')" errors in QueryResults
 - **Empty State UX**: Improved user experience for queries with no results
 
