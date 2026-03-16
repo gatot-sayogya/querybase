@@ -51,7 +51,7 @@ export function MultiQueryPreviewModal({
 
   const WRITE_OPERATION_TYPES = ['INSERT', 'UPDATE', 'DELETE', 'CREATE_TABLE', 'DROP_TABLE', 'ALTER_TABLE'];
   const writeOperations = statements.filter(
-    s => WRITE_OPERATION_TYPES.includes(s.operation_type)
+    s => WRITE_OPERATION_TYPES.includes(s.operation_type.toUpperCase())
   );
   const requiresApproval = writeOperations.length > 0;
 
@@ -141,10 +141,10 @@ export function MultiQueryPreviewModal({
                     <span 
                       className={cn(
                         'px-2 py-1 rounded text-xs font-medium',
-                        operationTypeColors[stmt.operation_type] || 'bg-gray-100'
+                        operationTypeColors[stmt.operation_type.toUpperCase()] || 'bg-gray-100'
                       )}
                     >
-                      {stmt.operation_type}
+                      {stmt.operation_type.toUpperCase()}
                     </span>
                     <span className="text-sm text-slate-500 dark:text-slate-400 truncate max-w-md">
                       {stmt.query_text.substring(0, 80)}
