@@ -55,6 +55,13 @@ export function MultiQueryPreviewModal({
   );
   const requiresApproval = writeOperations.length > 0;
 
+  // Only block on 0 rows for UPDATE/DELETE operations (not INSERT)
+  const UPDATE_DELETE_TYPES = ['UPDATE', 'DELETE'];
+  const hasUpdateOrDelete = statements.some(
+    s => UPDATE_DELETE_TYPES.includes(s.operation_type.toUpperCase())
+  );
+  const shouldBlockZeroRows = totalEstimatedRows === 0 && hasUpdateOrDelete;
+
   const hasErrors = statements.some(s => s.error);
 
   return (
@@ -97,13 +104,13 @@ export function MultiQueryPreviewModal({
             </div>
           )}
 
-          {totalEstimatedRows === 0 && requiresApproval && (
+          {shouldBlockZeroRows && (
             <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md flex items-center gap-2">
               <ExclamationTriangleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
               <div className="text-sm text-red-800 dark:text-red-300">
                 <div className="font-medium">No rows would be affected</div>
                 <div className="text-red-700 dark:text-red-400">
-                  The WHERE clause does not match any existing rows. Please review your query conditions.
+                  UPDATE/DELETE operations must match existing rows. INSERT operations can proceed to approval.
                 </div>
               </div>
             </div>
@@ -257,9 +264,9 @@ export function MultiQueryPreviewModal({
         {/* Footer */}
         <div className="flex justify-between items-center gap-4 pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
           <div className="text-sm text-slate-500 dark:text-slate-400">
-            {totalEstimatedRows === 0 && requiresApproval ? (
+            {shouldBlockZeroRows ? (
               <span className="text-red-600 dark:text-red-400 font-medium">
-                ⚠ No rows would be affected — execution is disabled
+                ⚠ UPDATE/DELETE would affect 0 rows — execution is disabled
               </span>
             ) : requiresApproval ? (
               <span className="text-amber-600 dark:text-amber-400 font-medium">
@@ -275,17 +282,17 @@ export function MultiQueryPreviewModal({
             </Button>
             <Button
               onClick={onApprove}
-              disabled={loading || hasErrors || (totalEstimatedRows === 0 && requiresApproval)}
+              disabled={loading || hasErrors || shouldBlockZeroRows}
             >
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                   Processing...
                 </>
-              ) : totalEstimatedRows === 0 && requiresApproval ? (
+              ) : shouldBlockZeroRows ? (
                 <>
                   <ExclamationTriangleIcon className="w-4 h-4 mr-2" />
-                  No Rows Affected
+                  No Rows to Update/Delete
                 </>
               ) : requiresApproval ? (
                 <>

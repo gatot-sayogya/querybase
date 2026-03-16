@@ -198,11 +198,19 @@ func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
 		isAdmin = u.Role == models.RoleAdmin
 	}
 
-	// Block execution when write operations would affect 0 rows
-	// This prevents both direct execution and pointless approval requests
-	if impact.RequiresApproval && impact.TotalEstimatedRows == 0 {
+	// Block execution only for UPDATE/DELETE operations that would affect 0 rows
+	// INSERT operations with 0 rows can still proceed to approval
+	hasUpdateOrDelete := false
+	for _, stmt := range impact.Statements {
+		if stmt.OperationType == models.OperationUpdate || stmt.OperationType == models.OperationDelete {
+			hasUpdateOrDelete = true
+			break
+		}
+	}
+	
+	if impact.RequiresApproval && impact.TotalEstimatedRows == 0 && hasUpdateOrDelete {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error":             "No rows would be affected by these queries. Please check your WHERE clause.",
+			"error":             "UPDATE/DELETE operations would affect 0 rows. Please check your WHERE clause. INSERT operations can proceed to approval.",
 			"estimated_rows":    0,
 			"requires_approval": false,
 		})
