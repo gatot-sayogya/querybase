@@ -198,17 +198,6 @@ func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
 		isAdmin = u.Role == models.RoleAdmin
 	}
 
-	// Check if this is a write operation that would affect 0 rows
-	// For non-admins: don't allow execution or approval if no rows would be affected
-	if impact.RequiresApproval && impact.TotalEstimatedRows == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":             "No rows would be affected by these queries",
-			"estimated_rows":    0,
-			"requires_approval": false,
-		})
-		return
-	}
-
 	// Non-admin users require approval for write operations that affect rows
 	// Only admins can execute write queries directly
 	requiresApproval := !isAdmin && impact.RequiresApproval && impact.TotalEstimatedRows > 0
