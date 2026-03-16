@@ -8,6 +8,7 @@ This document describes advanced query testing and analysis features in QueryBas
 - [EXPLAIN Queries](#explain-queries)
 - [Dry Run DELETE & UPDATE](#dry-run-delete--update)
 - [Early Validation](#early-validation)
+- [Multi-Query Transactions](#multi-query-transactions)
 - [API Reference](#api-reference)
 - [Usage Examples](#usage-examples)
 - [Best Practices](#best-practices)
@@ -564,6 +565,226 @@ When validation passes:
   }
 }
 ```
+
+---
+
+## Multi-Query Transactions
+
+### Overview
+
+QueryBase supports executing multiple SQL queries in a single transaction. This is useful for:
+
+- **Batch Updates**: Update multiple related tables atomically
+- **Data Migration**: Move data between tables with referential integrity
+- **Complex Operations**: Execute multiple dependent queries as one unit
+
+### How It Works
+
+1. **Enter Multiple Queries**: Separate queries with semicolons
+2. **Preview Phase**: System shows a preview of all statements with estimated row counts
+3. **Operation Type Detection**: Each query is analyzed for its operation type
+4. **Zero-Row Validation**: UPDATE/DELETE operations must match existing rows
+5. **Approval Workflow**: Non-admin users submit for approval; admins can execute directly
+
+### Supported Operations
+
+**Single-Query Mode:**
+- ✅ SELECT - Returns results immediately
+- ✅ INSERT - Can proceed to approval even with 0 rows (creates new rows)
+- ✅ UPDATE - Blocked if 0 rows would be affected
+- ✅ DELETE - Blocked if 0 rows would be affected
+- ✅ DDL (CREATE, DROP, ALTER) - Requires approval
+
+**Multi-Query Mode:**
+- ✅ Mix of SELECT and write operations
+- ✅ Multiple INSERT statements
+- ✅ Multiple UPDATE statements (validated for row matches)
+- ✅ Multiple DELETE statements (validated for row matches)
+- ✅ Combination of INSERT/UPDATE/DELETE
+
+### Zero Rows Behavior by Operation Type
+
+#### UPDATE/DELETE with 0 Rows
+
+**Query:**
+```sql
+UPDATE ecommerce_configs SET value = 'new' WHERE id = 99999;
+UPDATE products SET price = price * 1.1 WHERE category = 'nonexistent';
+```
+
+**Behavior:**
+- Preview popup shows warning: "⚠ UPDATE/DELETE would affect 0 rows — execution is disabled"
+- Execute All button is **disabled** (grayed out)
+- Button text: "No Rows to Update/Delete"
+- Error message: "UPDATE/DELETE operations would affect 0 rows. Please check your WHERE clause."
+- Cannot proceed to approval or execution
+
+**Why:** UPDATE and DELETE modify existing rows. If no rows match the WHERE clause, the operation does nothing and wastes approver time.
+
+#### INSERT with 0 Rows
+
+**Query:**
+```sql
+INSERT INTO audit_log (action, user_id) VALUES ('login', 123);
+INSERT INTO notifications (message) VALUES ('Welcome!');
+```
+
+**Behavior:**
+- Preview popup shows normally
+- Execute All button **enabled**
+- Can proceed to approval workflow
+- No special blocking
+
+**Why:** INSERT creates new rows. Unlike UPDATE/DELETE, it doesn't depend on existing rows matching a WHERE clause. Even if the SELECT part of an INSERT...SELECT returns 0 rows, the query itself is valid.
+
+### Preview Modal Interface
+
+When executing multiple queries, the preview modal shows:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Multi-Query Preview                                            │
+├─────────────────────────────────────────────────────────────────┤
+│  Statements: 2    Est. Affected Rows: 0    Write Operations: 2   │
+│                                                                  │
+│  ⚠️ No rows would be affected                                   │
+│     UPDATE/DELETE operations must match existing rows.          │
+│     INSERT operations can proceed to approval.                  │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ #0  [UPDATE]  UPDATE products SET price = ...           │   │
+│  │     ~0 rows                                             │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ #1  [UPDATE]  UPDATE inventory SET count = ...          │   │
+│  │     ~0 rows                                             │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│                                         [Cancel] [No Rows to...]│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Examples
+
+#### Example 1: Valid Multi-Query with INSERTs
+
+**Query:**
+```sql
+INSERT INTO orders (customer_id, total) VALUES (123, 99.99);
+INSERT INTO order_items (order_id, product_id, qty) VALUES (LAST_INSERT_ID(), 456, 2);
+```
+
+**Result:**
+- Preview shows 2 INSERT statements
+- Total estimated rows: 0 (INSERT doesn't estimate)
+- Execute All button enabled
+- Proceeds to approval for non-admins
+
+#### Example 2: Blocked Multi-Query with UPDATE
+
+**Query:**
+```sql
+UPDATE users SET last_login = NOW() WHERE id = 99999;
+UPDATE sessions SET expires = NOW() + INTERVAL 1 DAY WHERE user_id = 99999;
+```
+
+**Result:**
+- Preview shows 2 UPDATE statements, ~0 rows each
+- Warning: "UPDATE/DELETE would affect 0 rows"
+- Execute All button disabled
+- User must fix WHERE clause to continue
+
+#### Example 3: Mixed Operations (Partial Block)
+
+**Query:**
+```sql
+INSERT INTO audit_log (action) VALUES ('bulk_update');
+UPDATE products SET status = 'discontinued' WHERE id IN (SELECT id FROM discontinued_list);
+```
+
+**Result:**
+- If `discontinued_list` has 0 rows:
+  - INSERT can proceed (creates audit entry)
+  - UPDATE blocked (0 rows to update)
+  - Entire multi-query blocked due to UPDATE
+
+### API Reference
+
+**Multi-Query Preview:**
+```bash
+curl -X POST http://localhost:8080/api/v1/queries/multi/preview \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "data_source_id": "uuid-here",
+    "query_texts": [
+      "UPDATE products SET price = 10.00 WHERE id = 1",
+      "UPDATE inventory SET count = count - 1 WHERE product_id = 1"
+    ]
+  }'
+```
+
+**Response (0 rows detected):**
+```json
+{
+  "statement_count": 2,
+  "total_estimated_rows": 0,
+  "statements": [
+    {
+      "sequence": 0,
+      "query_text": "UPDATE products SET price = 10.00 WHERE id = 1",
+      "operation_type": "update",
+      "estimated_rows": 0,
+      "preview_rows": [],
+      "columns": ["id", "name", "price"]
+    },
+    {
+      "sequence": 1,
+      "query_text": "UPDATE inventory SET count = count - 1 WHERE product_id = 1",
+      "operation_type": "update",
+      "estimated_rows": 0,
+      "preview_rows": [],
+      "columns": ["product_id", "count", "warehouse"]
+    }
+  ],
+  "requires_approval": true
+}
+```
+
+**Multi-Query Execute (blocked):**
+```bash
+curl -X POST http://localhost:8080/api/v1/queries/multi/execute \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "data_source_id": "uuid-here",
+    "query_texts": ["UPDATE products SET price = 10 WHERE id = 99999"]
+  }'
+```
+
+**Response:**
+```json
+{
+  "error": "UPDATE/DELETE operations would affect 0 rows. Please check your WHERE clause. INSERT operations can proceed to approval.",
+  "estimated_rows": 0,
+  "requires_approval": false
+}
+```
+
+### Best Practices
+
+1. **Always Preview First**: Use the preview to verify row counts before executing
+2. **Check WHERE Clauses**: Ensure UPDATE/DELETE WHERE clauses match existing data
+3. **Test Single Queries**: Verify individual queries work before combining them
+4. **Use Transactions**: Multi-queries automatically run in a transaction (all succeed or all fail)
+5. **Review Error Messages**: If blocked, the error explains which operation type caused it
+
+### Limitations
+
+- Maximum 50 statements per multi-query
+- All queries must be for the same data source
+- Transaction control statements (BEGIN, COMMIT, ROLLBACK) are not allowed
+- DDL operations require approval and cannot be mixed with DML in some databases
 
 ---
 
