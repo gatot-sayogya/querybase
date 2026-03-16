@@ -104,7 +104,7 @@ func main() {
 
 		// Initial sync on startup
 		log.Println("[Periodic Sync] Running initial schema sync...")
-	 enqueueSchemaSyncs(db, redisAddr)
+		enqueueSchemaSyncs(db, redisAddr)
 
 		for range ticker.C {
 			log.Println("[Periodic Sync] Running scheduled schema sync...")

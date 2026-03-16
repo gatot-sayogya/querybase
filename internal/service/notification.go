@@ -14,7 +14,7 @@ import (
 
 // NotificationService handles notification logic
 type NotificationService struct {
-	db        *gorm.DB
+	db         *gorm.DB
 	httpClient *http.Client
 }
 
@@ -136,7 +136,7 @@ func (s *NotificationService) formatApprovalMessage(approval *models.ApprovalReq
 						Buttons: []ButtonWidget{
 							{
 								TextButton: &TextButton{
-									Text:   "View Details",
+									Text: "View Details",
 									OnClick: &OnClick{
 										OpenLink: &OpenLink{
 											URL: approvalURL,
@@ -203,7 +203,7 @@ type GoogleChatMessage struct {
 
 // Card represents a Google Chat card
 type Card struct {
-	Header  *CardHeader   `json:"header,omitempty"`
+	Header   *CardHeader   `json:"header,omitempty"`
 	Sections []CardSection `json:"sections,omitempty"`
 }
 
@@ -222,12 +222,12 @@ type CardSection struct {
 
 // Widget represents a card widget
 type Widget struct {
-	KeyValue        *KeyValueWidget        `json:"keyValue,omitempty"`
-	TextParagraph   *TextWidget            `json:"textParagraph,omitempty"`
-	Image           *ImageWidget           `json:"image,omitempty"`
-	Buttons         []ButtonWidget         `json:"buttons,omitempty"`
-	TextButton      *TextButton            `json:"textButton,omitempty"`
-	DecoratedText   *DecoratedTextWidget   `json:"decoratedText,omitempty"`
+	KeyValue      *KeyValueWidget      `json:"keyValue,omitempty"`
+	TextParagraph *TextWidget          `json:"textParagraph,omitempty"`
+	Image         *ImageWidget         `json:"image,omitempty"`
+	Buttons       []ButtonWidget       `json:"buttons,omitempty"`
+	TextButton    *TextButton          `json:"textButton,omitempty"`
+	DecoratedText *DecoratedTextWidget `json:"decoratedText,omitempty"`
 }
 
 // KeyValueWidget represents a key-value widget
@@ -246,7 +246,7 @@ type TextWidget struct {
 
 // ImageWidget represents an image widget
 type ImageWidget struct {
-	ImageURL string `json:"imageUrl,omitempty"`
+	ImageURL string   `json:"imageUrl,omitempty"`
 	OnClick  *OnClick `json:"onClick,omitempty"`
 }
 
@@ -257,7 +257,7 @@ type ButtonWidget struct {
 
 // TextButton represents a text button
 type TextButton struct {
-	Text    string  `json:"text"`
+	Text    string   `json:"text"`
 	OnClick *OnClick `json:"onClick,omitempty"`
 }
 
@@ -274,15 +274,15 @@ type OpenLink struct {
 
 // Action represents an action
 type Action struct {
-	Function string                 `json:"function,omitempty"`
+	Function   string                 `json:"function,omitempty"`
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
 }
 
 // DecoratedTextWidget represents a decorated text widget
 type DecoratedTextWidget struct {
-	TopLabel    string    `json:"topLabel,omitempty"`
-	Text        string    `json:"text,omitempty"`
-	BottomLabel string    `json:"bottomLabel,omitempty"`
-	OnClick     *OnClick  `json:"onClick,omitempty"`
-	StartIcon   string    `json:"startIcon,omitempty"`
+	TopLabel    string   `json:"topLabel,omitempty"`
+	Text        string   `json:"text,omitempty"`
+	BottomLabel string   `json:"bottomLabel,omitempty"`
+	OnClick     *OnClick `json:"onClick,omitempty"`
+	StartIcon   string   `json:"startIcon,omitempty"`
 }

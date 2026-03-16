@@ -146,15 +146,20 @@ func ValidateSQL(sql string) error {
 		return fmt.Errorf("SQL query cannot be empty")
 	}
 
-	// Check for balanced parentheses
-	openCount := strings.Count(trimmedSQL, "(")
-	closeCount := strings.Count(trimmedSQL, ")")
+	// Collapse newlines / tabs / extra spaces so that keyword checks like
+	// " SET " work regardless of whether the user wrote the query on one line
+	// or across multiple lines (e.g. "UPDATE t\nSET col = 1").
+	normalizedSQL := SanitizeSQL(trimmedSQL)
+
+	// Check for balanced parentheses on the normalised form
+	openCount := strings.Count(normalizedSQL, "(")
+	closeCount := strings.Count(normalizedSQL, ")")
 	if openCount != closeCount {
 		return fmt.Errorf("unbalanced parentheses in SQL query")
 	}
 
-	// Check for common syntax errors
-	upperSQL := strings.ToUpper(trimmedSQL)
+	// All keyword checks use the normalised, uppercased form
+	upperSQL := strings.ToUpper(normalizedSQL)
 
 	// Check for SELECT without FROM (unless it's SELECT 1, SELECT variable, etc.)
 	if strings.HasPrefix(upperSQL, "SELECT") {
@@ -213,8 +218,8 @@ func ValidateSQL(sql string) error {
 	// Count single quotes - should be even for properly terminated strings
 	singleQuoteCount := 0
 	inEscape := false
-	for i := 0; i < len(trimmedSQL); i++ {
-		char := trimmedSQL[i]
+	for i := 0; i < len(normalizedSQL); i++ {
+		char := normalizedSQL[i]
 		if char == '\\' && inEscape {
 			inEscape = true
 			continue

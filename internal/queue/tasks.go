@@ -8,11 +8,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/hibiken/asynq"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
+	"github.com/hibiken/asynq"
 	"github.com/yourorg/querybase/internal/models"
 	"github.com/yourorg/querybase/internal/service"
+	"gorm.io/gorm"
 )
 
 // Task types
@@ -25,11 +25,11 @@ const (
 
 // ExecuteQueryPayload represents the payload for query execution task
 type ExecuteQueryPayload struct {
-	QueryID     string `json:"query_id"`
-	ApprovalID  string `json:"approval_id,omitempty"`
+	QueryID      string `json:"query_id"`
+	ApprovalID   string `json:"approval_id,omitempty"`
 	DataSourceID string `json:"data_source_id"`
-	SQL         string `json:"sql"`
-	UserID      string `json:"user_id"`
+	SQL          string `json:"sql"`
+	UserID       string `json:"user_id"`
 }
 
 // SendNotificationPayload represents the payload for sending notifications
@@ -229,9 +229,9 @@ func HandleSyncDataSourceSchema(ctx context.Context, t *asynq.Task) error {
 		// Update health status to unhealthy
 		now := time.Now()
 		db.Model(&dataSource).Updates(map[string]interface{}{
-			"is_healthy":         false,
-			"last_health_check":  now,
-			"last_schema_sync":   now,
+			"is_healthy":        false,
+			"last_health_check": now,
+			"last_schema_sync":  now,
 		})
 		return err
 	}
@@ -239,9 +239,9 @@ func HandleSyncDataSourceSchema(ctx context.Context, t *asynq.Task) error {
 	// Update health status to healthy and sync time
 	now := time.Now()
 	db.Model(&dataSource).Updates(map[string]interface{}{
-		"is_healthy":         true,
-		"last_health_check":  now,
-		"last_schema_sync":   now,
+		"is_healthy":        true,
+		"last_health_check": now,
+		"last_schema_sync":  now,
 	})
 
 	log.Printf("[Schema Sync] Successfully synced schema for %s", dataSource.Name)

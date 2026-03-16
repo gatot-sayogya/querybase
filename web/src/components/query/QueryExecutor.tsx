@@ -160,9 +160,8 @@ export default function QueryExecutor() {
         return;
       }
 
-      // Add LIMIT if not present and query is SELECT
-      let finalQuery = queryText.trim();
-      // Remove trailing semicolon for LIMIT check and addition
+      // Normalize line endings and strip trailing semicolons for safe manipulation
+      let finalQuery = queryText.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       finalQuery = finalQuery.replace(/;+\s*$/, '');
       const isSelectQuery = /^\s*SELECT\s/i.test(finalQuery);
       const isDeleteQuery = /^\s*DELETE\s/i.test(finalQuery);
@@ -173,9 +172,10 @@ export default function QueryExecutor() {
       if ((isDeleteQuery || isUpdateQuery) && canWrite) {
         setPreviewLoading(true);
         try {
-          const preview = await apiClient.previewWriteQuery(dataSourceId, finalQuery);
+          const previewQuery = finalQuery + ';';
+          const preview = await apiClient.previewWriteQuery(dataSourceId, previewQuery);
           setWritePreview(preview);
-          setPendingWriteQuery(finalQuery);
+          setPendingWriteQuery(previewQuery);
         } catch (previewErr: any) {
           // If preview fails, fall through to normal execution (which will create approval)
           setError(previewErr.response?.data?.error || previewErr.message || 'Failed to preview query');
@@ -189,6 +189,9 @@ export default function QueryExecutor() {
       if (isSelectQuery && !hasLimit && rowLimit > 0) {
         finalQuery += ` LIMIT ${rowLimit}`;
       }
+
+      // Ensure single query always ends with a semicolon
+      finalQuery += ';';
 
       // Execute query
       const response = await apiClient.executeQuery({
@@ -223,17 +226,18 @@ export default function QueryExecutor() {
       setQueryId(qid);
 
       // Check if results are included in the response
-      const hasData = (response as any).data && Array.isArray((response as any).data) && (response as any).data.length > 0;
+      // hasColumns is the key signal — data can be an empty array for 0-row queries
       const hasColumns = (response as any).columns && Array.isArray((response as any).columns) && (response as any).columns.length > 0;
+      const dataInResponse = Array.isArray((response as any).data) ? (response as any).data : null;
 
-      console.log('Has data:', hasData, 'Has columns:', hasColumns);
+      console.log('Has columns:', hasColumns, 'Data rows:', dataInResponse?.length ?? 'none');
 
       // Poll for results if query is still running
       if (response.status === 'running' || response.status === 'pending') {
         console.log('Query still running/pending, polling for results');
         pollForResult(qid, startTime);
-      } else if (response.status === 'completed' && hasData && hasColumns) {
-        // Use the results from the response directly
+      } else if (response.status === 'completed' && hasColumns) {
+        // Columns are present — use the inline response (data may be [] for 0-row queries)
         console.log('Using results from initial response');
         const executionTime = Date.now() - startTime;
         const rowCount = (response as any).row_count || 0;
@@ -241,29 +245,29 @@ export default function QueryExecutor() {
           query_id: qid,
           row_count: rowCount,
           columns: (response as any).columns,
-          data: (response as any).data,
+          data: dataInResponse ?? [],
         });
         queryStatus.setCompleted(executionTime, rowCount);
         setLoading(false);
       } else if (response.status === 'completed') {
-        // Fetch results from server
+        // Columns missing from inline response — fetch from server
         console.log('Fetching results for query:', qid);
         const queryWithResults = await apiClient.getQuery(qid);
         console.log('Got query with results:', queryWithResults);
         const resultData = queryWithResults.results || queryWithResults.result;
         const executionTime = Date.now() - startTime;
-        if (resultData && resultData.data && resultData.columns) {
+        if (resultData && resultData.columns) {
           console.log('Setting results:', resultData);
           const rowCount = resultData.row_count || 0;
           setResults({
             query_id: resultData.query_id || qid,
             row_count: rowCount,
             columns: resultData.columns,
-            data: resultData.data,
+            data: Array.isArray(resultData.data) ? resultData.data : [],
           });
           queryStatus.setCompleted(executionTime, rowCount);
         } else {
-          console.log('No results found in query response or data is null:', resultData);
+          console.log('No columns in query response:', resultData);
           queryStatus.setCompleted(executionTime, 0);
         }
         setLoading(false);
@@ -440,7 +444,7 @@ export default function QueryExecutor() {
       const hasColumns = (response as any).columns && Array.isArray((response as any).columns);
 
       if (response.status === 'running' || response.status === 'pending') {
-        pollForResult(qid);
+        pollForResult(qid, Date.now());
       } else if (response.status === 'completed' && hasData && hasColumns) {
         setResults({
           query_id: qid,
@@ -484,6 +488,15 @@ export default function QueryExecutor() {
         query_text: pendingWriteQuery,
       });
 
+      // Handle no_match: query would affect 0 rows
+      if (response.status === 'no_match' && (response as any).validation) {
+        setValidationResult((response as any).validation);
+        setShowValidationModal(true);
+        queryStatus.setNoMatch((response as any).validation?.message);
+        setLoading(false);
+        return;
+      }
+
       const qid = (response as any).query_id || response.id;
 
       if (!qid) {
@@ -493,7 +506,7 @@ export default function QueryExecutor() {
       setQueryId(qid);
 
       if (response.status === 'running' || response.status === 'pending') {
-        pollForResult(qid);
+        pollForResult(qid, Date.now());
       } else {
         setLoading(false);
       }

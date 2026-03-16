@@ -154,9 +154,14 @@ func (s *ApprovalService) ReviewApproval(ctx context.Context, review *ReviewInpu
 		return nil, fmt.Errorf("approval request is not pending")
 	}
 
+	// Block self-approval: requester cannot review their own request
+	reviewerUUID, _ := uuid.Parse(review.ReviewerID)
+	if approval.RequestedBy == reviewerUUID {
+		return nil, fmt.Errorf("self-approval is not allowed: you cannot approve your own request")
+	}
+
 	// Check if reviewer has already reviewed
 	var existingReview models.ApprovalReview
-	reviewerUUID, _ := uuid.Parse(review.ReviewerID)
 	checkErr := s.db.Where("approval_request_id = ? AND reviewed_by = ?", review.ApprovalID, reviewerUUID).First(&existingReview).Error
 	if checkErr == nil {
 		return nil, fmt.Errorf("already reviewed")
@@ -227,8 +232,9 @@ func (s *ApprovalService) updateApprovalStatus(ctx context.Context, approvalID u
 		}
 	}
 
-	// If we have at least one approval, mark as approved
-	// For multi-stage approval, you would check for required number of approvals
+	// If we have at least one approval, mark as approved.
+	// Execution is NOT triggered here — the approver must use the StartTransaction →
+	// CommitTransaction flow to execute with audit capture and explicit confirmation.
 	for _, review := range reviews {
 		if review.Decision == models.ApprovalDecisionApproved {
 			now := time.Now()
@@ -245,30 +251,6 @@ func (s *ApprovalService) updateApprovalStatus(ctx context.Context, approvalID u
 				s.db.Select("requested_by").First(&tempApp, "id = ?", approvalID)
 				s.statsService.TriggerStatsChanged(tempApp.RequestedBy.String())
 			}
-
-			// Execute the approved query
-			var approval models.ApprovalRequest
-			if err := s.db.Preload("DataSource").First(&approval, "id = ?", approvalID).Error; err == nil {
-				// We create a transient query executed by the reviewer (who has permissions) to bypass the direct execution block
-				query := &models.Query{
-					ID:            uuid.New(),
-					DataSourceID:  approval.DataSourceID,
-					UserID:        review.ReviewerID, // Execute as the approver
-					QueryText:     approval.QueryText,
-					OperationType: approval.OperationType,
-					Name:          "Approved execution",
-					Status:        models.StatusRunning,
-				}
-
-				// The transient query must exist for QueryResult to avoid f-key violations
-				s.db.Create(query)
-
-				// Execute in background to avoid blocking the API response
-				go func(q *models.Query, ds *models.DataSource) {
-					bgCtx := context.Background()
-					_, _ = s.queryService.ExecuteQuery(bgCtx, q, ds)
-				}(query, &approval.DataSource)
-			}
 			return
 		}
 	}
@@ -282,9 +264,11 @@ func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, star
 		return nil, fmt.Errorf("approval request not found: %w", err)
 	}
 
-	// Check if approval is still pending
-	if approval.Status != models.ApprovalStatusPending {
-		return nil, fmt.Errorf("approval request is not pending")
+	// Require APPROVED status before a transaction can be started.
+	// The review step must happen first; once approved the executor uses this
+	// flow to commit the change with full audit capture.
+	if approval.Status != models.ApprovalStatusApproved {
+		return nil, fmt.Errorf("approval request must be approved before starting a transaction (current status: %s)", approval.Status)
 	}
 
 	// Check if an active transaction already exists — return it directly
@@ -395,6 +379,32 @@ func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, star
 		log.Printf("[StartTransaction] Failed to save transaction record: %v", err)
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
+
+	// For multi-query approvals, create per-statement records for audit trail.
+	// This mirrors what CreateMultiQueryTransaction does in the direct execution path.
+	parsed := ParseMultipleQueries(approval.QueryText)
+	if len(parsed.Statements) > 1 {
+		transaction.IsMultiQuery = true
+		transaction.StatementCount = len(parsed.Statements)
+		s.db.Model(transaction).Updates(map[string]interface{}{
+			"is_multi_query":  true,
+			"statement_count": len(parsed.Statements),
+		})
+		for _, stmt := range parsed.Statements {
+			stmtRecord := &models.QueryTransactionStatement{
+				ID:            uuid.New(),
+				TransactionID: transaction.ID,
+				Sequence:      stmt.Sequence,
+				QueryText:     stmt.QueryText,
+				OperationType: stmt.OperationType,
+				Status:        models.StatementStatusPending,
+			}
+			if err := s.db.Create(stmtRecord).Error; err != nil {
+				log.Printf("[StartTransaction] Failed to create statement record seq=%d: %v", stmt.Sequence, err)
+			}
+		}
+	}
+
 	beforeCount, afterCount := 0, 0
 	if auditResult != nil {
 		beforeCount = len(auditResult.BeforeData)

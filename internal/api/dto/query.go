@@ -14,7 +14,7 @@ type ExecuteQueryResponse struct {
 	Status           string                   `json:"status"`
 	RowCount         *int                     `json:"row_count"`
 	ExecutionTime    *int                     `json:"execution_time_ms"`
-	Data             []map[string]interface{} `json:"data,omitempty"`
+	Data             []map[string]interface{} `json:"data"`
 	Columns          []ColumnInfo             `json:"columns"`
 	ErrorMessage     string                   `json:"error_message,omitempty"`
 	RequiresApproval bool                     `json:"requires_approval"`

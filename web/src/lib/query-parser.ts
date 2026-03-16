@@ -38,6 +38,9 @@ export function parseMultipleQueries(queryText: string): MultiQueryParseResult {
     return result;
   }
 
+  // Normalize line endings so \r\n and \r don't end up inside statement text
+  queryText = queryText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
   let state: ParseState = 'normal';
   let currentStmt = '';
   let sequence = 0;
@@ -66,7 +69,7 @@ export function parseMultipleQueries(queryText: string): MultiQueryParseResult {
           if (stmt) {
             result.statements.push({
               sequence,
-              queryText: stmt,
+              queryText: stmt + ';',
               operationType: detectOperationType(stmt)
             });
             sequence++;
@@ -123,12 +126,12 @@ export function parseMultipleQueries(queryText: string): MultiQueryParseResult {
     }
   }
 
-  // Don't forget the last statement
+  // Don't forget the last statement (may have no trailing semicolon — add one)
   const stmt = currentStmt.trim();
   if (stmt) {
     result.statements.push({
       sequence,
-      queryText: stmt,
+      queryText: stmt + ';',
       operationType: detectOperationType(stmt)
     });
   }

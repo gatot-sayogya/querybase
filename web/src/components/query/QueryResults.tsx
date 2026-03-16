@@ -88,11 +88,11 @@ export default function QueryResults({
     );
   }
 
-  // Check if we have columns but no data (empty result set)
+  // Show empty state only when there are no columns (query returned nothing at all).
+  // When columns exist but data is empty, render the table with headers and an empty body.
   const hasColumns = results?.columns && results.columns.length > 0;
-  const hasData = results?.data && results.data.length > 0;
-  
-  if (!results || (!hasColumns && !hasData)) {
+
+  if (!results || !hasColumns) {
     return (
       <EmptyState
         illustration="no-results"

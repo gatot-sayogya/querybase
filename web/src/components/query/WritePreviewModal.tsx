@@ -121,11 +121,12 @@ export default function WritePreviewModal({
         {/* Data Table */}
         <div className="flex-1 overflow-auto min-h-0">
           {!preview.preview_rows || preview.preview_rows.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              <svg className="mx-auto h-8 w-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            <div className="p-8 text-center">
+              <svg className="mx-auto h-10 w-10 mb-3 text-blue-400 dark:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              No rows match the query conditions.
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">No matching rows found</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">This query would affect 0 rows. Check your WHERE clause and try again.</p>
             </div>
           ) : (
             <table className="data-table w-full">
@@ -174,22 +175,24 @@ export default function WritePreviewModal({
             disabled={loading}
             className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
           >
-            Cancel
+            {preview.total_affected === 0 ? 'Edit Query' : 'Cancel'}
           </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className={`px-5 py-2.5 text-sm font-medium text-white rounded-lg ${confirmBg} transition-colors disabled:opacity-50 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2`}
-          >
-            {loading ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-            Confirm & Submit for Approval
-          </button>
+          {preview.total_affected > 0 && (
+            <button
+              onClick={onConfirm}
+              disabled={loading}
+              className={`px-5 py-2.5 text-sm font-medium text-white rounded-lg ${confirmBg} transition-colors disabled:opacity-50 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2`}
+            >
+              {loading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              Confirm & Submit for Approval
+            </button>
+          )}
         </div>
       </div>
     </div>

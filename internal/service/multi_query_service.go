@@ -11,6 +11,14 @@ import (
 	"gorm.io/gorm"
 )
 
+// MultiQueryImpact holds the preview information for a multi-query request
+// to help determine if approval is truly needed based on affected rows.
+type MultiQueryImpact struct {
+	Statements         []StatementPreview
+	TotalEstimatedRows int
+	RequiresApproval   bool
+}
+
 // MultiQueryService handles multi-query transaction operations
 type MultiQueryService struct {
 	db              *gorm.DB
@@ -128,6 +136,83 @@ func (s *MultiQueryService) PreviewMultiQuery(ctx context.Context, dataSourceID 
 
 	result.StatementCount = len(queryTexts)
 	return result, nil
+}
+
+// CalculateMultiQueryImpact determines if a multi-query actually requires approval
+// based on the estimated row impact. Returns the impact details and whether approval is needed.
+func (s *MultiQueryService) CalculateMultiQueryImpact(ctx context.Context, dataSourceID uuid.UUID, userID uuid.UUID, queryTexts []string) (*MultiQueryImpact, error) {
+	// Get data source
+	var dataSource models.DataSource
+	if err := s.db.First(&dataSource, "id = ?", dataSourceID).Error; err != nil {
+		return nil, fmt.Errorf("data source not found: %w", err)
+	}
+
+	// Check permissions
+	perms, err := s.queryService.GetEffectivePermissions(ctx, userID, dataSourceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check permissions: %w", err)
+	}
+
+	impact := &MultiQueryImpact{
+		Statements: make([]StatementPreview, 0, len(queryTexts)),
+	}
+
+	for i, queryText := range queryTexts {
+		preview := StatementPreview{
+			Sequence:      i,
+			QueryText:     queryText,
+			OperationType: DetectOperationType(queryText),
+		}
+
+		// Check permissions for this operation
+		hasPermission := true
+		switch preview.OperationType {
+		case models.OperationSelect:
+			hasPermission = perms.CanSelect
+		case models.OperationInsert:
+			hasPermission = perms.CanInsert
+		case models.OperationUpdate:
+			hasPermission = perms.CanUpdate
+		case models.OperationDelete:
+			hasPermission = perms.CanDelete
+		}
+
+		if !hasPermission {
+			preview.Error = fmt.Sprintf("permission denied: %s not allowed", preview.OperationType)
+			impact.Statements = append(impact.Statements, preview)
+			continue
+		}
+
+		// For UPDATE/DELETE, get estimated rows affected
+		if preview.OperationType == models.OperationUpdate || preview.OperationType == models.OperationDelete {
+			writePreview, err := s.queryService.PreviewWriteQuery(ctx, queryText, &dataSource)
+			if err != nil {
+				preview.Error = fmt.Sprintf("preview generation failed: %v", err)
+			} else {
+				preview.EstimatedRows = writePreview.TotalAffected
+				preview.PreviewRows = writePreview.PreviewRows
+				preview.Columns = writePreview.Columns
+			}
+		}
+
+		impact.Statements = append(impact.Statements, preview)
+		impact.TotalEstimatedRows += preview.EstimatedRows
+
+		// Determine if approval is required based on operation type
+		// ALL write operations require approval (not just when rows > 0)
+		switch preview.OperationType {
+		case models.OperationInsert, models.OperationUpdate, models.OperationDelete:
+			// All DML write operations require approval
+			impact.RequiresApproval = true
+		default:
+			// DDL (CREATE TABLE, DROP TABLE, ALTER TABLE) always requires approval
+			if RequiresApproval(preview.OperationType) {
+				impact.RequiresApproval = true
+			}
+		}
+	}
+
+	return impact, nil
 }
 
 // CreateMultiQueryTransaction creates a new multi-query transaction

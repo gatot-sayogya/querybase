@@ -176,33 +176,43 @@ func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
 		return
 	}
 
-	// Check if any write operations require approval (same logic as regular queries)
-	requiresApproval := false
-	for _, stmt := range parseResult.Statements {
-		if service.RequiresApproval(stmt.OperationType) {
-			// Check specific write permission
-			switch stmt.OperationType {
-			case models.OperationInsert:
-				if !perms.CanInsert {
-					c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: INSERT not allowed"})
-					return
-				}
-			case models.OperationUpdate:
-				if !perms.CanUpdate {
-					c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: UPDATE not allowed"})
-					return
-				}
-			case models.OperationDelete:
-				if !perms.CanDelete {
-					c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied: DELETE not allowed"})
-					return
-				}
-			}
-			requiresApproval = true
+	// Calculate the actual impact of the multi-query
+	impact, err := h.multiQuerySvc.CalculateMultiQueryImpact(c.Request.Context(), dataSourceID, userUUID, queryTexts)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Check for permission errors in any statement
+	for _, stmt := range impact.Statements {
+		if stmt.Error != "" && strings.Contains(stmt.Error, "permission denied") {
+			c.JSON(http.StatusForbidden, gin.H{"error": stmt.Error})
+			return
 		}
 	}
 
-	// If approval required, create approval request
+	// Check if user is admin
+	user, _ := c.Get("user")
+	isAdmin := false
+	if u, ok := user.(*models.User); ok {
+		isAdmin = u.Role == models.RoleAdmin
+	}
+
+	// Check if this is a write operation that would affect 0 rows
+	// For non-admins: don't allow execution or approval if no rows would be affected
+	if impact.RequiresApproval && impact.TotalEstimatedRows == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":             "No rows would be affected by these queries",
+			"estimated_rows":    0,
+			"requires_approval": false,
+		})
+		return
+	}
+
+	// Non-admin users require approval for write operations that affect rows
+	// Only admins can execute write queries directly
+	requiresApproval := !isAdmin && impact.RequiresApproval && impact.TotalEstimatedRows > 0
+
 	if requiresApproval {
 		approval := &models.ApprovalRequest{
 			ID:            uuid.New(),

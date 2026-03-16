@@ -168,12 +168,12 @@ func TestGroup_WithUsers(t *testing.T) {
 // TestDataSource_WithEncryptedPassword tests data source with encrypted password
 func TestDataSource_WithEncryptedPassword(t *testing.T) {
 	ds := DataSource{
-		Name:             "Test DB",
-		Type:             DataSourceTypePostgreSQL,
-		Host:             "localhost",
-		Port:             5432,
-		DatabaseName:     "testdb",
-		Username:         "testuser",
+		Name:              "Test DB",
+		Type:              DataSourceTypePostgreSQL,
+		Host:              "localhost",
+		Port:              5432,
+		DatabaseName:      "testdb",
+		Username:          "testuser",
 		EncryptedPassword: "encrypted:secret123",
 	}
 

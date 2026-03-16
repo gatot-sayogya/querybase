@@ -7,10 +7,10 @@ import (
 
 // AppError represents an application error with HTTP status code
 type AppError struct {
-	Code       int    `json:"code"`
-	Message    string `json:"message"`
-	Details    string `json:"details,omitempty"`
-	Err        error  `json:"-"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Details string `json:"details,omitempty"`
+	Err     error  `json:"-"`
 }
 
 // Error implements the error interface

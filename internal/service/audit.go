@@ -567,7 +567,9 @@ func (s *AuditService) cleanupMySQLTriggers(tx *gorm.DB, triggers ...string) {
 
 // buildCountQuery converts a write query into a SELECT COUNT(*) for estimation
 func (s *AuditService) buildCountQuery(queryText string) (string, error) {
-	trimmed := strings.TrimSpace(queryText)
+	// Normalize first: collapse newlines/tabs/extra spaces and strip comments so that
+	// keyword searches like " WHERE " work regardless of how the user formatted the query.
+	trimmed := strings.TrimRight(SanitizeSQL(queryText), "; \t\r\n")
 	upper := strings.ToUpper(trimmed)
 
 	// DELETE FROM table WHERE ... → SELECT COUNT(*) FROM table WHERE ...

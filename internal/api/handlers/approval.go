@@ -162,6 +162,12 @@ func (h *ApprovalHandler) ReviewApproval(c *gin.Context) {
 		return
 	}
 
+	// Prevent self-approval at the handler layer (defense in depth — the service also checks this)
+	if approval.RequestedBy.String() == userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "self-approval is not allowed: you cannot approve your own request"})
+		return
+	}
+
 	// Create review
 	reviewInput := &service.ReviewInput{
 		ApprovalID: approval.ID,
@@ -385,9 +391,10 @@ func (h *ApprovalHandler) StartTransaction(c *gin.Context) {
 		return
 	}
 
-	// Check if approval is still pending
-	if approval.Status != models.ApprovalStatusPending {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Approval is not pending"})
+	// Only APPROVED requests can start a transaction.
+	// PENDING means it hasn't been reviewed yet; REJECTED means it was denied.
+	if approval.Status != models.ApprovalStatusApproved {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("approval must be approved before starting a transaction (current status: %s)", approval.Status)})
 		return
 	}
 
@@ -472,6 +479,13 @@ func (h *ApprovalHandler) CommitTransaction(c *gin.Context) {
 	// Check if user can approve this request
 	if !h.checkCanApprove(userID, transaction.DataSourceID.String()) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to commit this transaction"})
+		return
+	}
+
+	// Prevent the original requester from committing their own transaction.
+	// The approver (a different person) must be the one who commits.
+	if transaction.ApprovalID != nil && transaction.Approval.RequestedBy.String() == userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "you cannot commit a transaction for your own approval request"})
 		return
 	}
 

@@ -202,7 +202,7 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 		typeNames[i] = ct.DatabaseTypeName()
 	}
 
-	var results []map[string]interface{}
+	results := make([]map[string]interface{}, 0) // non-nil so JSON marshals to [] not null
 	for rows.Next() {
 		// Create a slice of interface{} to hold each column value
 		values := make([]interface{}, len(columns))

@@ -251,6 +251,36 @@ func TestValidateSQL(t *testing.T) {
 			sql:         "INSERT INTO users SET id = 1, name = 'John'",
 			expectError: false,
 		},
+		// Multi-line queries — SET / VALUES / WHERE must be found even when
+		// the keyword lands on a new line (regression for newline parsing bug).
+		{
+			name: "Valid multi-line UPDATE — SET on new line",
+			sql: `UPDATE users
+SET name = 'Jane', email = 'jane@example.com', updated_at = '2025-01-01 00:00:00'
+WHERE id IN (1,2,3)`,
+			expectError: false,
+		},
+		{
+			name: "Valid multi-line INSERT — VALUES on new line",
+			sql: `INSERT INTO customers (first_name, last_name, email)
+VALUES
+('John', 'Doe', 'john@example.com')`,
+			expectError: false,
+		},
+		{
+			name: "Valid multi-line SELECT — FROM on new line",
+			sql: `SELECT id, first_name, last_name
+FROM customers
+WHERE is_active = true`,
+			expectError: false,
+		},
+		{
+			name: "Invalid multi-line UPDATE — genuinely missing SET",
+			sql: `UPDATE customers
+WHERE id = 1`,
+			expectError: true,
+			errorMsg:    "SET clause",
+		},
 	}
 
 	for _, tt := range tests {

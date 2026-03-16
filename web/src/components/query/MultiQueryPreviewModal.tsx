@@ -49,9 +49,11 @@ export function MultiQueryPreviewModal({
     setExpandedStatements(newExpanded);
   };
 
+  const WRITE_OPERATION_TYPES = ['INSERT', 'UPDATE', 'DELETE', 'CREATE_TABLE', 'DROP_TABLE', 'ALTER_TABLE'];
   const writeOperations = statements.filter(
-    s => ['INSERT', 'UPDATE', 'DELETE'].includes(s.operation_type)
+    s => WRITE_OPERATION_TYPES.includes(s.operation_type)
   );
+  const requiresApproval = writeOperations.length > 0;
 
   const hasErrors = statements.some(s => s.error);
 
@@ -72,7 +74,12 @@ export function MultiQueryPreviewModal({
               <div className="text-sm text-slate-500 dark:text-slate-400">Statements</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold">{totalEstimatedRows.toLocaleString()}</div>
+              <div className={cn(
+                "text-2xl font-bold",
+                totalEstimatedRows === 0 && requiresApproval && "text-red-600 dark:text-red-400"
+              )}>
+                {totalEstimatedRows.toLocaleString()}
+              </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">Est. Affected Rows</div>
             </div>
             <div className="text-center">
@@ -87,6 +94,18 @@ export function MultiQueryPreviewModal({
               <span className="text-sm text-red-800 dark:text-red-300">
                 Some statements have errors. Please review before proceeding.
               </span>
+            </div>
+          )}
+
+          {totalEstimatedRows === 0 && requiresApproval && (
+            <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md flex items-center gap-2">
+              <ExclamationTriangleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <div className="text-sm text-red-800 dark:text-red-300">
+                <div className="font-medium">No rows would be affected</div>
+                <div className="text-red-700 dark:text-red-400">
+                  The WHERE clause does not match any existing rows. Please review your query conditions.
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -238,20 +257,40 @@ export function MultiQueryPreviewModal({
         {/* Footer */}
         <div className="flex justify-between items-center gap-4 pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
           <div className="text-sm text-slate-500 dark:text-slate-400">
-            All statements will execute atomically
+            {totalEstimatedRows === 0 && requiresApproval ? (
+              <span className="text-red-600 dark:text-red-400 font-medium">
+                ⚠ No rows would be affected — execution is disabled
+              </span>
+            ) : requiresApproval ? (
+              <span className="text-amber-600 dark:text-amber-400 font-medium">
+                ⚠ Contains write operations — requires approval before execution
+              </span>
+            ) : (
+              'All statements will execute atomically'
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onReject} disabled={loading}>
               Cancel
             </Button>
-            <Button 
-              onClick={onApprove} 
-              disabled={loading || hasErrors}
+            <Button
+              onClick={onApprove}
+              disabled={loading || hasErrors || (totalEstimatedRows === 0 && requiresApproval)}
             >
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                   Processing...
+                </>
+              ) : totalEstimatedRows === 0 && requiresApproval ? (
+                <>
+                  <ExclamationTriangleIcon className="w-4 h-4 mr-2" />
+                  No Rows Affected
+                </>
+              ) : requiresApproval ? (
+                <>
+                  <CheckCircleIcon className="w-4 h-4 mr-2" />
+                  Submit for Approval
                 </>
               ) : (
                 <>
