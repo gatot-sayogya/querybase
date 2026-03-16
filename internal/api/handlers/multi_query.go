@@ -198,8 +198,16 @@ func (h *MultiQueryHandler) ExecuteMultiQuery(c *gin.Context) {
 		isAdmin = u.Role == models.RoleAdmin
 	}
 
-	// Note: Queries that would affect 0 rows will show a preview with the execute button disabled
-	// This allows users to see the preview and understand why no rows match before execution
+	// Block execution for write operations that would affect 0 rows
+	// This prevents creating pointless approvals or executing useless queries
+	if impact.RequiresApproval && impact.TotalEstimatedRows == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":             "No rows would be affected by these queries. Please check your WHERE clause.",
+			"estimated_rows":    0,
+			"requires_approval": false,
+		})
+		return
+	}
 
 	// Non-admin users require approval for write operations that affect rows
 	// Only admins can execute write queries directly
