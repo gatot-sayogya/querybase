@@ -409,6 +409,55 @@ func (h *QueryHandler) PreviewWriteQuery(c *gin.Context) {
 	})
 }
 
+// PreviewInsertQuery previews the data to be inserted by an INSERT query
+func (h *QueryHandler) PreviewInsertQuery(c *gin.Context) {
+	var req dto.InsertPreviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := c.GetString("user_id")
+
+	// Verify data source exists
+	var dataSource models.DataSource
+	if err := h.db.First(&dataSource, "id = ?", req.DataSourceID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Data source not found"})
+		return
+	}
+
+	// Check read permission (preview is read-only)
+	if !h.checkReadPermission(c, userID, dataSource.ID.String()) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+		return
+	}
+
+	// Execute preview
+	result, err := h.queryService.PreviewInsertQuery(c, req.QueryText, &dataSource)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Convert columns to DTO
+	columns := make([]dto.ColumnInfo, len(result.Columns))
+	for i, col := range result.Columns {
+		columns[i] = dto.ColumnInfo{
+			Name: col.ColumnName,
+			Type: col.DataType,
+		}
+	}
+
+	c.JSON(http.StatusOK, dto.InsertPreviewResponse{
+		TableName:     result.TableName,
+		Columns:       columns,
+		Rows:          result.Rows,
+		TotalRowCount: result.TotalRowCount,
+		PreviewType:   string(result.PreviewType),
+		SelectQuery:   result.SelectQuery,
+	})
+}
+
 // createApprovalForQuery creates an approval request for write operations
 func (h *QueryHandler) createApprovalForQuery(c *gin.Context, req dto.ExecuteQueryRequest, dataSource models.DataSource, userID string, operationType models.OperationType) {
 	// Check if user has write permission
