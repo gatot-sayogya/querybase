@@ -22,6 +22,8 @@ import { previewMultiQuery, executeMultiQuery } from '@/lib/api/multi-query';
 import type { MultiQueryPreviewResponse, MultiQueryResponse } from '@/lib/api/multi-query';
 import QueryValidationModal from './QueryValidationModal';
 import QueryStatusIndicator, { useQueryStatus } from './QueryStatusIndicator';
+import InsertPreviewModal from './InsertPreviewModal';
+import type { InsertPreviewResult } from '@/lib/api/insert-preview';
 
 const SQLEditor = dynamic(() => import('./SQLEditor'), { ssr: false });
 
@@ -40,6 +42,7 @@ export default function QueryExecutor() {
   const [isWriteQuery, setIsWriteQuery] = useState(false);
   const [permissionError, setPermissionError] = useState<{ message: string; hint: string; dataSource: string } | null>(null);
   const [writePreview, setWritePreview] = useState<WriteQueryPreview | null>(null);
+  const [insertPreview, setInsertPreview] = useState<InsertPreviewResult | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [pendingWriteQuery, setPendingWriteQuery] = useState<string>('');
   
@@ -166,6 +169,7 @@ export default function QueryExecutor() {
       const isSelectQuery = /^\s*SELECT\s/i.test(finalQuery);
       const isDeleteQuery = /^\s*DELETE\s/i.test(finalQuery);
       const isUpdateQuery = /^\s*UPDATE\s/i.test(finalQuery);
+      const isInsertQuery = /^\s*INSERT\s/i.test(finalQuery);
       const hasLimit = /\bLIMIT\s+\d+\s*$/i.test(finalQuery);
 
       // For DELETE/UPDATE queries with write permission, show preview first
@@ -179,6 +183,24 @@ export default function QueryExecutor() {
         } catch (previewErr: any) {
           // If preview fails, fall through to normal execution (which will create approval)
           setError(previewErr.response?.data?.error || previewErr.message || 'Failed to preview query');
+        } finally {
+          setPreviewLoading(false);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // For INSERT queries with write permission, show preview first
+      if (isInsertQuery && canWrite) {
+        setPreviewLoading(true);
+        try {
+          const previewQuery = finalQuery + ';';
+          const preview = await apiClient.previewInsertQuery(dataSourceId, previewQuery);
+          setInsertPreview(preview);
+          setPendingWriteQuery(previewQuery);
+        } catch (previewErr: any) {
+          // If preview fails, fall through to normal execution (which will create approval)
+          setError(previewErr.response?.data?.error || previewErr.message || 'Failed to preview INSERT query');
         } finally {
           setPreviewLoading(false);
           setLoading(false);
@@ -523,6 +545,49 @@ export default function QueryExecutor() {
     }
   };
 
+  // Handle INSERT query confirmation after preview
+  const handleConfirmInsertQuery = async () => {
+    if (!pendingWriteQuery || !dataSourceId) return;
+
+    setLoading(true);
+    setInsertPreview(null);
+    setError(null);
+    setPermissionError(null);
+    setResults(null);
+    setQueryId(null);
+
+    try {
+      const response = await apiClient.executeQuery({
+        data_source_id: dataSourceId,
+        query_text: pendingWriteQuery,
+      });
+
+      const qid = (response as any).query_id || response.id;
+
+      if (!qid) {
+        throw new Error('Server did not return a query ID.');
+      }
+
+      setQueryId(qid);
+
+      if (response.status === 'running' || response.status === 'pending') {
+        pollForResult(qid, Date.now());
+      } else {
+        setLoading(false);
+      }
+    } catch (err: any) {
+      if (err.response?.data?.code === 'PERMISSION_DENIED_WRITE') {
+        const data = err.response.data;
+        setPermissionError({ message: data.error, hint: data.hint, dataSource: data.data_source });
+        setError(null);
+      } else {
+        setError(err.response?.data?.error || err.message || 'Failed to execute query');
+        setPermissionError(null);
+      }
+      setLoading(false);
+    }
+  };
+
   // Handle multi-query execution after approval
   const handleExecuteMultiQuery = async () => {
     if (!multiQueryPreview || !dataSourceId) return;
@@ -561,6 +626,19 @@ export default function QueryExecutor() {
             queryText={pendingWriteQuery}
             onConfirm={handleConfirmWriteQuery}
             onCancel={() => { setWritePreview(null); setPendingWriteQuery(''); }}
+            loading={loading}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* INSERT Preview Modal */}
+      <AnimatePresence>
+        {insertPreview && (
+          <InsertPreviewModal
+            preview={insertPreview}
+            queryText={pendingWriteQuery}
+            onConfirm={handleConfirmInsertQuery}
+            onCancel={() => { setInsertPreview(null); setPendingWriteQuery(''); }}
             loading={loading}
           />
         )}
