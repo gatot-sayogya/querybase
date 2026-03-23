@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1022,6 +1023,209 @@ func extractInsertTableName(queryText string) string {
 	}
 	
 	return ""
+}
+
+// InsertPreviewResult represents the preview for an INSERT query
+type InsertPreviewResult struct {
+	TableName     string
+	Columns       []ColumnInfo
+	Rows          []map[string]interface{}
+	TotalRowCount int
+	PreviewType   InsertPreviewType
+	SelectQuery   string
+}
+
+// ColumnInfo represents column metadata
+type ColumnInfo struct {
+	Name     string
+	Type     string
+	Nullable bool
+}
+
+// TableSchema represents table structure
+type TableSchema struct {
+	Columns []ColumnInfo
+}
+
+// getTableSchema fetches schema for a table
+func (s *QueryService) getTableSchema(
+	ctx context.Context,
+	dataSource *models.DataSource,
+	tableName string,
+) (*TableSchema, error) {
+	dataSourceDB, err := s.connectToDataSource(dataSource)
+	if err != nil {
+		return nil, err
+	}
+
+	// Query information schema (PostgreSQL)
+	var columns []ColumnInfo
+	query := `
+		SELECT column_name, data_type, is_nullable
+		FROM information_schema.columns
+		WHERE table_name = ?
+		ORDER BY ordinal_position
+	`
+	
+	rows, err := dataSourceDB.Raw(query, tableName).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var col ColumnInfo
+		var nullable string
+		if err := rows.Scan(&col.Name, &col.Type, &nullable); err != nil {
+			continue
+		}
+		col.Nullable = (nullable == "YES")
+		columns = append(columns, col)
+	}
+
+	return &TableSchema{Columns: columns}, nil
+}
+
+// parseValue attempts to parse a SQL value string into appropriate Go type
+func parseValue(value string) interface{} {
+	value = strings.TrimSpace(value)
+	
+	// Handle NULL
+	if strings.ToUpper(value) == "NULL" {
+		return nil
+	}
+	
+	// Handle quoted strings
+	if (strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'")) ||
+	   (strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"")) {
+		// Remove quotes and handle escaped quotes
+		unquoted := value[1 : len(value)-1]
+		unquoted = strings.ReplaceAll(unquoted, "''", "'")
+		unquoted = strings.ReplaceAll(unquoted, "\"\"", "\"")
+		return unquoted
+	}
+	
+	// Try integer
+	if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
+		return intVal
+	}
+	
+	// Try float
+	if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+		return floatVal
+	}
+	
+	// Try boolean
+	lowerVal := strings.ToLower(value)
+	if lowerVal == "true" {
+		return true
+	}
+	if lowerVal == "false" {
+		return false
+	}
+	
+	// Return as string
+	return value
+}
+
+// PreviewInsertQuery previews the data that will be inserted by an INSERT query
+// without actually modifying any data.
+// For VALUES: parses the SQL to extract values
+// For SELECT: executes the SELECT with LIMIT 50
+func (s *QueryService) PreviewInsertQuery(
+	ctx context.Context,
+	queryText string,
+	dataSource *models.DataSource,
+) (*InsertPreviewResult, error) {
+	// 1. Validate this is an INSERT
+	operationType := DetectOperationType(queryText)
+	if operationType != models.OperationInsert {
+		return nil, fmt.Errorf("preview is only available for INSERT queries")
+	}
+
+	// 2. Detect INSERT type (VALUES vs SELECT)
+	insertType := detectInsertType(queryText)
+
+	// 3. Extract table name
+	tableName := extractInsertTableName(queryText)
+	if tableName == "" {
+		return nil, fmt.Errorf("failed to extract table name from INSERT statement")
+	}
+
+	// 4. Get table schema
+	schema, err := s.getTableSchema(ctx, dataSource, tableName)
+	if err != nil {
+		// Continue without schema, will use parsed column names
+		schema = &TableSchema{}
+	}
+
+	// 5. Generate preview based on type
+	switch insertType {
+	case InsertPreviewTypeValues:
+		return s.previewInsertValues(queryText, tableName, schema)
+	case InsertPreviewTypeSelect:
+		return s.previewInsertSelect(ctx, queryText, tableName, schema, dataSource)
+	default:
+		return nil, fmt.Errorf("unsupported INSERT type")
+	}
+}
+
+// previewInsertValues handles preview for INSERT...VALUES
+func (s *QueryService) previewInsertValues(
+	queryText string,
+	tableName string,
+	schema *TableSchema,
+) (*InsertPreviewResult, error) {
+	parser := &InsertParser{}
+	
+	parsed, err := parser.parseInsertValues(queryText)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse VALUES: %w", err)
+	}
+
+	// Use parsed columns or fallback to schema columns
+	columns := parsed.Columns
+	if len(columns) == 0 && len(schema.Columns) > 0 {
+		columns = make([]string, len(schema.Columns))
+		for i, col := range schema.Columns {
+			columns[i] = col.Name
+		}
+	}
+
+	// Convert columns to ColumnInfo
+	columnInfos := make([]ColumnInfo, len(columns))
+	for i, colName := range columns {
+		columnInfos[i] = ColumnInfo{Name: colName, Type: "unknown", Nullable: true}
+	}
+
+	// Convert parsed rows to map format
+	var rows []map[string]interface{}
+	rowCount := len(parsed.Rows)
+	if rowCount > MaxInsertPreviewRows {
+		rowCount = MaxInsertPreviewRows
+	}
+	
+	for i := 0; i < rowCount; i++ {
+		row := make(map[string]interface{})
+		for j, colName := range columns {
+			if j < len(parsed.Rows[i]) {
+				value := parsed.Rows[i][j]
+				// Try to parse as different types
+				row[colName] = parseValue(value)
+			} else {
+				row[colName] = nil
+			}
+		}
+		rows = append(rows, row)
+	}
+
+	return &InsertPreviewResult{
+		TableName:     tableName,
+		Columns:       columnInfos,
+		Rows:          rows,
+		TotalRowCount: len(parsed.Rows),
+		PreviewType:   InsertPreviewTypeValues,
+	}, nil
 }
 
 // PreviewWriteQuery previews the rows that will be affected by a DELETE/UPDATE query
