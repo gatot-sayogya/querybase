@@ -955,6 +955,75 @@ func (p *InsertParser) parseValueRows(valuesSection string) ([][]string, error) 
 	return rows, nil
 }
 
+// InsertPreviewType represents the type of INSERT preview
+type InsertPreviewType string
+
+const (
+	InsertPreviewTypeValues InsertPreviewType = "values"
+	InsertPreviewTypeSelect InsertPreviewType = "select"
+)
+
+// detectInsertType determines if INSERT uses VALUES or SELECT
+func detectInsertType(queryText string) InsertPreviewType {
+	upperQuery := strings.ToUpper(queryText)
+	
+	// Check for SELECT keyword after VALUES section or at end
+	// VALUES clause ends with ), pattern: VALUES (...)
+	// SELECT clause: INSERT INTO ... SELECT ...
+	if strings.Contains(upperQuery, "SELECT") && 
+	   !strings.Contains(upperQuery, "VALUES") {
+		return InsertPreviewTypeSelect
+	}
+	
+	// Check if SELECT comes after a closing paren (end of VALUES)
+	// This is a VALUES with a subquery, not INSERT...SELECT
+	selectIndex := strings.Index(upperQuery, "SELECT")
+	valuesIndex := strings.Index(upperQuery, "VALUES")
+	
+	if selectIndex > valuesIndex && valuesIndex != -1 {
+		// SELECT after VALUES - might be subquery in VALUES
+		// Check if there's a closing paren before SELECT
+		between := upperQuery[valuesIndex:selectIndex]
+		if strings.Contains(between, "(") && strings.Contains(between, ")") {
+			// Likely VALUES with subquery, not INSERT...SELECT
+			return InsertPreviewTypeValues
+		}
+	}
+	
+	if selectIndex != -1 && (valuesIndex == -1 || selectIndex < valuesIndex) {
+		return InsertPreviewTypeSelect
+	}
+	
+	return InsertPreviewTypeValues
+}
+
+// extractSelectFromInsert extracts the SELECT clause from INSERT...SELECT
+func extractSelectFromInsert(queryText string) (string, error) {
+	// Pattern: INSERT INTO ... [optional columns] SELECT ...
+	upperQuery := strings.ToUpper(queryText)
+	selectIndex := strings.Index(upperQuery, "SELECT")
+	
+	if selectIndex == -1 {
+		return "", fmt.Errorf("no SELECT clause found in INSERT statement")
+	}
+	
+	selectQuery := queryText[selectIndex:]
+	return strings.TrimSpace(selectQuery), nil
+}
+
+// extractInsertTableName extracts the target table name from INSERT
+func extractInsertTableName(queryText string) string {
+	// Pattern: INSERT INTO table_name [...]
+	re := regexp.MustCompile(`(?i)INSERT\s+INTO\s+(?:"?([^"\s]+)"?|\w+)`)
+	matches := re.FindStringSubmatch(queryText)
+	
+	if len(matches) > 1 && matches[1] != "" {
+		return matches[1]
+	}
+	
+	return ""
+}
+
 // PreviewWriteQuery previews the rows that will be affected by a DELETE/UPDATE query
 // without actually modifying any data. It converts the query to a SELECT and runs it
 // with a LIMIT, plus runs a COUNT(*) to get the total affected rows.
