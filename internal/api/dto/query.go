@@ -140,3 +140,19 @@ type ValidateWriteQueryResponse struct {
 	Status     string           `json:"status"` // "validated", "no_match", "error"
 	Validation ValidationResult `json:"validation"`
 }
+
+// InsertPreviewRequest represents a request to preview an INSERT query
+type InsertPreviewRequest struct {
+	DataSourceID string `json:"data_source_id" binding:"required"`
+	QueryText    string `json:"query_text" binding:"required"`
+}
+
+// InsertPreviewResponse represents the response for INSERT preview
+type InsertPreviewResponse struct {
+	TableName     string                   `json:"table_name"`
+	Columns       []ColumnInfo             `json:"columns"`
+	Rows          []map[string]interface{} `json:"rows"`
+	TotalRowCount int                      `json:"total_row_count"`
+	PreviewType   string                   `json:"preview_type"`
+	SelectQuery   string                   `json:"select_query,omitempty"`
+}
