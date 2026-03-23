@@ -22,6 +22,7 @@ import type {
   GroupDataSourcePermission,
   WriteQueryPreview,
 } from '@/types';
+import type { InsertPreviewResult } from '@/lib/api/insert-preview';
 
 type AuthErrorHandler = () => void;
 
@@ -334,6 +335,15 @@ class ApiClient {
   // Write Query Preview
   async previewWriteQuery(dataSourceId: string, queryText: string): Promise<WriteQueryPreview> {
     const response = await this.client.post<WriteQueryPreview>('/api/v1/queries/preview', {
+      data_source_id: dataSourceId,
+      query_text: queryText,
+    });
+    return response.data;
+  }
+
+  // INSERT Query Preview
+  async previewInsertQuery(dataSourceId: string, queryText: string): Promise<InsertPreviewResult> {
+    const response = await this.client.post<InsertPreviewResult>('/api/v1/queries/preview-insert', {
       data_source_id: dataSourceId,
       query_text: queryText,
     });
