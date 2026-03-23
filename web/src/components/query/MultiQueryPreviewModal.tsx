@@ -218,7 +218,10 @@ export function MultiQueryPreviewModal({
                                   <tr className="border-b border-slate-200 dark:border-slate-700">
                                     {stmt.columns?.map((col) => (
                                       <th key={col.name} className="text-left p-2 font-medium">
-                                        {col.name}
+                                        <div className="flex flex-col">
+                                          <span>{col.name}</span>
+                                          <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">{col.type}</span>
+                                        </div>
                                       </th>
                                     ))}
                                   </tr>
