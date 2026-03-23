@@ -509,11 +509,16 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
               <button
                 className="btn btn-success focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 flex items-center justify-center min-w-[220px]"
                 disabled={submitting}
-                onClick={handleStartTransaction}
+                onClick={async () => {
+                  // First approve the request, then start transaction
+                  await handleReview('approved');
+                  // After approval is granted, start the transaction
+                  handleStartTransaction();
+                }}
               >
                 {submitting
                   ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  : '✔ Confirm & Start Transaction'
+                  : '✔ Approve & Start Transaction'
                 }
               </button>
             </div>
@@ -526,7 +531,12 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
         <div className="mt-6 border-t border-green-200 dark:border-green-900 pt-6 bg-green-50 dark:bg-green-900/10 -mx-6 px-6 pb-6">
           <InsertPreviewPanel
             preview={insertPreview}
-            onProceed={handleStartTransaction}
+            onProceed={async () => {
+              // First approve the request, then start transaction
+              await handleReview('approved');
+              // After approval is granted, start the transaction
+              handleStartTransaction();
+            }}
             onCancel={() => { 
               setPhase('idle'); 
               setInsertPreview(null); 

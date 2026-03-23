@@ -100,7 +100,7 @@ export default function InsertPreviewPanel({
           Cancel
         </Button>
         <Button onClick={onProceed}>
-          Proceed to Transaction
+          Approve & Proceed
         </Button>
       </div>
     </div>
