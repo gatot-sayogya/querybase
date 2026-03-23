@@ -177,6 +177,9 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 				// Query preview route (for DELETE/UPDATE)
 				queries.POST("/preview", queryHandler.PreviewWriteQuery)
 
+				// INSERT preview route
+				queries.POST("/preview-insert", queryHandler.PreviewInsertQuery)
+
 				// Multi-query routes
 				queries.POST("/multi/preview", multiQueryHandler.PreviewMultiQuery)
 				queries.POST("/multi/execute", multiQueryHandler.ExecuteMultiQuery)
