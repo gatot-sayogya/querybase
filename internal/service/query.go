@@ -815,6 +815,137 @@ type PreviewResult struct {
 	OperationType models.OperationType
 }
 
+// InsertParser handles parsing of INSERT statements
+type InsertParser struct{}
+
+// InsertValuesResult holds parsed column names and value rows
+type InsertValuesResult struct {
+	Columns []string
+	Rows    [][]string
+}
+
+// parseInsertValues extracts column names and value rows from INSERT ... VALUES
+func (p *InsertParser) parseInsertValues(queryText string) (*InsertValuesResult, error) {
+	// Regex pattern for INSERT INTO table [(cols)] VALUES (vals), (vals), ...
+	pattern := regexp.MustCompile(`(?i)INSERT\s+INTO\s+(?:"?([^"]+)"?|\w+)\s*(?:\(([^)]+)\))?\s*VALUES\s+(.+)`)
+	matches := pattern.FindStringSubmatch(queryText)
+
+	if len(matches) < 4 {
+		return nil, fmt.Errorf("failed to parse INSERT statement: does not match expected pattern")
+	}
+
+	// Parse column names
+	var columns []string
+	if matches[2] != "" {
+		columns = parseColumnList(matches[2])
+	}
+
+	// Parse value rows
+	valuesSection := matches[3]
+	rows, err := p.parseValueRows(valuesSection)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse VALUES: %w", err)
+	}
+
+	return &InsertValuesResult{
+		Columns: columns,
+		Rows:    rows,
+	}, nil
+}
+
+// parseColumnList splits a comma-separated column list
+func parseColumnList(columnsStr string) []string {
+	columns := strings.Split(columnsStr, ",")
+	for i := range columns {
+		columns[i] = strings.TrimSpace(columns[i])
+		// Remove quotes if present
+		columns[i] = strings.Trim(columns[i], `"`)
+		columns[i] = strings.Trim(columns[i], "`")
+	}
+	return columns
+}
+
+// parseValueRows parses comma-separated value tuples
+func (p *InsertParser) parseValueRows(valuesSection string) ([][]string, error) {
+	var rows [][]string
+	var currentRow []string
+	var currentValue strings.Builder
+	inQuotes := false
+	quoteChar := rune(0)
+	parenDepth := 0
+
+	for i, ch := range valuesSection {
+		switch {
+		case !inQuotes && (ch == '\'' || ch == '"'):
+			// Start of quoted string
+			inQuotes = true
+			quoteChar = ch
+
+		case inQuotes && ch == quoteChar:
+			// Check if escaped (double quote)
+			if i+1 < len(valuesSection) && rune(valuesSection[i+1]) == quoteChar {
+				currentValue.WriteRune(ch) // Add single quote
+				// Skip next char (it's the escape)
+			} else {
+				// End of quoted string
+				inQuotes = false
+				quoteChar = 0
+			}
+
+		case inQuotes:
+			// Inside quoted string, just accumulate
+			currentValue.WriteRune(ch)
+
+		case ch == '(' && parenDepth == 0:
+			// Start of a row tuple
+			parenDepth++
+
+		case ch == '(':
+			// Nested parenthesis
+			parenDepth++
+			currentValue.WriteRune(ch)
+
+		case ch == ')' && parenDepth == 1:
+			// End of row tuple
+			parenDepth--
+			// Save current value
+			if currentValue.Len() > 0 {
+				currentRow = append(currentRow, strings.TrimSpace(currentValue.String()))
+				currentValue.Reset()
+			}
+			// Save row
+			if len(currentRow) > 0 {
+				rows = append(rows, currentRow)
+				currentRow = nil
+			}
+
+		case ch == ')' && parenDepth > 1:
+			// End of nested parenthesis
+			parenDepth--
+			currentValue.WriteRune(ch)
+
+		case ch == ',' && parenDepth == 1:
+			// Comma between values in a row
+			if currentValue.Len() > 0 {
+				currentRow = append(currentRow, strings.TrimSpace(currentValue.String()))
+				currentValue.Reset()
+			}
+
+		case ch == ',' && parenDepth == 0:
+			// Comma between rows
+			continue
+
+		default:
+			// Regular character
+			if !(ch == ' ' && currentValue.Len() == 0) {
+				currentValue.WriteRune(ch)
+			}
+		}
+	}
+
+	return rows, nil
+}
+
 // PreviewWriteQuery previews the rows that will be affected by a DELETE/UPDATE query
 // without actually modifying any data. It converts the query to a SELECT and runs it
 // with a LIMIT, plus runs a COUNT(*) to get the total affected rows.
