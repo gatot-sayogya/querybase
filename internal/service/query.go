@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,9 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+// MaxInsertPreviewRows limits the number of rows shown in INSERT preview
+const MaxInsertPreviewRows = 50
 
 // ActiveTransaction represents an active database transaction
 type ActiveTransaction struct {
