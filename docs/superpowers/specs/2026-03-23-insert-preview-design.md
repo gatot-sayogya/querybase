@@ -3,7 +3,7 @@
 **Date:** 2026-03-23  
 **Feature:** INSERT Query Preview for Approval Workflow  
 **Author:** QueryBase Development Team  
-**Status:** Approved for Implementation
+**Status:** Draft - Pending Final Review
 
 ---
 
@@ -386,6 +386,19 @@ interface ColumnInfo {
 
 ### 6.1 Backend Implementation
 
+#### 6.1.0 Constants
+
+**Location:** `internal/service/query.go`
+
+```go
+// Constants for INSERT preview configuration
+const (
+    // MaxInsertPreviewRows limits the number of rows shown in INSERT preview
+    // This prevents performance issues with large INSERT statements
+    MaxInsertPreviewRows = 50
+)
+```
+
 #### 6.1.1 New Method: PreviewInsertQuery
 
 **Location:** `internal/service/query.go`
@@ -465,11 +478,83 @@ func parseInsertValues(queryText string) (*InsertValuesResult, error) {
 // parseValueRows parses comma-separated value tuples
 // Returns array of rows, each row is array of values
 func parseValueRows(valuesSection string) ([][]string, error) {
-    // Complex parsing to handle:
-    // - Nested parentheses
-    // - Quoted strings with commas: 'Hello, World'
-    // - Escaped quotes: 'It''s'
-    // - JSON: '{"a": 1, "b": 2}'
+    var rows [][]string
+    var currentRow []string
+    var currentValue strings.Builder
+    inQuotes := false
+    quoteChar := rune(0)
+    parenDepth := 0
+    
+    for i, ch := range valuesSection {
+        switch {
+        case !inQuotes && (ch == '\'' || ch == '"'):
+            // Start of quoted string
+            inQuotes = true
+            quoteChar = ch
+            
+        case inQuotes && ch == quoteChar:
+            // Check if escaped (double quote)
+            if i+1 < len(valuesSection) && rune(valuesSection[i+1]) == quoteChar {
+                currentValue.WriteRune(ch) // Add single quote
+                // Skip next char (it's the escape)
+            } else {
+                // End of quoted string
+                inQuotes = false
+                quoteChar = 0
+            }
+            
+        case inQuotes:
+            // Inside quoted string, just accumulate
+            currentValue.WriteRune(ch)
+            
+        case ch == '(' && parenDepth == 0:
+            // Start of a row tuple
+            parenDepth++
+            
+        case ch == '(':
+            // Nested parenthesis (e.g., subquery - should not happen in VALUES)
+            parenDepth++
+            currentValue.WriteRune(ch)
+            
+        case ch == ')' && parenDepth == 1:
+            // End of row tuple
+            parenDepth--
+            // Save current value
+            if currentValue.Len() > 0 {
+                currentRow = append(currentRow, strings.TrimSpace(currentValue.String()))
+                currentValue.Reset()
+            }
+            // Save row
+            if len(currentRow) > 0 {
+                rows = append(rows, currentRow)
+                currentRow = nil
+            }
+            
+        case ch == ')' && parenDepth > 1:
+            // End of nested parenthesis
+            parenDepth--
+            currentValue.WriteRune(ch)
+            
+        case ch == ',' && parenDepth == 1:
+            // Comma between values in a row
+            if currentValue.Len() > 0 {
+                currentRow = append(currentRow, strings.TrimSpace(currentValue.String()))
+                currentValue.Reset()
+            }
+            
+        case ch == ',' && parenDepth == 0:
+            // Comma between rows (shouldn't happen with proper parenthesis, but handle it)
+            continue
+            
+        default:
+            // Regular character
+            if !(ch == ' ' && currentValue.Len() == 0) { // Skip leading whitespace
+                currentValue.WriteRune(ch)
+            }
+        }
+    }
+    
+    return rows, nil
 }
 ```
 
@@ -495,9 +580,9 @@ func (s *QueryService) previewInsertSelect(
     
     selectQuery := matches[1]
     
-    // 2. Add LIMIT 50 if not present
+    // 2. Add LIMIT if not present
     if !strings.Contains(strings.ToUpper(selectQuery), "LIMIT") {
-        selectQuery += " LIMIT 50"
+        selectQuery += fmt.Sprintf(" LIMIT %d", MaxInsertPreviewRows)
     }
     
     // 3. Execute SELECT
@@ -768,31 +853,148 @@ const handlePreviewQuery = async () => {
 
 **Parse VALUES Tests:**
 ```go
-func TestParseInsertValues_SingleRow(t *testing.T)
-func TestParseInsertValues_MultiRow(t *testing.T)
-func TestParseInsertValues_NoColumns(t *testing.T)
-func TestParseInsertValues_EscapedQuotes(t *testing.T)
-func TestParseInsertValues_JSONData(t *testing.T)
-func TestParseInsertValues_NULLValues(t *testing.T)
-func TestParseInsertValues_MixedTypes(t *testing.T)
+func TestParseInsertValues_SingleRow(t *testing.T) {
+    query := "INSERT INTO users (name, email) VALUES ('John', 'john@example.com')"
+    result, err := parseInsertValues(query)
+    assert.NoError(t, err)
+    assert.Equal(t, []string{"name", "email"}, result.Columns)
+    assert.Equal(t, [][]string{{"'John'", "'john@example.com'"}}, result.Rows)
+}
+
+func TestParseInsertValues_MultiRow(t *testing.T) {
+    query := "INSERT INTO users (name) VALUES ('John'), ('Jane'), ('Bob')"
+    result, err := parseInsertValues(query)
+    assert.NoError(t, err)
+    assert.Len(t, result.Rows, 3)
+    assert.Equal(t, "'John'", result.Rows[0][0])
+    assert.Equal(t, "'Jane'", result.Rows[1][0])
+    assert.Equal(t, "'Bob'", result.Rows[2][0])
+}
+
+func TestParseInsertValues_NoColumns(t *testing.T) {
+    query := "INSERT INTO users VALUES (1, 'John', 'john@example.com')"
+    result, err := parseInsertValues(query)
+    assert.NoError(t, err)
+    assert.Nil(t, result.Columns) // Columns not specified
+    assert.Len(t, result.Rows[0], 3)
+}
+
+func TestParseInsertValues_EscapedQuotes(t *testing.T) {
+    query := "INSERT INTO users (name) VALUES ('O''Brien')"
+    result, err := parseInsertValues(query)
+    assert.NoError(t, err)
+    assert.Equal(t, "'O''Brien'", result.Rows[0][0])
+}
+
+func TestParseInsertValues_JSONData(t *testing.T) {
+    query := `INSERT INTO logs (data) VALUES ('{"type": "login", "user_id": 123}')`
+    result, err := parseInsertValues(query)
+    assert.NoError(t, err)
+    assert.Contains(t, result.Rows[0][0], "\"type\"")
+    assert.Contains(t, result.Rows[0][0], "\"user_id\"")
+}
+
+func TestParseInsertValues_NULLValues(t *testing.T) {
+    query := "INSERT INTO users (name, email) VALUES ('John', NULL)"
+    result, err := parseInsertValues(query)
+    assert.NoError(t, err)
+    assert.Equal(t, "NULL", result.Rows[0][1])
+}
+
+func TestParseInsertValues_MixedTypes(t *testing.T) {
+    query := "INSERT INTO products (name, price, active) VALUES ('Widget', 9.99, true)"
+    result, err := parseInsertValues(query)
+    assert.NoError(t, err)
+    assert.Equal(t, "'Widget'", result.Rows[0][0])
+    assert.Equal(t, "9.99", result.Rows[0][1])
+    assert.Equal(t, "true", result.Rows[0][2])
+}
 ```
 
 **Extract SELECT Tests:**
 ```go
-func TestExtractSelectFromInsert_Basic(t *testing.T)
-func TestExtractSelectFromInsert_WithColumns(t *testing.T)
-func TestExtractSelectFromInsert_ComplexWhere(t *testing.T)
-func TestExtractSelectFromInsert_Joins(t *testing.T)
+func TestExtractSelectFromInsert_Basic(t *testing.T) {
+    query := "INSERT INTO audit_log SELECT * FROM temp_logs WHERE processed = false"
+    selectQuery, err := extractSelectFromInsert(query)
+    assert.NoError(t, err)
+    assert.Equal(t, "SELECT * FROM temp_logs WHERE processed = false", selectQuery)
+}
+
+func TestExtractSelectFromInsert_WithColumns(t *testing.T) {
+    query := "INSERT INTO audit_log (action, user_id) SELECT action, user_id FROM events"
+    selectQuery, err := extractSelectFromInsert(query)
+    assert.NoError(t, err)
+    assert.Equal(t, "SELECT action, user_id FROM events", selectQuery)
+}
+
+func TestExtractSelectFromInsert_ComplexWhere(t *testing.T) {
+    query := "INSERT INTO archive SELECT * FROM logs WHERE created_at < '2024-01-01' AND level = 'DEBUG'"
+    selectQuery, err := extractSelectFromInsert(query)
+    assert.NoError(t, err)
+    assert.Contains(t, selectQuery, "WHERE created_at < '2024-01-01' AND level = 'DEBUG'")
+}
+
+func TestExtractSelectFromInsert_Joins(t *testing.T) {
+    query := "INSERT INTO results SELECT u.id, o.total FROM users u JOIN orders o ON u.id = o.user_id"
+    selectQuery, err := extractSelectFromInsert(query)
+    assert.NoError(t, err)
+    assert.Contains(t, selectQuery, "JOIN orders")
+}
 ```
 
 **Integration Tests:**
 ```go
-func TestPreviewInsertQuery_VALUES(t *testing.T)
-func TestPreviewInsertQuery_SELECT(t *testing.T)
-func TestPreviewInsertQuery_ZeroRows(t *testing.T)
-func TestPreviewInsertQuery_FiftyRowLimit(t *testing.T)
-func TestPreviewInsertQuery_PermissionDenied(t *testing.T)
-```
+func TestPreviewInsertQuery_VALUES(t *testing.T) {
+    // Setup test database with users table
+    query := "INSERT INTO users (name, email) VALUES ('John', 'john@test.com')"
+    result, err := service.PreviewInsertQuery(ctx, query, dataSource)
+    
+    assert.NoError(t, err)
+    assert.Equal(t, "users", result.TableName)
+    assert.Equal(t, InsertPreviewTypeValues, result.PreviewType)
+    assert.Len(t, result.Rows, 1)
+    assert.Equal(t, "John", result.Rows[0]["name"])
+}
+
+func TestPreviewInsertQuery_SELECT(t *testing.T) {
+    // Setup test data
+    query := "INSERT INTO audit_archive SELECT * FROM audit_log WHERE created_at < '2024-01-01'"
+    result, err := service.PreviewInsertQuery(ctx, query, dataSource)
+    
+    assert.NoError(t, err)
+    assert.Equal(t, InsertPreviewTypeSelect, result.PreviewType)
+    assert.NotEmpty(t, result.SelectQuery)
+    assert.True(t, result.TotalRowCount >= 0)
+}
+
+func TestPreviewInsertQuery_ZeroRows(t *testing.T) {
+    // Empty table
+    query := "INSERT INTO results SELECT * FROM empty_table"
+    result, err := service.PreviewInsertQuery(ctx, query, dataSource)
+    
+    assert.NoError(t, err)
+    assert.Empty(t, result.Rows)
+    assert.Equal(t, 0, result.TotalRowCount)
+}
+
+func TestPreviewInsertQuery_FiftyRowLimit(t *testing.T) {
+    // Insert with 100 rows
+    query := "INSERT INTO results SELECT * FROM large_table"
+    result, err := service.PreviewInsertQuery(ctx, query, dataSource)
+    
+    assert.NoError(t, err)
+    assert.Len(t, result.Rows, 50) // Limited to 50
+    assert.True(t, result.TotalRowCount > 50)
+}
+
+func TestPreviewInsertQuery_PermissionDenied(t *testing.T) {
+    // User without INSERT permission
+    query := "INSERT INTO users (name) VALUES ('test')"
+    _, err := service.PreviewInsertQuery(ctx, query, dataSource)
+    
+    assert.Error(t, err)
+    assert.Contains(t, err.Error(), "permission denied")
+}
 
 ### 9.2 Frontend Tests
 
