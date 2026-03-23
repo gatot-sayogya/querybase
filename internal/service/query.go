@@ -1228,6 +1228,92 @@ func (s *QueryService) previewInsertValues(
 	}, nil
 }
 
+// previewInsertSelect handles preview for INSERT...SELECT
+func (s *QueryService) previewInsertSelect(
+	ctx context.Context,
+	queryText string,
+	tableName string,
+	schema *TableSchema,
+	dataSource *models.DataSource,
+) (*InsertPreviewResult, error) {
+	// 1. Extract SELECT clause
+	selectQuery, err := extractSelectFromInsert(queryText)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Connect to data source
+	dataSourceDB, err := s.connectToDataSource(dataSource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to data source: %w", err)
+	}
+
+	// 3. Get total count (before adding LIMIT)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS count_table", selectQuery)
+	var totalCount int
+	if err := dataSourceDB.Raw(countQuery).Scan(&totalCount).Error; err != nil {
+		// Continue even if count fails
+		totalCount = -1
+	}
+
+	// 4. Add LIMIT for preview
+	limitedSelectQuery := selectQuery
+	if !strings.Contains(strings.ToUpper(selectQuery), "LIMIT") {
+		limitedSelectQuery = fmt.Sprintf("%s LIMIT %d", selectQuery, MaxInsertPreviewRows)
+	}
+
+	// 5. Execute limited SELECT
+	rows, err := dataSourceDB.Raw(limitedSelectQuery).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute SELECT: %w", err)
+	}
+	defer rows.Close()
+
+	// 6. Get column names from result
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get columns: %w", err)
+	}
+
+	// Convert to ColumnInfo
+	columnInfos := make([]ColumnInfo, len(columns))
+	for i, colName := range columns {
+		columnInfos[i] = ColumnInfo{Name: colName, Type: "unknown", Nullable: true}
+	}
+
+	// 7. Scan rows
+	var previewRows []map[string]interface{}
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+		if err := rows.Scan(valuePtrs...); err != nil {
+			continue
+		}
+		row := make(map[string]interface{})
+		for i, col := range columns {
+			val := values[i]
+			if b, ok := val.([]byte); ok {
+				row[col] = string(b)
+			} else {
+				row[col] = val
+			}
+		}
+		previewRows = append(previewRows, row)
+	}
+
+	return &InsertPreviewResult{
+		TableName:     tableName,
+		Columns:       columnInfos,
+		Rows:          previewRows,
+		TotalRowCount: totalCount,
+		PreviewType:   InsertPreviewTypeSelect,
+		SelectQuery:   limitedSelectQuery,
+	}, nil
+}
+
 // PreviewWriteQuery previews the rows that will be affected by a DELETE/UPDATE query
 // without actually modifying any data. It converts the query to a SELECT and runs it
 // with a LIMIT, plus runs a COUNT(*) to get the total affected rows.
