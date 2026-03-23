@@ -10,6 +10,8 @@ import { isMultiQuery } from '@/lib/query-parser';
 import { previewMultiQuery, executeMultiQuery } from '@/lib/api/multi-query';
 import type { MultiQueryPreviewResponse } from '@/lib/api/multi-query';
 import { MultiQueryPreviewModal } from '@/components/query/MultiQueryPreviewModal';
+import InsertPreviewPanel from './InsertPreviewPanel';
+import type { InsertPreviewResult } from '@/lib/api/insert-preview';
 
 interface ApprovalDetailProps {
   approvalId: string | null;
@@ -30,6 +32,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
   const [phase, setPhase] = useState<PreviewPhase>('idle');
   const [writePreview, setWritePreview] = useState<WriteQueryPreview | null>(null);
   const [multiQueryPreview, setMultiQueryPreview] = useState<MultiQueryPreviewResponse | null>(null);
+  const [insertPreview, setInsertPreview] = useState<InsertPreviewResult | null>(null);
   const [transaction, setTransaction] = useState<TransactionPreview | null>(null);
   const [auditMode, setAuditMode] = useState<AuditMode>('full');
   
@@ -91,6 +94,8 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
     setPhase('loading_preview');
     setError(null);
     try {
+      const operationType = approval.operation_type?.toUpperCase();
+      
       // Check if this is a multi-query
       if (isMultiQuery(approval.query_text)) {
         const preview = await previewMultiQuery(
@@ -99,13 +104,24 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
         );
         setMultiQueryPreview(preview);
         setPhase('preview_ready');
-      } else {
+      } else if (operationType === 'INSERT') {
+        // NEW: INSERT preview
+        const preview = await apiClient.previewInsertQuery(
+          approval.data_source_id,
+          approval.query_text
+        );
+        setInsertPreview(preview);
+        setPhase('preview_ready');
+      } else if (operationType === 'UPDATE' || operationType === 'DELETE') {
+        // Existing UPDATE/DELETE preview
         const preview = await apiClient.previewWriteQuery(
           approval.data_source_id,
           approval.query_text
         );
         setWritePreview(preview);
         setPhase('preview_ready');
+      } else {
+        throw new Error(`Unsupported operation type: ${operationType}`);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to fetch preview data');
@@ -502,6 +518,20 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* INSERT Preview Panel */}
+      {isPending && phase === 'preview_ready' && insertPreview && approval.can_approve && (
+        <div className="mt-6 border-t border-green-200 dark:border-green-900 pt-6 bg-green-50 dark:bg-green-900/10 -mx-6 px-6 pb-6">
+          <InsertPreviewPanel
+            preview={insertPreview}
+            onProceed={handleStartTransaction}
+            onCancel={() => { 
+              setPhase('idle'); 
+              setInsertPreview(null); 
+            }}
+          />
         </div>
       )}
 
