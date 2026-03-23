@@ -445,9 +445,18 @@ func (s *QueryService) PreviewInsertQuery(
 
 #### 6.1.2 Helper: Parse VALUES Clause
 
+**Architecture Note:** The VALUES parser implements a complex state machine (50+ lines). For better testability and separation of concerns, this should be extracted to a dedicated `InsertParser` unit in a future refactor. For now, it lives in `QueryService` but should be treated as an independent component.
+
+**Location:** `internal/service/query.go` (or `internal/service/insert_parser.go` if extracted)
+
 ```go
+// InsertParser handles parsing of INSERT statements
+type InsertParser struct {
+    // No state needed - pure functions
+}
+
 // parseInsertValues extracts column names and value rows from INSERT ... VALUES
-func parseInsertValues(queryText string) (*InsertValuesResult, error) {
+func (p *InsertParser) parseInsertValues(queryText string) (*InsertValuesResult, error) {
     // Regex pattern for INSERT INTO table [(cols)] VALUES (vals), (vals), ...
     // Handle:
     // - Optional column list
@@ -477,7 +486,7 @@ func parseInsertValues(queryText string) (*InsertValuesResult, error) {
 
 // parseValueRows parses comma-separated value tuples
 // Returns array of rows, each row is array of values
-func parseValueRows(valuesSection string) ([][]string, error) {
+func (p *InsertParser) parseValueRows(valuesSection string) ([][]string, error) {
     var rows [][]string
     var currentRow []string
     var currentValue strings.Builder
@@ -580,24 +589,25 @@ func (s *QueryService) previewInsertSelect(
     
     selectQuery := matches[1]
     
-    // 2. Add LIMIT if not present
-    if !strings.Contains(strings.ToUpper(selectQuery), "LIMIT") {
-        selectQuery += fmt.Sprintf(" LIMIT %d", MaxInsertPreviewRows)
-    }
-    
     // 3. Execute SELECT
     dataSourceDB, err := s.connectToDataSource(dataSource)
     if err != nil {
         return nil, err
     }
     
-    // 4. Get total count
+    // 4. Get total count (before adding LIMIT)
     countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS count_table", selectQuery)
     var totalCount int
     dataSourceDB.Raw(countQuery).Scan(&totalCount)
     
-    // 5. Execute limited SELECT
-    rows, err := dataSourceDB.Raw(selectQuery).Rows()
+    // 5. Add LIMIT for preview
+    limitedSelectQuery := selectQuery
+    if !strings.Contains(strings.ToUpper(selectQuery), "LIMIT") {
+        limitedSelectQuery += fmt.Sprintf(" LIMIT %d", MaxInsertPreviewRows)
+    }
+    
+    // 6. Execute limited SELECT
+    rows, err := dataSourceDB.Raw(limitedSelectQuery).Rows()
     if err != nil {
         return nil, fmt.Errorf("failed to execute SELECT: %w", err)
     }
@@ -612,7 +622,7 @@ func (s *QueryService) previewInsertSelect(
         Rows: previewRows,
         TotalRowCount: totalCount,
         PreviewType: InsertPreviewTypeSelect,
-        SelectQuery: selectQuery,
+        SelectQuery: limitedSelectQuery,
     }, nil
 }
 ```
@@ -806,7 +816,25 @@ const handlePreviewQuery = async () => {
 | Permission denied | PermissionError | "You don't have INSERT permission on table 'users'." |
 | Values exceed column count | ValidationError | "INSERT has more values than columns specified." |
 
-### 7.3 Large Dataset Handling
+### 7.3 Unsupported SQL Patterns
+
+The following INSERT patterns are **not supported** by the preview feature:
+
+| Pattern | Example | Status | Reason |
+|---------|---------|--------|--------|
+| CTEs (WITH clause) | `WITH temp AS (...) INSERT INTO ...` | ❌ Unsupported | Complex to extract and preview |
+| ON CONFLICT | `INSERT ... ON CONFLICT DO UPDATE` | ❌ Unsupported | Would require understanding conflict resolution |
+| RETURNING clause | `INSERT ... RETURNING id` | ❌ Unsupported | Preview shows data to insert, not returned columns |
+| Subqueries in VALUES | `VALUES ((SELECT ...), 'name')` | ⚠️ Partial | Displayed as-is, not executed |
+| Dynamic SQL | `INSERT INTO ${tableName} ...` | ❌ Unsupported | Cannot parse dynamic table names |
+| Multi-table INSERT | `INSERT ALL INTO t1 ... INTO t2 ...` | ❌ Unsupported | Oracle-specific, complex parsing |
+
+**Behavior for unsupported patterns:**
+- Return error: "INSERT preview not supported for this query pattern"
+- Approver can still proceed to transaction without preview
+- Log unsupported pattern for potential future enhancement
+
+### 7.4 Large Dataset Handling
 
 **VALUES with 1000+ rows:**
 - Parse all rows to get total count
@@ -839,6 +867,61 @@ const handlePreviewQuery = async () => {
 **Required Permissions:**
 - `can_insert` on target table
 - `can_select` on source tables (for INSERT...SELECT)
+
+**Implementation:**
+
+```go
+// CheckInsertPermissions validates user has required permissions for INSERT
+func (s *QueryService) CheckInsertPermissions(
+    ctx context.Context,
+    userID uuid.UUID,
+    dataSourceID uuid.UUID,
+    queryText string,
+) error {
+    // Get effective permissions
+    perms, err := s.GetEffectivePermissions(ctx, userID, dataSourceID)
+    if err != nil {
+        return fmt.Errorf("failed to get permissions: %w", err)
+    }
+    
+    // Check INSERT permission on target table
+    tableName := extractInsertTableName(queryText)
+    if !perms.CanInsert {
+        return fmt.Errorf("permission denied: INSERT not allowed on '%s'", tableName)
+    }
+    
+    // For INSERT...SELECT, also check SELECT permission
+    if isInsertSelect(queryText) {
+        sourceTables := extractSourceTablesFromSelect(queryText)
+        for _, table := range sourceTables {
+            if !perms.CanSelect {
+                return fmt.Errorf("permission denied: SELECT not allowed on '%s'", table)
+            }
+        }
+    }
+    
+    return nil
+}
+```
+
+**Integration in PreviewInsertQuery:**
+
+```go
+func (s *QueryService) PreviewInsertQuery(
+    ctx context.Context,
+    queryText string,
+    dataSource *models.DataSource,
+    userID uuid.UUID,  // Added userID parameter
+) (*InsertPreviewResult, error) {
+    // 1. Check permissions first
+    if err := s.CheckInsertPermissions(ctx, userID, dataSource.ID, queryText); err != nil {
+        return nil, fmt.Errorf("permission denied: %w", err)
+    }
+    
+    // 2. Continue with preview generation...
+    // ... rest of implementation
+}
+```
 
 **Enforcement:**
 - Check permissions before executing SELECT
@@ -1001,23 +1084,186 @@ func TestPreviewInsertQuery_PermissionDenied(t *testing.T) {
 **Component Tests:**
 ```typescript
 describe('InsertPreviewPanel', () => {
-  it('renders VALUES preview correctly');
-  it('renders SELECT preview correctly');
-  it('shows row count indicator');
-  it('handles empty result (0 rows)');
-  it('formats NULL values');
-  it('formats JSON values');
-  it('truncates long values');
+  const mockValuesPreview: InsertPreviewResult = {
+    table_name: 'users',
+    columns: [
+      { name: 'name', type: 'varchar', nullable: false },
+      { name: 'email', type: 'varchar', nullable: false }
+    ],
+    rows: [
+      { name: 'John Doe', email: 'john@example.com' },
+      { name: 'Jane Smith', email: 'jane@example.com' }
+    ],
+    total_row_count: 2,
+    preview_type: 'values'
+  };
+
+  const mockSelectPreview: InsertPreviewResult = {
+    table_name: 'audit_log',
+    columns: [
+      { name: 'action', type: 'varchar', nullable: false },
+      { name: 'user_id', type: 'int', nullable: false }
+    ],
+    rows: Array(50).fill(null).map((_, i) => ({
+      action: 'login',
+      user_id: i + 1
+    })),
+    total_row_count: 150,
+    preview_type: 'select',
+    select_query: 'SELECT action, user_id FROM events LIMIT 50'
+  };
+
+  it('renders VALUES preview correctly', () => {
+    render(<InsertPreviewPanel preview={mockValuesPreview} onProceed={jest.fn()} onCancel={jest.fn()} />);
+    
+    expect(screen.getByText('INSERT')).toBeInTheDocument();
+    expect(screen.getByText('INTO users')).toBeInTheDocument();
+    expect(screen.getByText('2 rows to insert')).toBeInTheDocument();
+    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.getByText('jane@example.com')).toBeInTheDocument();
+  });
+
+  it('renders SELECT preview correctly', () => {
+    render(<InsertPreviewPanel preview={mockSelectPreview} onProceed={jest.fn()} onCancel={jest.fn()} />);
+    
+    expect(screen.getByText('150 rows to insert')).toBeInTheDocument();
+    expect(screen.getByText(/Showing 50 of 150 rows/)).toBeInTheDocument();
+    expect(screen.getByText('Preview from SELECT query')).toBeInTheDocument();
+  });
+
+  it('shows row count indicator', () => {
+    render(<InsertPreviewPanel preview={mockValuesPreview} onProceed={jest.fn()} onCancel={jest.fn()} />);
+    
+    expect(screen.getByText('2 rows to insert')).toBeInTheDocument();
+  });
+
+  it('handles empty result (0 rows)', () => {
+    const emptyPreview = { ...mockValuesPreview, rows: [], total_row_count: 0 };
+    render(<InsertPreviewPanel preview={emptyPreview} onProceed={jest.fn()} onCancel={jest.fn()} />);
+    
+    expect(screen.getByText('0 rows to insert')).toBeInTheDocument();
+    expect(screen.getByText(/No rows to insert/)).toBeInTheDocument();
+  });
+
+  it('formats NULL values', () => {
+    const previewWithNull = {
+      ...mockValuesPreview,
+      rows: [{ name: 'John', email: null }]
+    };
+    render(<InsertPreviewPanel preview={previewWithNull} onProceed={jest.fn()} onCancel={jest.fn()} />);
+    
+    expect(screen.getByText('NULL')).toBeInTheDocument();
+  });
+
+  it('formats JSON values', () => {
+    const previewWithJson = {
+      ...mockValuesPreview,
+      columns: [...mockValuesPreview.columns, { name: 'metadata', type: 'json', nullable: true }],
+      rows: [{ name: 'John', email: 'john@example.com', metadata: '{"tier": "gold"}' }]
+    };
+    render(<InsertPreviewPanel preview={previewWithJson} onProceed={jest.fn()} onCancel={jest.fn()} />);
+    
+    expect(screen.getByText('{"tier": "gold"}')).toBeInTheDocument();
+  });
+
+  it('truncates long values', () => {
+    const previewWithLongText = {
+      ...mockValuesPreview,
+      rows: [{ name: 'A'.repeat(200), email: 'test@example.com' }]
+    };
+    render(<InsertPreviewPanel preview={previewWithLongText} onProceed={jest.fn()} onCancel={jest.fn()} />);
+    
+    const truncatedText = screen.getByText(/A{50}\.{3}/);
+    expect(truncatedText).toBeInTheDocument();
+  });
+
+  it('calls onProceed when proceed button clicked', () => {
+    const onProceed = jest.fn();
+    render(<InsertPreviewPanel preview={mockValuesPreview} onProceed={onProceed} onCancel={jest.fn()} />);
+    
+    fireEvent.click(screen.getByText('Proceed to Transaction'));
+    expect(onProceed).toHaveBeenCalled();
+  });
 });
 ```
 
 **Integration Tests:**
 ```typescript
 describe('ApprovalDetail INSERT Flow', () => {
-  it('shows INSERT preview for VALUES clause');
-  it('shows INSERT preview for SELECT clause');
-  it('handles preview errors gracefully');
-  it('proceeds to transaction after preview');
+  it('shows INSERT preview for VALUES clause', async () => {
+    const approval = createMockApproval({
+      operation_type: 'insert',
+      query_text: "INSERT INTO users (name) VALUES ('John')"
+    });
+    
+    mockApiResponse('previewInsertQuery', {
+      table_name: 'users',
+      rows: [{ name: 'John' }],
+      total_row_count: 1,
+      preview_type: 'values'
+    });
+    
+    render(<ApprovalDetail approvalId={approval.id} />);
+    await clickPreviewButton();
+    
+    await waitFor(() => {
+      expect(screen.getByText('INSERT')).toBeInTheDocument();
+      expect(screen.getByText('John')).toBeInTheDocument();
+    });
+  });
+
+  it('shows INSERT preview for SELECT clause', async () => {
+    const approval = createMockApproval({
+      operation_type: 'insert',
+      query_text: 'INSERT INTO archive SELECT * FROM logs'
+    });
+    
+    mockApiResponse('previewInsertQuery', {
+      table_name: 'archive',
+      rows: [{ id: 1 }, { id: 2 }],
+      total_row_count: 100,
+      preview_type: 'select'
+    });
+    
+    render(<ApprovalDetail approvalId={approval.id} />);
+    await clickPreviewButton();
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Preview from SELECT query/)).toBeInTheDocument();
+    });
+  });
+
+  it('handles preview errors gracefully', async () => {
+    const approval = createMockApproval({
+      operation_type: 'insert',
+      query_text: 'INSERT INTO invalid_table VALUES (1)'
+    });
+    
+    mockApiError('previewInsertQuery', 'Table does not exist');
+    
+    render(<ApprovalDetail approvalId={approval.id} />);
+    await clickPreviewButton();
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Table does not exist/)).toBeInTheDocument();
+    });
+  });
+
+  it('proceeds to transaction after preview', async () => {
+    const approval = createMockApproval({ operation_type: 'insert' });
+    mockApiResponse('previewInsertQuery', mockInsertPreview);
+    mockApiResponse('startTransaction', { transaction_id: 'tx-123' });
+    
+    render(<ApprovalDetail approvalId={approval.id} />);
+    await clickPreviewButton();
+    await waitForPreviewToLoad();
+    
+    fireEvent.click(screen.getByText('Proceed to Transaction'));
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Transaction Started/)).toBeInTheDocument();
+    });
+  });
 });
 ```
 
