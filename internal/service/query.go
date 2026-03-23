@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -826,9 +825,16 @@ type InsertValuesResult struct {
 
 // parseInsertValues extracts column names and value rows from INSERT ... VALUES
 func (p *InsertParser) parseInsertValues(queryText string) (*InsertValuesResult, error) {
+	// Normalize whitespace for easier parsing
+	normalized := regexp.MustCompile(`\s+`).ReplaceAllString(queryText, " ")
+	
 	// Regex pattern for INSERT INTO table [(cols)] VALUES (vals), (vals), ...
-	pattern := regexp.MustCompile(`(?i)INSERT\s+INTO\s+(?:"?([^"]+)"?|\w+)\s*(?:\(([^)]+)\))?\s*VALUES\s+(.+)`)
-	matches := pattern.FindStringSubmatch(queryText)
+	// Pattern breakdown:
+	// 1. INSERT INTO table_name - captures table name (group 1)
+	// 2. (optional cols) - captures column list in parentheses (group 2)
+	// 3. VALUES (vals) - captures everything after VALUES (group 3)
+	pattern := regexp.MustCompile(`(?i)^INSERT\s+INTO\s+(\S+)\s*(?:\(([^)]+)\))?\s*VALUES\s+(.+)$`)
+	matches := pattern.FindStringSubmatch(normalized)
 
 	if len(matches) < 4 {
 		return nil, fmt.Errorf("failed to parse INSERT statement: does not match expected pattern")
@@ -836,7 +842,7 @@ func (p *InsertParser) parseInsertValues(queryText string) (*InsertValuesResult,
 
 	// Parse column names
 	var columns []string
-	if matches[2] != "" {
+	if len(matches) > 2 && matches[2] != "" {
 		columns = parseColumnList(matches[2])
 	}
 
@@ -871,10 +877,12 @@ func (p *InsertParser) parseValueRows(valuesSection string) ([][]string, error) 
 	var currentRow []string
 	var currentValue strings.Builder
 	inQuotes := false
-	quoteChar := rune(0)
+	quoteChar := byte(0)
 	parenDepth := 0
 
-	for i, ch := range valuesSection {
+	for i := 0; i < len(valuesSection); i++ {
+		ch := valuesSection[i]
+		
 		switch {
 		case !inQuotes && (ch == '\'' || ch == '"'):
 			// Start of quoted string
@@ -882,10 +890,11 @@ func (p *InsertParser) parseValueRows(valuesSection string) ([][]string, error) 
 			quoteChar = ch
 
 		case inQuotes && ch == quoteChar:
-			// Check if escaped (double quote)
-			if i+1 < len(valuesSection) && rune(valuesSection[i+1]) == quoteChar {
-				currentValue.WriteRune(ch) // Add single quote
-				// Skip next char (it's the escape)
+			// Check if escaped (double quote like '' or "")
+			if i+1 < len(valuesSection) && valuesSection[i+1] == quoteChar {
+				// It's an escaped quote, add to value and skip next
+				currentValue.WriteByte(ch)
+				i++ // Skip the next quote (the escape)
 			} else {
 				// End of quoted string
 				inQuotes = false
@@ -894,7 +903,7 @@ func (p *InsertParser) parseValueRows(valuesSection string) ([][]string, error) 
 
 		case inQuotes:
 			// Inside quoted string, just accumulate
-			currentValue.WriteRune(ch)
+			currentValue.WriteByte(ch)
 
 		case ch == '(' && parenDepth == 0:
 			// Start of a row tuple
@@ -903,7 +912,7 @@ func (p *InsertParser) parseValueRows(valuesSection string) ([][]string, error) 
 		case ch == '(':
 			// Nested parenthesis
 			parenDepth++
-			currentValue.WriteRune(ch)
+			currentValue.WriteByte(ch)
 
 		case ch == ')' && parenDepth == 1:
 			// End of row tuple
@@ -922,7 +931,7 @@ func (p *InsertParser) parseValueRows(valuesSection string) ([][]string, error) 
 		case ch == ')' && parenDepth > 1:
 			// End of nested parenthesis
 			parenDepth--
-			currentValue.WriteRune(ch)
+			currentValue.WriteByte(ch)
 
 		case ch == ',' && parenDepth == 1:
 			// Comma between values in a row
@@ -938,7 +947,7 @@ func (p *InsertParser) parseValueRows(valuesSection string) ([][]string, error) 
 		default:
 			// Regular character
 			if !(ch == ' ' && currentValue.Len() == 0) {
-				currentValue.WriteRune(ch)
+				currentValue.WriteByte(ch)
 			}
 		}
 	}
