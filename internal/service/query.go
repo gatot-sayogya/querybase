@@ -1035,12 +1035,7 @@ type InsertPreviewResult struct {
 	SelectQuery   string
 }
 
-// ColumnInfo represents column metadata
-type ColumnInfo struct {
-	Name     string
-	Type     string
-	Nullable bool
-}
+// Use ColumnInfo from schema.go
 
 // TableSchema represents table structure
 type TableSchema struct {
@@ -1076,10 +1071,10 @@ func (s *QueryService) getTableSchema(
 	for rows.Next() {
 		var col ColumnInfo
 		var nullable string
-		if err := rows.Scan(&col.Name, &col.Type, &nullable); err != nil {
+		if err := rows.Scan(&col.ColumnName, &col.DataType, &nullable); err != nil {
 			continue
 		}
-		col.Nullable = (nullable == "YES")
+		col.IsNullable = (nullable == "YES")
 		columns = append(columns, col)
 	}
 
@@ -1188,14 +1183,14 @@ func (s *QueryService) previewInsertValues(
 	if len(columns) == 0 && len(schema.Columns) > 0 {
 		columns = make([]string, len(schema.Columns))
 		for i, col := range schema.Columns {
-			columns[i] = col.Name
+			columns[i] = col.ColumnName
 		}
 	}
 
 	// Convert columns to ColumnInfo
 	columnInfos := make([]ColumnInfo, len(columns))
 	for i, colName := range columns {
-		columnInfos[i] = ColumnInfo{Name: colName, Type: "unknown", Nullable: true}
+		columnInfos[i] = ColumnInfo{ColumnName: colName, DataType: "unknown", IsNullable: true}
 	}
 
 	// Convert parsed rows to map format
@@ -1278,7 +1273,7 @@ func (s *QueryService) previewInsertSelect(
 	// Convert to ColumnInfo
 	columnInfos := make([]ColumnInfo, len(columns))
 	for i, colName := range columns {
-		columnInfos[i] = ColumnInfo{Name: colName, Type: "unknown", Nullable: true}
+		columnInfos[i] = ColumnInfo{ColumnName: colName, DataType: "unknown", IsNullable: true}
 	}
 
 	// 7. Scan rows
