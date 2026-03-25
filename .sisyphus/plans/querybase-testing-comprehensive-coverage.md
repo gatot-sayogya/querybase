@@ -480,7 +480,7 @@ Wave FINAL (After ALL tasks — verification):
 
 ### Wave 2: Handler Unit Tests
 
-- [ ] 5. ExecuteQuery handler tests
+- [x] 5. ExecuteQuery handler tests
 
   **What to do**:
   - Create `internal/api/handlers/query_test.go`
