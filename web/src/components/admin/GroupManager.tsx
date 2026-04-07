@@ -104,11 +104,20 @@ export default function GroupManager() {
         size={view === 'edit' ? 'lg' : 'md'}
       >
         {view === 'edit' && (
-          <div className="flex border-b border-[var(--border)] mb-4 relative">
+          <div className="flex bg-[var(--input-bg)] p-1 rounded-xl mb-6 relative overflow-hidden">
+            <motion.div
+              className="absolute top-1 bottom-1 bg-[var(--card-bg)] rounded-lg shadow-sm"
+              initial={false}
+              animate={{
+                left: activeTab === 'details' ? '4px' : activeTab === 'members' ? '33.33%' : '66.66%',
+                width: 'calc(33.33% - 5px)'
+              }}
+              transition={springConfig.smooth}
+            />
             <button
-              className={`px-4 py-2 text-sm font-medium relative ${
+              className={`flex-1 py-2 text-xs font-bold tracking-[0.1em] uppercase relative z-10 transition-colors ${
                 activeTab === 'details'
-                  ? 'text-[var(--accent-blue)]'
+                  ? 'text-[var(--text-primary)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
               onClick={() => setActiveTab('details')}
@@ -116,9 +125,9 @@ export default function GroupManager() {
               Details
             </button>
             <button
-              className={`px-4 py-2 text-sm font-medium relative ${
+              className={`flex-1 py-2 text-xs font-bold tracking-[0.1em] uppercase relative z-10 transition-colors ${
                 activeTab === 'members'
-                  ? 'text-[var(--accent-blue)]'
+                  ? 'text-[var(--text-primary)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
               onClick={() => setActiveTab('members')}
@@ -126,24 +135,15 @@ export default function GroupManager() {
               Members
             </button>
             <button
-              className={`px-4 py-2 text-sm font-medium relative ${
+              className={`flex-1 py-2 text-xs font-bold tracking-[0.1em] uppercase relative z-10 transition-colors ${
                 activeTab === 'data-sources'
-                  ? 'text-[var(--accent-blue)]'
+                  ? 'text-[var(--text-primary)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
               onClick={() => setActiveTab('data-sources')}
             >
               Data Sources
             </button>
-            <motion.div
-              className="absolute bottom-0 h-0.5 bg-[var(--accent-blue)]"
-              initial={false}
-              animate={{
-                left: activeTab === 'details' ? '0%' : activeTab === 'members' ? '33.33%' : '66.66%',
-                width: '33.33%'
-              }}
-              transition={springConfig.smooth}
-            />
           </div>
         )}
         

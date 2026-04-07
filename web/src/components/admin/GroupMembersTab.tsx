@@ -83,7 +83,7 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
     return (
       <div className="space-y-4 mt-6 animate-pulse">
         {[1, 2, 3].map((n) => (
-          <div key={n} className="h-14 bg-[var(--bg-hover)] rounded-lg" />
+          <div key={n} className="h-14 bg-[var(--input-bg)] rounded-xl" />
         ))}
       </div>
     );
@@ -92,30 +92,30 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
   return (
     <div className="space-y-8 mt-6">
       {/* Add Member Form */}
-      <div className="bg-[var(--bg-hover)] p-6 rounded-lg border border-[var(--border)]">
-        <h3 className="text-sm font-bold tracking-[0.1em] uppercase text-[var(--text-primary)] mb-4">
+      <div className="flex flex-col gap-3">
+        <label className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
           Add Member
-        </h3>
-        <div className="flex flex-col md:flex-row gap-4 items-end">
-          <div className="flex-1 w-full">
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-              Select User
-            </label>
+        </label>
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="relative flex-1 w-full relative">
             <select
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
-              className="w-full bg-[var(--bg-page)] border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-primary)] rounded focus:outline-none focus:border-[var(--accent-blue)]"
+              className="w-full bg-[var(--input-bg)] px-4 py-3 pr-10 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl cursor-pointer border border-transparent appearance-none"
               disabled={saving !== null}
             >
-              <option value="">-- Choose a user --</option>
+              <option value="" className="bg-[var(--card-bg)] text-[var(--text-primary)]">-- Choose a user --</option>
               {usersToAdd.map((u) => (
-                <option key={u.id} value={u.id}>
+                <option key={u.id} value={u.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
                   {u.full_name || u.username} ({u.email})
                 </option>
               ))}
             </select>
+            <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[var(--text-muted)]">
+              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+            </div>
             {usersToAdd.length === 0 && availableUsers.length > 0 && (
-              <p className="text-xs text-[var(--text-muted)] mt-1">
+              <p className="text-xs text-[var(--text-muted)] mt-2 pl-1">
                 All users are already in this group.
               </p>
             )}
@@ -124,61 +124,51 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
           <button
             onClick={handleAddMember}
             disabled={!selectedUserId || saving !== null}
-            className="w-full md:w-auto px-6 py-2 bg-[var(--accent-blue)] text-white text-sm font-medium rounded hover:bg-opacity-90 disabled:opacity-50 transition-colors"
+            className="w-full sm:w-auto h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-xl whitespace-nowrap flex-shrink-0"
           >
-            {saving === 'add' ? 'Adding…' : 'Add Member'}
+            {saving === 'add' ? 'Adding…' : 'Add'}
           </button>
         </div>
       </div>
 
       {/* Current Members List */}
-      <div>
-        <h3 className="text-sm font-bold tracking-[0.1em] uppercase text-[var(--text-primary)] mb-4">
+      <div className="flex flex-col gap-3">
+        <h3 className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1 flex items-center">
           Current Members
-          <span className="ml-2 text-xs font-normal text-[var(--text-muted)] normal-case tracking-normal">
-            ({members.length})
+          <span className="ml-2 bg-[var(--input-bg)] text-[var(--text-primary)] px-2 py-0.5 rounded-full text-[10px]">
+            {members.length}
           </span>
         </h3>
 
         {members.length === 0 ? (
-          <div className="text-center py-10 text-sm text-[var(--text-muted)] border border-[var(--border)] border-dashed rounded-lg">
+          <div className="text-center py-10 text-sm text-[var(--text-muted)] border border-transparent bg-[var(--input-bg)] rounded-xl">
             No members in this group yet.
           </div>
         ) : (
-          <div className="border border-[var(--border)] rounded-lg overflow-hidden">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-[var(--bg-hover)] bg-opacity-50 text-[var(--text-muted)] uppercase tracking-wider text-xs border-b border-[var(--border)]">
-                <tr>
-                  <th className="px-4 py-3 font-medium">User</th>
-                  <th className="px-4 py-3 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border)] bg-[var(--bg-page)] text-[var(--text-primary)]">
-                {members.map((m) => {
-                  const isBusy = saving === `remove-${m.id}`;
-                  return (
-                    <tr
-                      key={m.id}
-                      className={`transition-colors ${isBusy ? 'opacity-60' : 'hover:bg-[var(--bg-hover)]'}`}
+          <div className="bg-[var(--input-bg)] rounded-xl overflow-hidden">
+            <div className="divide-y divide-[var(--border)] divide-opacity-30">
+              {members.map((m) => {
+                const isBusy = saving === `remove-${m.id}`;
+                return (
+                  <div
+                    key={m.id}
+                    className={`flex items-center justify-between p-4 transition-colors ${isBusy ? 'opacity-60' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <div className="font-medium text-[var(--text-primary)] text-sm">{m.full_name || m.username}</div>
+                      <div className="text-xs text-[var(--text-muted)]">{m.email}</div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveMember(m.id)}
+                      disabled={saving !== null}
+                      className="h-9 px-4 bg-transparent border border-[var(--border)] text-[var(--red-text)] text-[10px] font-bold tracking-[0.1em] uppercase hover:border-[var(--red-text)] hover:bg-[var(--red-bg)] transition-colors rounded-xl flex-shrink-0 disabled:opacity-50"
                     >
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{m.full_name || m.username}</div>
-                        <div className="text-xs text-[var(--text-muted)]">{m.email}</div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleRemoveMember(m.id)}
-                          disabled={saving !== null}
-                          className="text-[var(--accent-red)] hover:text-red-400 font-medium px-2 py-1 rounded hover:bg-[var(--accent-red)] hover:bg-opacity-10 transition-colors text-xs uppercase tracking-wide disabled:opacity-50"
-                        >
-                          {saving === `remove-${m.id}` ? '…' : 'Remove'}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      {saving === `remove-${m.id}` ? '…' : 'Remove'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
