@@ -147,13 +147,16 @@ export default function GroupManager() {
           </div>
         )}
         
-        {activeTab === 'details' && (
+        {/* Persistent Form - Hidden when not active tab so global Update button can target it */}
+        <div className={activeTab === 'details' ? 'block' : 'hidden'}>
           <GroupForm
+            formId="group-form"
             group={selectedGroup || undefined}
             onSave={handleSave}
             onCancel={handleCancel}
+            hideActions={true}
           />
-        )}
+        </div>
         
         {activeTab === 'members' && selectedGroup && (
           <GroupMembersTab group={selectedGroup} />
@@ -162,6 +165,24 @@ export default function GroupManager() {
         {activeTab === 'data-sources' && selectedGroup && (
           <GroupDataSourcesTab group={selectedGroup} />
         )}
+
+        {/* Global Footer Actions */}
+        <div className="mt-8 pt-6 border-t border-[var(--border-light)] flex justify-end gap-3 w-full">
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="h-12 px-6 bg-[var(--input-bg)] text-[var(--text-primary)] text-sm font-bold tracking-[0.1em] uppercase hover:bg-[var(--border)] transition-colors rounded-xl"
+          >
+            Cancel
+          </button>
+          <button
+            form="group-form"
+            type="submit"
+            className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-xl"
+          >
+            {view === 'edit' ? 'Update' : 'Save'}
+          </button>
+        </div>
       </Modal>
     </motion.div>
   );

@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import { springConfig } from '@/lib/animations';
 import type { Group, GroupMember, User } from '@/types';
 
 interface GroupMembersTabProps {
@@ -79,6 +81,18 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
       !members.some((m) => m.id === u.id)
   );
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const filteredUsers = usersToAdd.filter((u) => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      u.username.toLowerCase().includes(searchLower) ||
+      (u.full_name && u.full_name.toLowerCase().includes(searchLower)) ||
+      u.email.toLowerCase().includes(searchLower)
+    );
+  });
+
   if (loading) {
     return (
       <div className="space-y-4 mt-6 animate-pulse">
@@ -96,24 +110,76 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
         <label className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
           Add Member
         </label>
-        <div className="flex flex-col sm:flex-row gap-3 items-end">
-          <div className="relative flex-1 w-full relative">
-            <select
-              value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-              className="w-full bg-[var(--input-bg)] px-4 py-3 pr-10 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl cursor-pointer border border-transparent appearance-none"
-              disabled={saving !== null}
-            >
-              <option value="" className="bg-[var(--card-bg)] text-[var(--text-primary)]">-- Choose a user --</option>
-              {usersToAdd.map((u) => (
-                <option key={u.id} value={u.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                  {u.full_name || u.username} ({u.email})
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[var(--text-muted)]">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+        <div className="flex flex-col sm:flex-row gap-3 items-start relative">
+          <div className="relative flex-1 w-full translate-y-0">
+            {/* Searchable Select Input */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search user by name or email..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsDropdownOpen(true);
+                }}
+                onFocus={() => setIsDropdownOpen(true)}
+                className="w-full bg-[var(--input-bg)] px-4 py-3 pr-10 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+                disabled={saving !== null}
+              />
+              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-[var(--text-muted)]">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
             </div>
+
+            {/* Dropdown Results */}
+            <AnimatePresence>
+              {isDropdownOpen && (searchQuery.length > 0 || filteredUsers.length > 0) && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setIsDropdownOpen(false)} 
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={springConfig.micro}
+                    className="absolute z-20 top-full left-0 right-0 mt-2 bg-[var(--card-bg)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto sleek-scrollbar"
+                  >
+                    {filteredUsers.length > 0 ? (
+                      <div className="py-1">
+                        {filteredUsers.map((u) => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedUserId(u.id);
+                              setSearchQuery(u.full_name || u.username);
+                              setIsDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-3 hover:bg-[var(--bg-hover)] transition-colors flex flex-col gap-0.5 ${selectedUserId === u.id ? 'bg-[var(--bg-hover)]' : ''}`}
+                          >
+                            <span className="font-medium text-[var(--text-primary)] text-base">
+                              {u.full_name || u.username}
+                            </span>
+                            <span className="text-xs text-[var(--text-muted)]">
+                              {u.email}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-4 py-6 text-center text-sm text-[var(--text-muted)]">
+                        No users found matching "{searchQuery}"
+                      </div>
+                    )}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+
             {usersToAdd.length === 0 && availableUsers.length > 0 && (
               <p className="text-xs text-[var(--text-muted)] mt-2 pl-1">
                 All users are already in this group.
@@ -126,7 +192,7 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
             disabled={!selectedUserId || saving !== null}
             className="w-full sm:w-auto h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-xl whitespace-nowrap flex-shrink-0"
           >
-            {saving === 'add' ? 'Adding…' : 'Add'}
+            {saving === 'add' ? 'Adding…' : 'Add Member'}
           </button>
         </div>
       </div>

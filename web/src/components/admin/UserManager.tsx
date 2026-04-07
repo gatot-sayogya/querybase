@@ -128,52 +128,52 @@ export default function UserManager() {
             size="lg"
           >
             {view === 'edit' && (
-              <motion.div
-                className="flex border-b border-slate-200 dark:border-slate-700 mb-4 relative"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                {tabs.map((tab) => (
-                  <button
-                    key={tab}
-                    className={`px-4 py-2 text-sm font-medium relative z-10 transition-colors ${
-                      activeTab === tab
-                        ? 'text-blue-600'
-                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                    }`}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  </button>
-                ))}
+              <div className="flex bg-[var(--input-bg)] p-1 rounded-xl mb-6 relative overflow-hidden">
                 <motion.div
-                  className="absolute bottom-0 h-0.5 bg-blue-500"
+                  className="absolute top-1 bottom-1 bg-[var(--card-bg)] rounded-lg shadow-sm"
                   initial={false}
                   animate={{
-                    x: activeTabIndex * 80,
-                    width: 70,
+                    left: activeTab === 'details' ? '4px' : '50%',
+                    width: 'calc(50% - 6px)'
                   }}
-                  transition={{ duration: 0.25, ...springConfig.snappy }}
+                  transition={springConfig.smooth}
                 />
-              </motion.div>
+                <button
+                  className={`flex-1 py-2 text-xs font-bold tracking-[0.1em] uppercase relative z-10 transition-colors ${
+                    activeTab === 'details'
+                      ? 'text-[var(--text-primary)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  }`}
+                  onClick={() => setActiveTab('details')}
+                >
+                  Details
+                </button>
+                <button
+                  className={`flex-1 py-2 text-xs font-bold tracking-[0.1em] uppercase relative z-10 transition-colors ${
+                    activeTab === 'groups'
+                      ? 'text-[var(--text-primary)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  }`}
+                  onClick={() => setActiveTab('groups')}
+                >
+                  Groups
+                </button>
+              </div>
             )}
 
-            <AnimatePresence mode="wait">
-              {activeTab === 'details' ? (
-                <motion.div
-                  key="details"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <UserForm
-                    user={selectedUser || undefined}
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                  />
-                </motion.div>
-              ) : (
+            <div className="relative">
+              {/* Persistent Form - Hidden when not active tab so global Update button can target it */}
+              <div className={activeTab === 'details' ? 'block' : 'hidden'}>
+                <UserForm
+                  formId="user-form"
+                  user={selectedUser || undefined}
+                  onSave={handleSave}
+                  onCancel={handleCancel}
+                  hideActions={true}
+                />
+              </div>
+
+              {activeTab === 'groups' && selectedUser && (
                 <motion.div
                   key="groups"
                   initial={{ opacity: 0, x: 10 }}
@@ -181,10 +181,28 @@ export default function UserManager() {
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {selectedUser && <UserGroupsTab user={selectedUser} />}
+                  <UserGroupsTab user={selectedUser} />
                 </motion.div>
               )}
-            </AnimatePresence>
+            </div>
+
+            {/* Global Modal Footer */}
+            <div className="mt-8 pt-6 border-t border-[var(--border-light)] flex justify-end gap-3 w-full">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="h-12 px-6 bg-[var(--input-bg)] text-[var(--text-primary)] text-sm font-bold tracking-[0.1em] uppercase hover:bg-[var(--border)] transition-colors rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                form="user-form"
+                type="submit"
+                className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-xl"
+              >
+                {view === 'edit' ? 'Update' : 'Save'}
+              </button>
+            </div>
           </Modal>
         )}
       </AnimatePresence>

@@ -7,9 +7,11 @@ interface GroupFormProps {
   group?: Group;
   onSave: (data: { name: string; description: string }) => void;
   onCancel: () => void;
+  formId?: string;
+  hideActions?: boolean;
 }
 
-export default function GroupForm({ group, onSave, onCancel }: GroupFormProps) {
+export default function GroupForm({ group, onSave, onCancel, formId, hideActions }: GroupFormProps) {
   const [formData, setFormData] = useState({
     name: group?.name || '',
     description: group?.description || '',
@@ -49,10 +51,12 @@ export default function GroupForm({ group, onSave, onCancel }: GroupFormProps) {
     // The actual API call will be handled by the parent component
     // Pass the form data back to parent
     onSave(formData);
+    // Note: setSaving(false) is typically needed here or parent unmounts/resets
+    setSaving(false);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6 mt-6 md:max-w-xl w-full">
+    <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-6 mt-6 md:max-w-xl w-full">
       <div className="flex flex-col gap-1.5 items-start relative">
         <label htmlFor="name" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
           Group Name <span className="text-[var(--accent-red)]">*</span>
@@ -92,37 +96,39 @@ export default function GroupForm({ group, onSave, onCancel }: GroupFormProps) {
       </div>
 
       {/* Info message & Actions separated from grid */}
-      <div className="mt-8 pt-6 border-t border-[var(--border-light)] flex flex-col gap-6 w-full">
-        <div className="flex gap-4 p-4 bg-[var(--input-bg)] text-[var(--text-muted)] rounded-xl items-start">
-          <svg className="shrink-0 text-[var(--accent-blue)] w-5 h-5 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-sm leading-relaxed">
-            {group ? (
-              <>After updating the group, you can manage users from the group detail page.</>
-            ) : (
-              <>After creating the group, you can add users from the group detail page.</>
-            )}
-          </p>
-        </div>
+      {!hideActions && (
+        <div className="mt-8 pt-6 border-t border-[var(--border-light)] flex flex-col gap-6 w-full">
+          <div className="flex gap-4 p-4 bg-[var(--input-bg)] text-[var(--text-muted)] rounded-xl items-start">
+            <svg className="shrink-0 text-[var(--accent-blue)] w-5 h-5 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm leading-relaxed">
+              {group ? (
+                <>After updating the group, you can manage users from the group detail page.</>
+              ) : (
+                <>After creating the group, you can add users from the group detail page.</>
+              )}
+            </p>
+          </div>
 
-        <div className="flex justify-end gap-3 w-full">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="h-12 px-6 bg-[var(--input-bg)] text-[var(--text-primary)] text-sm font-bold tracking-[0.1em] uppercase hover:bg-[var(--border)] transition-colors rounded-xl"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-xl"
-          >
-            {saving ? 'Saving...' : group ? 'Update' : 'Save'}
-          </button>
+          <div className="flex justify-end gap-3 w-full">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="h-12 px-6 bg-[var(--input-bg)] text-[var(--text-primary)] text-sm font-bold tracking-[0.1em] uppercase hover:bg-[var(--border)] transition-colors rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-xl"
+            >
+              {saving ? 'Saving...' : group ? 'Update' : 'Save'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </form>
   );
 }

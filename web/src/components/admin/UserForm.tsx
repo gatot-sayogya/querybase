@@ -14,9 +14,11 @@ interface UserFormProps {
     is_active: boolean;
   }) => void;
   onCancel: () => void;
+  formId?: string;
+  hideActions?: boolean;
 }
 
-export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
+export default function UserForm({ user, onSave, onCancel, formId, hideActions }: UserFormProps) {
   const [formData, setFormData] = useState({
     email: user?.email || '',
     username: user?.username || '',
@@ -80,10 +82,11 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
     setSaving(true);
     // Pass the form data back to parent
     onSave(formData);
+    setSaving(false);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6 mt-6 md:max-w-xl w-full">
+    <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-6 mt-6 md:max-w-xl w-full">
       <div className="flex flex-col gap-1.5 items-start relative">
         <label htmlFor="email" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
           Email <span className="text-[var(--accent-red)]">*</span>
@@ -196,7 +199,7 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
             name="is_active"
             checked={formData.is_active}
             onChange={handleChange}
-            className="w-5 h-5 cursor-pointer rounded"
+            className="w-5 h-5 cursor-pointer rounded-lg bg-[var(--input-bg)] border-transparent"
           />
           <label htmlFor="is_active" className="text-sm font-medium text-[var(--text-primary)] cursor-pointer select-none">
             Active User
@@ -205,22 +208,24 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
       )}
 
       {/* Actions */}
-      <div className="mt-8 pt-6 border-t border-[var(--border-light)] flex justify-end gap-3 w-full">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="h-12 px-6 bg-[var(--input-bg)] text-[var(--text-primary)] text-sm font-bold tracking-[0.1em] uppercase hover:bg-[var(--border)] transition-colors rounded-xl"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={saving}
-          className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-xl"
-        >
-          {saving ? 'Saving...' : user ? 'Update' : 'Save'}
-        </button>
-      </div>
+      {!hideActions && (
+        <div className="mt-8 pt-6 border-t border-[var(--border-light)] flex justify-end gap-3 w-full">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="h-12 px-6 bg-[var(--input-bg)] text-[var(--text-primary)] text-sm font-bold tracking-[0.1em] uppercase hover:bg-[var(--border)] transition-colors rounded-xl"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-xl"
+          >
+            {saving ? 'Saving...' : user ? 'Update' : 'Save'}
+          </button>
+        </div>
+      )}
     </form>
   );
 }
