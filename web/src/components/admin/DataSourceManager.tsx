@@ -50,10 +50,10 @@ export default function DataSourceManager() {
       >
         <div className="space-y-1">
           <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Data Infrastructure
+            Data Sources
           </h1>
           <p className="text-slate-500 dark:text-slate-400 font-medium">
-            Configure system bridges and secure data source connections.
+            Manage connections to your databases.
           </p>
         </div>
         
@@ -69,7 +69,7 @@ export default function DataSourceManager() {
             transition={springConfig.micro}
           >
             <span className="text-xl mr-2">+</span>
-            Provision Source
+            Add Data Source
           </motion.button>
         </motion.div>
       </motion.div>

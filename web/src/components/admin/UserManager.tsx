@@ -85,10 +85,10 @@ export default function UserManager() {
       >
         <div className="space-y-1">
           <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Access Control
+            Users
           </h1>
           <p className="text-slate-500 dark:text-slate-400 font-medium">
-            Manage user accounts, authentication protocol, and system roles.
+            Manage system users, roles, and status.
           </p>
         </div>
 
@@ -105,7 +105,7 @@ export default function UserManager() {
             whileTap={{ scale: 0.98 }}
           >
             <PlusIcon className="w-5 h-5" />
-            Enlist User
+            Create User
           </motion.button>
         </motion.div>
       </motion.div>

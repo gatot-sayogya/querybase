@@ -65,10 +65,10 @@ export default function GroupManager() {
       >
         <div className="space-y-1">
           <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Permission Groups
+            Groups
           </h1>
           <p className="text-slate-500 dark:text-slate-400 font-medium">
-            Define access clusters and map data source policies to user roles.
+            Create and manage user groups to organize access.
           </p>
         </div>
         
@@ -84,7 +84,7 @@ export default function GroupManager() {
             transition={springConfig.micro}
           >
             <span className="text-xl mr-2">+</span>
-            New Ensemble
+            Create Group
           </motion.button>
         </motion.div>
       </motion.div>

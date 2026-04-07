@@ -83,89 +83,84 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-10 mt-6 md:max-w-4xl">
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="email" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Email <span className="text-[var(--accent-red)]">*</span>
-          </label>
-        </div>
-        <div className="relative">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6 mt-6 md:max-w-xl w-full">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="email" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
+          Email <span className="text-[var(--accent-red)]">*</span>
+        </label>
+        <div className="relative w-full">
           <input
             type="email"
             id="email"
             name="email"
             value={formData.email}
             onChange={handleChange}
-            className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-xl text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
-            style={errors.email ? { borderBottomColor: 'var(--red-text)' } : {}}
+            className="w-full bg-[var(--input-bg)] px-4 py-3 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+            style={errors.email ? { borderColor: 'var(--red-text)', backgroundColor: 'var(--red-bg)' } : {}}
             placeholder="user@example.com"
           />
-          {errors.email && <div className="text-[var(--red-text)] text-xs mt-2">{errors.email}</div>}
+          {errors.email && <div className="text-[var(--red-text)] text-xs mt-2 pl-1">{errors.email}</div>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="username" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Username <span className="text-[var(--accent-red)]">*</span>
-          </label>
-        </div>
-        <div className="relative">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="username" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
+          Username <span className="text-[var(--accent-red)]">*</span>
+        </label>
+        <div className="relative w-full">
           <input
             type="text"
             id="username"
             name="username"
             value={formData.username}
             onChange={handleChange}
-            className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
-            style={errors.username ? { borderBottomColor: 'var(--red-text)' } : {}}
+            className="w-full bg-[var(--input-bg)] px-4 py-3 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+            style={errors.username ? { borderColor: 'var(--red-text)', backgroundColor: 'var(--red-bg)' } : {}}
             placeholder="johndoe"
           />
-          {errors.username && <div className="text-[var(--red-text)] text-xs mt-2">{errors.username}</div>}
+          {errors.username && <div className="text-[var(--red-text)] text-xs mt-2 pl-1">{errors.username}</div>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="full_name" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Full Name <span className="text-[var(--accent-red)]">*</span>
-          </label>
-        </div>
-        <div className="relative">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="full_name" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
+          Full Name <span className="text-[var(--accent-red)]">*</span>
+        </label>
+        <div className="relative w-full">
           <input
             type="text"
             id="full_name"
             name="full_name"
             value={formData.full_name}
             onChange={handleChange}
-            className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
-            style={errors.full_name ? { borderBottomColor: 'var(--red-text)' } : {}}
+            className="w-full bg-[var(--input-bg)] px-4 py-3 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+            style={errors.full_name ? { borderColor: 'var(--red-text)', backgroundColor: 'var(--red-bg)' } : {}}
             placeholder="John Doe"
           />
-          {errors.full_name && <div className="text-[var(--red-text)] text-xs mt-2">{errors.full_name}</div>}
+          {errors.full_name && <div className="text-[var(--red-text)] text-xs mt-2 pl-1">{errors.full_name}</div>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="role" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Role <span className="text-[var(--accent-red)]">*</span>
-          </label>
-        </div>
-        <div className="relative">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="role" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
+          Role <span className="text-[var(--accent-red)]">*</span>
+        </label>
+        <div className="relative w-full">
           <select
             id="role"
             name="role"
             value={formData.role}
             onChange={handleChange}
-            className="w-full bg-transparent border-b border-[var(--border)] pb-3 pr-8 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none cursor-pointer"
+            className="w-full bg-[var(--input-bg)] px-4 py-3 pr-10 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl cursor-pointer border border-transparent appearance-none"
           >
             <option value="user" className="bg-[var(--card-bg)] text-[var(--text-primary)]">User</option>
             <option value="admin" className="bg-[var(--card-bg)] text-[var(--text-primary)]">Admin</option>
             <option value="viewer" className="bg-[var(--card-bg)] text-[var(--text-primary)]">Viewer</option>
           </select>
-          <div className="text-[var(--text-faint)] text-xs mt-3 leading-relaxed">
+          <div className="pointer-events-none absolute top-[14px] right-4 flex items-center text-[var(--text-muted)]">
+            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+          </div>
+          <div className="text-[var(--text-faint)] text-xs mt-3 leading-relaxed px-2">
             {formData.role === 'admin' && 'Full access to all features including user management.'}
             {formData.role === 'user' && 'Can execute queries and submit approval requests.'}
             {formData.role === 'viewer' && 'Read-only access to queries and results.'}
@@ -173,71 +168,58 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="password" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Password {!user && <span className="text-[var(--accent-red)]">*</span>}
-          </label>
-          {user && <p className="text-xs text-[var(--text-faint)] mt-1">Leave empty to keep current</p>}
-        </div>
-        <div className="relative">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="password" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1 flex items-center gap-2">
+          Password {!user && <span className="text-[var(--accent-red)]">*</span>}
+          {user && <span className="text-[10px] normal-case tracking-normal opacity-70 font-normal mt-0.5">(Leave empty to keep current)</span>}
+        </label>
+        <div className="relative w-full">
           <input
             type="password"
             id="password"
             name="password"
             value={formData.password}
             onChange={handleChange}
-            className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
-            style={errors.password ? { borderBottomColor: 'var(--red-text)' } : {}}
+            className="w-full bg-[var(--input-bg)] px-4 py-3 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+            style={errors.password ? { borderColor: 'var(--red-text)', backgroundColor: 'var(--red-bg)' } : {}}
             placeholder="••••••••••"
           />
-          {errors.password && <div className="text-[var(--red-text)] text-xs mt-2">{errors.password}</div>}
+          {errors.password && <div className="text-[var(--red-text)] text-xs mt-2 pl-1">{errors.password}</div>}
         </div>
       </div>
 
       {user && (
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-          <div className="md:mt-2">
-            <label className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-              Account Status
-            </label>
-          </div>
-          <div className="relative flex items-center gap-4 mt-2">
-            <input
-              type="checkbox"
-              id="is_active"
-              name="is_active"
-              checked={formData.is_active}
-              onChange={handleChange}
-              className="w-5 h-5 accent-[var(--accent-blue)] cursor-pointer"
-            />
-            <label htmlFor="is_active" className="text-sm font-medium text-[var(--text-primary)] cursor-pointer select-none">
-              Active User
-            </label>
-          </div>
+        <div className="flex items-center gap-3 mt-2 pl-1">
+          <input
+            type="checkbox"
+            id="is_active"
+            name="is_active"
+            checked={formData.is_active}
+            onChange={handleChange}
+            className="w-5 h-5 cursor-pointer rounded"
+          />
+          <label htmlFor="is_active" className="text-sm font-medium text-[var(--text-primary)] cursor-pointer select-none">
+            Active User
+          </label>
         </div>
       )}
 
       {/* Actions */}
-      <div className="mt-8 pt-8 border-t border-[var(--border-light)] grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8">
-        <div className="hidden md:block"></div>
-        <div className="flex gap-6 items-center">
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{ borderRadius: '2px' }}
-          >
-            {saving ? 'Saving...' : user ? 'Update User' : 'Save User'}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="h-12 px-4 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
+      <div className="mt-8 pt-6 border-t border-[var(--border-light)] flex justify-end gap-3 w-full">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-12 px-6 bg-[var(--input-bg)] text-[var(--text-primary)] text-sm font-bold tracking-[0.1em] uppercase hover:bg-[var(--border)] transition-colors rounded-xl"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-xl"
+        >
+          {saving ? 'Saving...' : user ? 'Update' : 'Save'}
+        </button>
       </div>
     </form>
   );

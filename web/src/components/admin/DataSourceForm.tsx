@@ -161,18 +161,18 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-10 mt-6 md:max-w-4xl">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6 mt-6 md:max-w-xl w-full">
       {/* Connection Status Banner */}
       {connectionStatus.type && (
         <div
-          className={`p-4 rounded-sm border ${
+          className={`p-4 rounded-xl border ${
             connectionStatus.type === 'success'
               ? 'bg-[var(--green-bg)] border-[var(--green-text)]'
               : 'bg-[var(--red-bg)] border-[var(--red-border)]'
           }`}
         >
           <div className="flex items-start">
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 mt-0.5">
               {connectionStatus.type === 'success' ? (
                 <svg className="h-5 w-5 text-[var(--green-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -187,7 +187,7 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
               <h3 className={`text-sm font-bold tracking-[0.05em] uppercase ${connectionStatus.type === 'success' ? 'text-[var(--text-primary)]' : 'text-[var(--red-text)]'}`}>
                 {connectionStatus.type === 'success' ? 'Connection Successful' : 'Connection Failed'}
               </h3>
-              <p className={`mt-1 text-sm ${connectionStatus.type === 'success' ? 'text-[var(--text-muted)]' : 'text-[var(--red-text)] opacity-80'}`}>
+              <p className={`mt-1.5 text-sm leading-relaxed ${connectionStatus.type === 'success' ? 'text-[var(--text-muted)]' : 'text-[var(--red-text)] opacity-90'}`}>
                 {connectionStatus.message}
               </p>
             </div>
@@ -195,54 +195,51 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="name" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Name <span className="text-[var(--accent-red)]">*</span>
-          </label>
-        </div>
-        <div className="relative">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="name" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
+          Name <span className="text-[var(--accent-red)]">*</span>
+        </label>
+        <div className="relative w-full">
           <input
             type="text"
             id="name"
             name="name"
             value={formData.name}
             onChange={handleChange}
-            className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-xl text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
-            style={errors.name ? { borderBottomColor: 'var(--red-text)' } : {}}
+            className="w-full bg-[var(--input-bg)] px-4 py-3 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+            style={errors.name ? { borderColor: 'var(--red-text)', backgroundColor: 'var(--red-bg)' } : {}}
             placeholder="Production Database"
           />
-          {errors.name && <div className="text-[var(--red-text)] text-xs mt-2">{errors.name}</div>}
+          {errors.name && <div className="text-[var(--red-text)] text-xs mt-2 pl-1">{errors.name}</div>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="type" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Database Type <span className="text-[var(--accent-red)]">*</span>
-          </label>
-        </div>
-        <div className="relative">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="type" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
+          Database Type <span className="text-[var(--accent-red)]">*</span>
+        </label>
+        <div className="relative w-full">
           <select
             id="type"
             name="type"
             value={formData.type}
             onChange={handleChange}
-            className="w-full bg-transparent border-b border-[var(--border)] pb-3 pr-8 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none cursor-pointer"
+            className="w-full bg-[var(--input-bg)] px-4 py-3 pr-10 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl cursor-pointer border border-transparent appearance-none"
           >
             <option value="postgresql" className="bg-[var(--card-bg)] text-[var(--text-primary)]">PostgreSQL</option>
             <option value="mysql" className="bg-[var(--card-bg)] text-[var(--text-primary)]">MySQL</option>
           </select>
+          <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[var(--text-muted)]">
+            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="host" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Host & Port <span className="text-[var(--accent-red)]">*</span>
-          </label>
-        </div>
-        <div className="flex gap-4 sm:gap-6 w-full">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="host" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
+          Host & Port <span className="text-[var(--accent-red)]">*</span>
+        </label>
+        <div className="flex gap-3 w-full">
           <div className="relative flex-1">
             <input
               type="text"
@@ -250,13 +247,13 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
               name="host"
               value={formData.host}
               onChange={handleChange}
-              className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
-              style={errors.host ? { borderBottomColor: 'var(--red-text)' } : {}}
+              className="w-full bg-[var(--input-bg)] px-4 py-3 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+              style={errors.host ? { borderColor: 'var(--red-text)', backgroundColor: 'var(--red-bg)' } : {}}
               placeholder="db.example.com"
             />
-            {errors.host && <div className="text-[var(--red-text)] text-xs mt-2">{errors.host}</div>}
+            {errors.host && <div className="text-[var(--red-text)] text-xs mt-2 pl-1">{errors.host}</div>}
           </div>
-          <div className="relative w-24 sm:w-32 shrink-0">
+          <div className="relative w-28 shrink-0">
             <input
               type="number"
               id="port"
@@ -265,106 +262,97 @@ export default function DataSourceForm({ dataSource, onSave, onCancel }: DataSou
               onChange={handleNumberChange}
               min={1}
               max={65535}
-              className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
-              style={errors.port ? { borderBottomColor: 'var(--red-text)' } : {}}
+              className="w-full bg-[var(--input-bg)] px-4 py-3 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+              style={errors.port ? { borderColor: 'var(--red-text)', backgroundColor: 'var(--red-bg)' } : {}}
               placeholder="5432"
             />
-            {errors.port && <div className="text-[var(--red-text)] text-xs mt-2">{errors.port}</div>}
+            {errors.port && <div className="text-[var(--red-text)] text-xs mt-2 pl-1">{errors.port}</div>}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="database_name" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Database Name <span className="text-[var(--accent-red)]">*</span>
-          </label>
-        </div>
-        <div className="relative">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="database_name" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
+          Database Name <span className="text-[var(--accent-red)]">*</span>
+        </label>
+        <div className="relative w-full">
           <input
             type="text"
             id="database_name"
             name="database_name"
             value={formData.database_name}
             onChange={handleChange}
-            className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
-            style={errors.database_name ? { borderBottomColor: 'var(--red-text)' } : {}}
+            className="w-full bg-[var(--input-bg)] px-4 py-3 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+            style={errors.database_name ? { borderColor: 'var(--red-text)', backgroundColor: 'var(--red-bg)' } : {}}
             placeholder="querybase"
           />
-          {errors.database_name && <div className="text-[var(--red-text)] text-xs mt-2">{errors.database_name}</div>}
+          {errors.database_name && <div className="text-[var(--red-text)] text-xs mt-2 pl-1">{errors.database_name}</div>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="username" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Username <span className="text-[var(--accent-red)]">*</span>
-          </label>
-        </div>
-        <div className="relative">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="username" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1">
+          Username <span className="text-[var(--accent-red)]">*</span>
+        </label>
+        <div className="relative w-full">
           <input
             type="text"
             id="username"
             name="username"
             value={formData.username}
             onChange={handleChange}
-            className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
-            style={errors.username ? { borderBottomColor: 'var(--red-text)' } : {}}
+            className="w-full bg-[var(--input-bg)] px-4 py-3 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+            style={errors.username ? { borderColor: 'var(--red-text)', backgroundColor: 'var(--red-bg)' } : {}}
             placeholder="dbuser"
           />
-          {errors.username && <div className="text-[var(--red-text)] text-xs mt-2">{errors.username}</div>}
+          {errors.username && <div className="text-[var(--red-text)] text-xs mt-2 pl-1">{errors.username}</div>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8 items-start">
-        <div className="md:mt-2">
-          <label htmlFor="password" className="block text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] mb-1">
-            Password {!dataSource && <span className="text-[var(--accent-red)]">*</span>}
-          </label>
-          {dataSource && <p className="text-xs text-[var(--text-faint)] mt-1">Leave empty to keep current</p>}
-        </div>
-        <div className="relative">
+      <div className="flex flex-col gap-1.5 items-start relative">
+        <label htmlFor="password" className="text-xs font-bold tracking-[0.15em] uppercase text-[var(--text-muted)] pl-1 flex items-center gap-2">
+          Password {!dataSource && <span className="text-[var(--accent-red)]">*</span>}
+          {dataSource && <span className="text-[10px] normal-case tracking-normal opacity-70 font-normal mt-0.5">(Leave empty to keep current)</span>}
+        </label>
+        <div className="relative w-full">
           <input
             type="password"
             id="password"
             name="password"
             value={formData.password || ''}
             onChange={handleChange}
-            className="w-full bg-transparent border-b border-[var(--border)] pb-3 text-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors rounded-none placeholder-[var(--text-faint)]"
-            style={errors.password ? { borderBottomColor: 'var(--red-text)' } : {}}
+            className="w-full bg-[var(--input-bg)] px-4 py-3 text-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] transition-all rounded-xl placeholder-[var(--text-faint)] border border-transparent"
+            style={errors.password ? { borderColor: 'var(--red-text)', backgroundColor: 'var(--red-bg)' } : {}}
             placeholder="••••••••••"
           />
-          {errors.password && <div className="text-[var(--red-text)] text-xs mt-2">{errors.password}</div>}
+          {errors.password && <div className="text-[var(--red-text)] text-xs mt-2 pl-1">{errors.password}</div>}
         </div>
       </div>
 
       {/* Actions */}
-      <div className="mt-8 pt-8 border-t border-[var(--border-light)] grid grid-cols-1 md:grid-cols-[1fr_2.5fr] gap-8">
-        <div className="hidden md:block"></div>
-        <div className="flex gap-4 items-center flex-wrap">
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{ borderRadius: '2px' }}
-          >
-            {saving ? 'Saving...' : dataSource ? 'Update Connection' : 'Save Connection'}
-          </button>
+      <div className="mt-8 pt-6 border-t border-[var(--border-light)] flex justify-end gap-3 w-full flex-wrap-reverse sm:flex-nowrap">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-12 px-6 bg-[var(--input-bg)] text-[var(--text-primary)] text-sm font-bold tracking-[0.1em] uppercase hover:bg-[var(--border)] transition-colors rounded-xl flex-shrink-0"
+        >
+          Cancel
+        </button>
+        <div className="flex gap-3 w-full sm:w-auto overflow-hidden">
           <button
             type="button"
             onClick={handleTestConnection}
             disabled={testing}
-            className="h-12 px-8 bg-transparent border border-[var(--border)] text-[var(--text-primary)] text-sm font-bold tracking-[0.1em] uppercase hover:border-[var(--accent-blue)] transition-colors disabled:opacity-50"
-            style={{ borderRadius: '2px' }}
+            className="flex-1 sm:flex-none h-12 px-5 bg-transparent border border-[var(--border)] text-[var(--text-primary)] text-sm font-bold tracking-[0.1em] uppercase hover:border-[var(--accent-blue)] transition-colors disabled:opacity-50 rounded-xl whitespace-nowrap"
           >
-            {testing ? 'Testing...' : 'Test Connection'}
+            {testing ? 'Testing...' : 'Test Config'}
           </button>
           <button
-            type="button"
-            onClick={onCancel}
-            className="h-12 px-4 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+            type="submit"
+            disabled={saving}
+            className="flex-1 sm:flex-none h-12 px-8 bg-[var(--text-primary)] text-[var(--bg-page)] text-sm font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-opacity disabled:opacity-50 rounded-xl whitespace-nowrap"
           >
-            Cancel
+            {saving ? 'Saving...' : dataSource ? 'Update' : 'Save'}
           </button>
         </div>
       </div>

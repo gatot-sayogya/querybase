@@ -14,6 +14,7 @@ export default function GroupList({ onEditGroup, selectedId }: GroupListProps) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchGroups();
@@ -61,6 +62,17 @@ export default function GroupList({ onEditGroup, selectedId }: GroupListProps) {
             return colors[num % colors.length];
           };
 
+  const filteredGroups = groups.filter((group) => {
+    if (search) {
+      const qs = search.toLowerCase();
+      if (!group.name?.toLowerCase().includes(qs) && 
+          !group.description?.toLowerCase().includes(qs)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="p-8 space-y-4">
@@ -89,19 +101,35 @@ export default function GroupList({ onEditGroup, selectedId }: GroupListProps) {
 
   return (
     <div className="space-y-6">
+      {/* Search Bar */}
+      <div className="relative max-w-md w-full">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search groups..."
+          className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all sleek-shadow placeholder-slate-400 text-sm font-medium"
+        />
+      </div>
+
       <div className="grid gap-3">
-        {groups.length === 0 ? (
+        {filteredGroups.length === 0 ? (
           <div className="p-20 text-center glass rounded-3xl border border-slate-100 dark:border-slate-800/50">
             <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
               <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v2c0 .656-.126 1.283-.356 1.857m-7.5 10.5a3 3 0 11-5.997 3.019m-6.035 3.019A3 3 0 0110 21 12.979m3 4.5c0 1.412-.656 2.675-1.718 3.014M5 21h12a2 2 0 002-2V6a2 2 0 002-2V8a2 2 0 002-2H6a2 2 0 002-2v2a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2-2v-2a2 2 0 00-2-2h12a2 2 0 002 2v2a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Groups Detected</h3>
-            <p className="text-slate-500 text-sm mt-1">Start by defining access clusters for your team.</p>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Groups Found</h3>
+            <p className="text-slate-500 text-sm mt-1">Adjust your search or create a new group.</p>
           </div>
         ) : (
-          groups.map((group) => {
+          filteredGroups.map((group) => {
             const iconStyle = getIconColor(group.name);
             const dataSources = group.data_sources || [];
             const users = group.users || [];
@@ -124,7 +152,7 @@ export default function GroupList({ onEditGroup, selectedId }: GroupListProps) {
                         {group.name}
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border bg-blue-500/10 text-blue-600 border-blue-500/20">
-                        {users.length} Nodes
+                        {users.length} Users
                       </span>
                     </div>
                     <div className="text-sm text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2 mt-0.5">
@@ -159,14 +187,14 @@ export default function GroupList({ onEditGroup, selectedId }: GroupListProps) {
                         onClick={() => onEditGroup(group)}
                         className="h-10 px-6 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-500 hover:text-white transition-all shadow-sm"
                         >
-                        Configure
+                        Edit
                         </button>
                     )}
                     <button
                         onClick={() => handleDelete(group.id, group.name)}
                         className="h-10 px-6 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                     >
-                        Purge
+                        Delete
                     </button>
                     </div>
                 </div>

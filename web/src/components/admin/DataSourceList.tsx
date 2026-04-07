@@ -22,6 +22,7 @@ export default function DataSourceList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchDataSources();
@@ -76,6 +77,18 @@ export default function DataSourceList({
     return 'badge-green';
   };
 
+  const filteredDataSources = dataSources.filter((ds) => {
+    if (search) {
+      const qs = search.toLowerCase();
+      if (!ds.name?.toLowerCase().includes(qs) && 
+          !ds.type?.toLowerCase().includes(qs) &&
+          !ds.host?.toLowerCase().includes(qs)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="p-8 grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
@@ -117,8 +130,24 @@ export default function DataSourceList({
       animate="visible"
       variants={staggerContainer}
     >
+      {/* Search Bar */}
+      <div className="relative max-w-md w-full">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search data sources..."
+          className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all sleek-shadow placeholder-slate-400 text-sm font-medium"
+        />
+      </div>
+
       <div className="space-y-3">
-        {dataSources.length === 0 ? (
+        {filteredDataSources.length === 0 ? (
           <motion.div 
             className="p-20 text-center glass rounded-3xl border border-slate-100 dark:border-slate-800/50"
             variants={staggerItem}
@@ -128,12 +157,12 @@ export default function DataSourceList({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4M0 12h18M0 12h18" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Infrastructure Bridges</h3>
-            <p className="text-slate-500 text-sm mt-1">Connect your first database to enable query execution.</p>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Data Sources Found</h3>
+            <p className="text-slate-500 text-sm mt-1">Adjust your search or connect a new database.</p>
           </motion.div>
         ) : (
           <div className="grid gap-3">
-            {dataSources.map((dataSource, index) => {
+            {filteredDataSources.map((dataSource, index) => {
               const isPg = dataSource.type === 'postgresql';
               const isMysql = dataSource.type === 'mysql';
               
@@ -184,7 +213,7 @@ export default function DataSourceList({
                       whileTap={{ scale: 0.98 }}
                       transition={springConfig.micro}
                     >
-                      {testingId === dataSource.id ? 'Pinging...' : 'Pulse Test'}
+                      {testingId === dataSource.id ? 'Testing...' : 'Test Connection'}
                     </motion.button>
                     {onEditDataSource && (
                       <motion.button
@@ -194,18 +223,18 @@ export default function DataSourceList({
                         whileTap={{ scale: 0.98 }}
                         transition={springConfig.micro}
                       >
-                        Modify
+                        Edit
                       </motion.button>
                     )}
                     <motion.button
                       onClick={() => handleDelete(dataSource.id, dataSource.name)}
                       className="h-10 px-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500 hover:text-white transition-all shadow-sm ml-2"
-                      title="Decommission Source"
+                      title="Delete Data Source"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       transition={springConfig.micro}
                     >
-                         Purge
+                         Delete
                     </motion.button>
                   </div>
                 </motion.div>

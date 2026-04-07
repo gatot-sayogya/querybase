@@ -16,6 +16,7 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'user' | 'viewer'>('all');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -85,6 +86,14 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
     if (filter === 'active' && !user.is_active) return false;
     if (filter === 'inactive' && user.is_active) return false;
     if (roleFilter !== 'all' && user.role !== roleFilter) return false;
+    if (search) {
+      const qs = search.toLowerCase();
+      if (!user.username?.toLowerCase().includes(qs) && 
+          !user.full_name?.toLowerCase().includes(qs) && 
+          !user.email?.toLowerCase().includes(qs)) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -116,21 +125,38 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
 
   return (
     <div className="space-y-6">
-      {/* Local Filter Capsule */}
-      <div className="flex items-center gap-2 p-1.5 glass rounded-2xl w-fit sleek-shadow">
-        {(['all', 'active', 'inactive'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-6 py-2 text-xs font-bold rounded-xl transition-all duration-300 ${
-              filter === f 
-                ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            {f.charAt(0).toUpperCase() + f.slice(1)}
-          </button>
-        ))}
+      {/* Search and Filters */}
+      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <div className="relative flex-1 max-w-md w-full">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search users..."
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all sleek-shadow placeholder-slate-400 text-sm font-medium"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 p-1.5 glass rounded-2xl w-fit sleek-shadow">
+          {(['all', 'active', 'inactive'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-6 py-2 text-xs font-bold rounded-xl transition-all duration-300 ${
+                filter === f 
+                  ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -141,8 +167,8 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Personnel Found</h3>
-            <p className="text-slate-500 text-sm mt-1">Adjust your filters or enlist new users to get started.</p>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Users Found</h3>
+            <p className="text-slate-500 text-sm mt-1">Adjust your search/filters or create new users to get started.</p>
           </div>
         ) : (
           <div className="grid gap-3">
@@ -167,7 +193,7 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
                         {user.role}
                       </span>
                       <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${getStatusBadgeColor(user.is_active)}`}>
-                        {user.is_active ? 'Online' : 'Hibernated'}
+                        {user.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                     <div className="text-sm text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2 mt-0.5">
@@ -188,14 +214,14 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
                       onClick={() => onEditUser(user)}
                       className="h-10 px-6 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-500 hover:text-white transition-all shadow-sm"
                     >
-                      Refactor
+                      Edit
                     </button>
                   )}
                   <button
                     onClick={() => handleDelete(user.id, user.username)}
                     className="h-10 px-6 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                   >
-                    Decom
+                    Delete
                   </button>
                 </div>
               </div>
