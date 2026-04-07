@@ -401,7 +401,7 @@ func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, star
 	log.Printf("[StartTransaction] Executing query for approval=%s, queryText=%q", approvalID, approval.QueryText)
 
 	// Execute query in transaction mode — returns query results + audit data (before/after rows)
-	result, auditResult, err := s.queryService.ExecuteQueryInTransaction(ctx, &approval, &approval.DataSource)
+	result, auditResult, err := s.queryService.ExecuteQueryInTransaction(ctx, &approval, &approval.DataSource, effectiveMode)
 	if err != nil {
 		log.Printf("[StartTransaction] ExecuteQueryInTransaction failed: %v", err)
 		transaction.Status = models.TransactionStatusFailed

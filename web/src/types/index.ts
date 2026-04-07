@@ -151,8 +151,11 @@ export interface ApprovalRequest {
   updated_at: string;
   reviews?: any[];
   transaction?: {
+    transaction_id?: string;
+    status?: 'active' | 'committed' | 'failed';
     affected_rows: number;
     audit_mode: AuditMode;
+    preview?: any;
     before_data?: Record<string, unknown>[];
     after_data?: Record<string, unknown>[];
     completed_at?: string;

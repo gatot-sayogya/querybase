@@ -71,11 +71,26 @@ For write operations, approvers can preview the actual execution results in a sa
    - Review the table to guarantee the query is doing what is expected.
 2. **Phase 2 (Transaction Open)**
    - Click **"Confirm & Start Transaction"**
+   - **Audit Dialog Context:** If the preview determines that the query will affect **more than 100 rows**, an Audit Dialog will prompt you to set your data-capture limit (Full, 100 lines only, or None). If it affects **<= 100 rows**, the system automatically uses the Full context.
    - A background worker opens an actual database transaction, executes the write query, and pauses.
 3. **Phase 3 (Commit or Rollback)**
-   - Choose an Audit Mode
    - To apply the changes permanently, click **Commit & Approve**
    - To reject or cancel, click **Abort & Rollback**
+
+### Sample Queries Affecting Row Threshold
+You can use the following queries to test the threshold behavior:
+
+*Query below threshold (<= 100 rows):*
+```sql
+UPDATE users SET status = 'active' WHERE id IN (1, 2, 3);
+-- Bypasses dialog and auto captures "Full" audit log.
+```
+
+*Query above threshold (> 100 rows):*
+```sql
+UPDATE search_history SET deleted_at = NOW() WHERE user_id = 90;
+-- Assuming this affects > 100 history rows, this will trigger the Audit Dialog limiting selection.
+```
 
 After committing, the UI displays a detailed **Before/After** data panel to show the exact state of the rows before and after the query was executed.
 

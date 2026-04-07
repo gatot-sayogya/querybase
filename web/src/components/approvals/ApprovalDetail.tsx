@@ -12,6 +12,7 @@ import type { MultiQueryPreviewResponse } from '@/lib/api/multi-query';
 import { MultiQueryPreviewModal } from '@/components/query/MultiQueryPreviewModal';
 import InsertPreviewPanel from './InsertPreviewPanel';
 import type { InsertPreviewResult } from '@/lib/api/insert-preview';
+import { shouldShowAuditDialog } from '@/lib/utils';
 
 interface ApprovalDetailProps {
   approvalId: string | null;
@@ -35,6 +36,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
   const [insertPreview, setInsertPreview] = useState<InsertPreviewResult | null>(null);
   const [transaction, setTransaction] = useState<TransactionPreview | null>(null);
   const [auditMode, setAuditMode] = useState<AuditMode>('full');
+  const [showAuditDialog, setShowAuditDialog] = useState(false);
   
   // Hydration safe date formatter
   const [formatter, setFormatter] = useState<Intl.DateTimeFormat | null>(null);
@@ -60,9 +62,35 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
       setError(null);
       const data = await apiClient.getApproval(approvalId);
       setApproval(data);
-      setPhase('idle');
-      setWritePreview(null);
-      setTransaction(null);
+      
+      // Resume Phase 3 if there is an active transaction stranded
+      if (data.status === 'approved' && data.transaction && data.transaction.status === 'active') {
+        const resumedTx: TransactionPreview = {
+          transaction_id: data.transaction.transaction_id!,
+          approval_id: approvalId,
+          data_source_id: data.data_source_id,
+          query_text: data.query_text,
+          started_by: '',
+          started_at: '',
+          status: data.transaction.status as 'active' | 'committed' | 'failed',
+          preview: data.transaction.preview || {
+            estimated_rows: data.transaction.affected_rows,
+            columns: [],
+            data: []
+          }
+        };
+        setTransaction(resumedTx);
+        if (data.transaction.audit_mode) {
+           setAuditMode(data.transaction.audit_mode as AuditMode);
+        }
+        setPhase('tx_ready');
+        setWritePreview(null);
+      } else {
+        setPhase('idle');
+        setWritePreview(null);
+        setTransaction(null);
+      }
+      
       setComment('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load approval details');
@@ -131,13 +159,14 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
   };
 
   // Phase 2: Start actual transaction (runs DELETE/UPDATE held in DB tx)
-  const handleStartTransaction = async () => {
+  const handleStartTransaction = async (auditModeOverride?: AuditMode) => {
     if (!approvalId) return;
     setPhase('loading_tx');
     setSubmitting(true);
     setError(null);
     try {
-      const txData = await apiClient.startApprovalTransaction(approvalId, { audit_mode: auditMode });
+      const effectiveAuditMode = auditModeOverride || auditMode;
+      const txData = await apiClient.startApprovalTransaction(approvalId, { audit_mode: effectiveAuditMode });
       setTransaction(txData);
       if (txData.preview?.audit_mode) {
         setAuditMode(txData.preview.audit_mode);
@@ -510,10 +539,13 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
                 className="btn btn-success focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 flex items-center justify-center min-w-[220px]"
                 disabled={submitting}
                 onClick={async () => {
-                  // First approve the request, then start transaction
-                  await handleReview('approved');
-                  // After approval is granted, start the transaction
-                  handleStartTransaction();
+                  if (writePreview && shouldShowAuditDialog(writePreview.total_affected)) {
+                    setShowAuditDialog(true);
+                  } else {
+                    setAuditMode('full');
+                    await handleReview('approved');
+                    handleStartTransaction();
+                  }
                 }}
               >
                 {submitting
@@ -678,33 +710,6 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
           </div>
           
           <div className="bg-white dark:bg-gray-800 p-4 mb-4 border border-gray-200 dark:border-gray-700">
-            <div className="mb-4">
-              <label htmlFor="audit-mode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Audit Capture Mode
-              </label>
-              <select
-                id="audit-mode"
-                className="w-full sm:w-64 p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-                value={auditMode}
-                onChange={(e) => setAuditMode(e.target.value as AuditMode)}
-                disabled={submitting}
-              >
-                {transaction.preview?.audit_mode === 'count_only' && (
-                  <option value="count_only">Count Only (Target Database capability limit)</option>
-                )}
-                {transaction.preview?.audit_mode !== 'count_only' && (
-                  <>
-                    <option value="full">Full Context (Save all before/after row data)</option>
-                    <option value="sample">Sample (Save first 50 rows only)</option>
-                    <option value="count_only">Count Only (Fastest, no row data saved)</option>
-                  </>
-                )}
-              </select>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Determines how much historical data is saved to the audit log for rollback/review.
-              </p>
-            </div>
-            
             <div className="detail-section-label">Comments (optional)</div>
             <textarea
             className="comment-area focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none w-full p-3 border"
@@ -734,6 +739,70 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
           </div>
         </div>
       )}
+
+      {/* Audit Dialog Modal */}
+      <AnimatePresence>
+        {showAuditDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6"
+            >
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Audit Capture Options</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                This query affects <strong>{writePreview?.total_affected}</strong> rows. How much data do you want to save for audit?
+              </p>
+              
+              <div className="space-y-3 mb-6">
+                <label className={`flex items-start p-3 border rounded-lg cursor-pointer ${auditMode === 'full' ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600'}`}>
+                  <input type="radio" className="mt-1" checked={auditMode === 'full'} onChange={() => setAuditMode('full')} />
+                  <div className="ml-3">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">Save full data changes</div>
+                    <div className="text-xs text-gray-500">All affected rows are stored</div>
+                  </div>
+                </label>
+                <label className={`flex items-start p-3 border rounded-lg cursor-pointer ${auditMode === 'sample' ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600'}`}>
+                  <input type="radio" className="mt-1" checked={auditMode === 'sample'} onChange={() => setAuditMode('sample')} />
+                  <div className="ml-3">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">100 lines only</div>
+                    <div className="text-xs text-gray-500">Capture a maximum of 100 changed rows</div>
+                  </div>
+                </label>
+                <label className={`flex items-start p-3 border rounded-lg cursor-pointer ${auditMode === 'count_only' ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600'}`}>
+                  <input type="radio" className="mt-1" checked={auditMode === 'count_only'} onChange={() => setAuditMode('count_only')} />
+                  <div className="ml-3">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">Not saved at all</div>
+                    <div className="text-xs text-gray-500">Capture count only, no data changes recorded</div>
+                  </div>
+                </label>
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => setShowAuditDialog(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary flex items-center gap-2"
+                  disabled={submitting}
+                  onClick={async () => {
+                    setShowAuditDialog(false);
+                    await handleReview('approved');
+                    handleStartTransaction(auditMode);
+                  }}
+                >
+                  {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                  Confirm & Proceed
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Info for pending but cannot approve */}
       {isPending && !approval.can_approve && (

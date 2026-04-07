@@ -295,18 +295,39 @@ func (h *ApprovalHandler) formatApprovalResponse(approval models.ApprovalRequest
 	// Fetch transaction data if approved
 	if approval.Status == models.ApprovalStatusApproved {
 		var tx models.QueryTransaction
-		if err := h.db.Where("approval_id = ? AND status = ?", approval.ID, models.TransactionStatusCommitted).First(&tx).Error; err == nil {
+		if err := h.db.Where("approval_id = ? AND status IN (?, ?)", approval.ID, models.TransactionStatusCommitted, models.TransactionStatusActive).Order("started_at desc").First(&tx).Error; err == nil {
 			var beforeData, afterData []map[string]interface{}
-			if tx.BeforeData != nil && *tx.BeforeData != "" {
+			if tx.BeforeData != nil && *tx.BeforeData != "" && *tx.BeforeData != "[]" {
 				json.Unmarshal([]byte(*tx.BeforeData), &beforeData)
 			}
-			if tx.AfterData != nil && *tx.AfterData != "" {
+			if tx.AfterData != nil && *tx.AfterData != "" && *tx.AfterData != "[]" {
 				json.Unmarshal([]byte(*tx.AfterData), &afterData)
 			}
 
 			txData := gin.H{
-				"affected_rows": tx.AffectedRows,
-				"audit_mode":    string(tx.AuditMode),
+				"transaction_id": tx.ID.String(),
+				"status":         string(tx.Status),
+				"affected_rows":  tx.AffectedRows,
+				"audit_mode":     string(tx.AuditMode),
+			}
+
+			if tx.Status == models.TransactionStatusActive {
+				var previewData []map[string]interface{}
+				var columns []string
+				if tx.PreviewData != nil && *tx.PreviewData != "" {
+					json.Unmarshal([]byte(*tx.PreviewData), &previewData)
+				}
+				if len(previewData) > 0 {
+					for key := range previewData[0] {
+						columns = append(columns, key)
+					}
+				}
+				
+				txData["preview"] = gin.H{
+					"estimated_rows": tx.EstimatedRows,
+					"data":           previewData,
+					"columns":        convertToColumnInfo(columns),
+				}
 			}
 
 			if beforeData != nil {

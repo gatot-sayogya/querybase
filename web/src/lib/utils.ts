@@ -31,3 +31,7 @@ export function downloadFile(blob: Blob, filename: string) {
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);
 }
+
+export function shouldShowAuditDialog(affectedRows: number): boolean {
+  return affectedRows > 100;
+}

@@ -1850,7 +1850,7 @@ func (s *QueryService) tableExists(db *gorm.DB, dataSource *models.DataSource, t
 // ExecuteQueryInTransaction executes a query in a transaction and keeps it open for preview.
 // It returns both the QueryResult (for preview display) and the AuditResult (which contains
 // before/after row data captured by the AuditService).
-func (s *QueryService) ExecuteQueryInTransaction(ctx context.Context, approval *models.ApprovalRequest, dataSource *models.DataSource) (*models.QueryResult, *AuditResult, error) {
+func (s *QueryService) ExecuteQueryInTransaction(ctx context.Context, approval *models.ApprovalRequest, dataSource *models.DataSource, requestedAuditMode models.AuditMode) (*models.QueryResult, *AuditResult, error) {
 	// Get database connection
 	dataSourceDB, err := s.connectToDataSource(dataSource)
 	if err != nil {
@@ -1884,7 +1884,7 @@ func (s *QueryService) ExecuteQueryInTransaction(ctx context.Context, approval *
 				var err error
 
 				if s.auditService != nil {
-					execResult, err = s.auditService.ExecuteWithAudit(ctx, tx, queryToExecute, dataSource, models.AuditModeFull, 100)
+					execResult, err = s.auditService.ExecuteWithAudit(ctx, tx, queryToExecute, dataSource, requestedAuditMode, 100)
 				} else {
 					dbRes := tx.Exec(queryToExecute)
 					err = dbRes.Error
@@ -1934,7 +1934,7 @@ func (s *QueryService) ExecuteQueryInTransaction(ctx context.Context, approval *
 			var err error
 
 			if s.auditService != nil {
-				execResult, err = s.auditService.ExecuteWithAudit(ctx, tx, queryToExecute, dataSource, models.AuditModeFull, 100)
+				execResult, err = s.auditService.ExecuteWithAudit(ctx, tx, queryToExecute, dataSource, requestedAuditMode, 100)
 			} else {
 				dbRes := tx.Exec(queryToExecute)
 				err = dbRes.Error

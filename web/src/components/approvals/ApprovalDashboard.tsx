@@ -58,7 +58,7 @@ export default function ApprovalDashboard() {
         transition={{ duration: duration.slow, delay: 0.1, ...springConfig.gentle }}
       >
         <ApprovalDetail
-          key={`${selectedApprovalId}-${refreshKey}`}
+          key={selectedApprovalId}
           approvalId={selectedApprovalId}
           onRefresh={handleRefresh}
         />

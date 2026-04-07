@@ -1,4 +1,4 @@
-import { formatDate, formatDuration, cn } from '@/lib/utils';
+import { formatDate, formatDuration, cn, shouldShowAuditDialog } from '@/lib/utils';
 
 describe('Utils', () => {
   describe('formatDate', () => {
@@ -31,6 +31,18 @@ describe('Utils', () => {
       expect(cn('foo', 'bar')).toBe('foo bar');
       expect(cn('foo', false, 'bar')).toBe('foo bar');
       expect(cn('foo', null, undefined, 'bar')).toBe('foo bar');
+    });
+  });
+  describe('shouldShowAuditDialog', () => {
+    it('should return true for > 100 rows', () => {
+      expect(shouldShowAuditDialog(101)).toBe(true);
+      expect(shouldShowAuditDialog(200)).toBe(true);
+    });
+
+    it('should return false for <= 100 rows', () => {
+      expect(shouldShowAuditDialog(100)).toBe(false);
+      expect(shouldShowAuditDialog(10)).toBe(false);
+      expect(shouldShowAuditDialog(0)).toBe(false);
     });
   });
 });

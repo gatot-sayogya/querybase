@@ -362,13 +362,13 @@ func (s *AuditService) readPostgreSQLAuditLog(tx *gorm.DB, sampleLimit int) ([]m
 
 	for rows.Next() {
 		var action string
-		var dataJSON string
+		var dataJSON []byte
 		if err := rows.Scan(&action, &dataJSON); err != nil {
 			continue
 		}
 
 		var rowData map[string]interface{}
-		if err := json.Unmarshal([]byte(dataJSON), &rowData); err != nil {
+		if err := json.Unmarshal(dataJSON, &rowData); err != nil {
 			continue
 		}
 
@@ -399,9 +399,20 @@ func (s *AuditService) executeWithMySQLAudit(
 	tableName string,
 	sampleLimit int,
 ) (*AuditResult, error) {
-	// Step 1: Create temp audit table
+	// Step 1: Create temp audit tables for before and after events to avoid MySQL Can't reopen table error
 	err := tx.Exec(`
-		CREATE TEMPORARY TABLE IF NOT EXISTS _qb_audit_log (
+		CREATE TEMPORARY TABLE IF NOT EXISTS _qb_audit_before (
+			_qb_seq INT AUTO_INCREMENT PRIMARY KEY,
+			_qb_action VARCHAR(10),
+			_qb_data JSON
+		)
+	`).Error
+	if err != nil {
+		return s.executeCountOnly(ctx, tx, queryText)
+	}
+	
+	err = tx.Exec(`
+		CREATE TEMPORARY TABLE IF NOT EXISTS _qb_audit_after (
 			_qb_seq INT AUTO_INCREMENT PRIMARY KEY,
 			_qb_action VARCHAR(10),
 			_qb_data JSON
@@ -419,26 +430,36 @@ func (s *AuditService) executeWithMySQLAudit(
 
 	// Step 3: Create triggers
 	safeName := strings.ReplaceAll(tableName, ".", "_")
-	triggerBefore := fmt.Sprintf("_qb_trg_before_%s", safeName)
+	triggerBeforeDelete := fmt.Sprintf("_qb_trg_before_del_%s", safeName)
+	triggerBeforeUpdate := fmt.Sprintf("_qb_trg_before_upd_%s", safeName)
 	triggerAfterUpdate := fmt.Sprintf("_qb_trg_after_upd_%s", safeName)
 	triggerAfterInsert := fmt.Sprintf("_qb_trg_after_ins_%s", safeName)
 
-	// BEFORE DELETE / BEFORE UPDATE trigger
+	// BEFORE DELETE trigger
+	tx.Exec(fmt.Sprintf(`DROP TRIGGER IF EXISTS %s`, triggerBeforeDelete))
 	err = tx.Exec(fmt.Sprintf(`
 		CREATE TRIGGER %s BEFORE DELETE ON %s
 		FOR EACH ROW
-		INSERT INTO _qb_audit_log (_qb_action, _qb_data) VALUES ('DELETE', %s)
-	`, triggerBefore, tableName, s.buildMySQLJSONObject("OLD", columnListSQL))).Error
+		INSERT INTO _qb_audit_before (_qb_action, _qb_data) VALUES ('DELETE', %s)
+	`, triggerBeforeDelete, tableName, s.buildMySQLJSONObject("OLD", columnListSQL))).Error
 	if err != nil {
 		return s.executeCountOnly(ctx, tx, queryText)
 	}
+
+	// BEFORE UPDATE trigger
+	tx.Exec(fmt.Sprintf(`DROP TRIGGER IF EXISTS %s`, triggerBeforeUpdate))
+	tx.Exec(fmt.Sprintf(`
+		CREATE TRIGGER %s BEFORE UPDATE ON %s
+		FOR EACH ROW
+		INSERT INTO _qb_audit_before (_qb_action, _qb_data) VALUES ('BEFORE_UPD', %s)
+	`, triggerBeforeUpdate, tableName, s.buildMySQLJSONObject("OLD", columnListSQL)))
 
 	// AFTER UPDATE trigger
 	tx.Exec(fmt.Sprintf(`DROP TRIGGER IF EXISTS %s`, triggerAfterUpdate))
 	tx.Exec(fmt.Sprintf(`
 		CREATE TRIGGER %s AFTER UPDATE ON %s
 		FOR EACH ROW
-		INSERT INTO _qb_audit_log (_qb_action, _qb_data) VALUES ('AFTER_UPD', %s)
+		INSERT INTO _qb_audit_after (_qb_action, _qb_data) VALUES ('AFTER_UPD', %s)
 	`, triggerAfterUpdate, tableName, s.buildMySQLJSONObject("NEW", columnListSQL)))
 
 	// AFTER INSERT trigger
@@ -446,13 +467,13 @@ func (s *AuditService) executeWithMySQLAudit(
 	tx.Exec(fmt.Sprintf(`
 		CREATE TRIGGER %s AFTER INSERT ON %s
 		FOR EACH ROW
-		INSERT INTO _qb_audit_log (_qb_action, _qb_data) VALUES ('INSERT', %s)
+		INSERT INTO _qb_audit_after (_qb_action, _qb_data) VALUES ('INSERT', %s)
 	`, triggerAfterInsert, tableName, s.buildMySQLJSONObject("NEW", columnListSQL)))
 
 	// Step 4: Execute the user's query
 	execResult := tx.Exec(queryText)
 	if execResult.Error != nil {
-		s.cleanupMySQLTriggers(tx, triggerBefore, triggerAfterUpdate, triggerAfterInsert)
+		s.cleanupMySQLTriggers(tx, triggerBeforeDelete, triggerBeforeUpdate, triggerAfterUpdate, triggerAfterInsert)
 		return nil, fmt.Errorf("query execution failed: %w", execResult.Error)
 	}
 
@@ -460,7 +481,7 @@ func (s *AuditService) executeWithMySQLAudit(
 	beforeData, afterData, err := s.readMySQLAuditLog(tx, sampleLimit)
 
 	// Step 6: Cleanup
-	s.cleanupMySQLTriggers(tx, triggerBefore, triggerAfterUpdate, triggerAfterInsert)
+	s.cleanupMySQLTriggers(tx, triggerBeforeDelete, triggerBeforeUpdate, triggerAfterUpdate, triggerAfterInsert)
 
 	if err != nil {
 		return &AuditResult{
@@ -519,37 +540,54 @@ func (s *AuditService) buildMySQLJSONObject(prefix string, columns []string) str
 	return fmt.Sprintf("JSON_OBJECT(%s)", strings.Join(parts, ", "))
 }
 
-// readMySQLAuditLog reads captured data from the MySQL audit temp table
+// readMySQLAuditLog reads captured data from the MySQL audit temp tables
 func (s *AuditService) readMySQLAuditLog(tx *gorm.DB, sampleLimit int) ([]map[string]interface{}, []map[string]interface{}, error) {
 	var beforeData, afterData []map[string]interface{}
 
-	query := `SELECT _qb_action, _qb_data FROM _qb_audit_log ORDER BY _qb_seq`
+	// Read before data
+	queryBefore := `SELECT _qb_action, _qb_data FROM _qb_audit_before ORDER BY _qb_seq`
 	if sampleLimit > 0 {
-		query = fmt.Sprintf("%s LIMIT %d", query, sampleLimit*2)
+		queryBefore = fmt.Sprintf("%s LIMIT %d", queryBefore, sampleLimit)
 	}
 
-	rows, err := tx.Raw(query).Rows()
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
+	rowsBefore, err := tx.Raw(queryBefore).Rows()
+	if err == nil {
+		defer rowsBefore.Close()
+		for rowsBefore.Next() {
+			var action string
+			var dataJSON []byte
+			if err := rowsBefore.Scan(&action, &dataJSON); err != nil {
+				continue
+			}
 
-	for rows.Next() {
-		var action string
-		var dataJSON string
-		if err := rows.Scan(&action, &dataJSON); err != nil {
-			continue
-		}
-
-		var rowData map[string]interface{}
-		if err := json.Unmarshal([]byte(dataJSON), &rowData); err != nil {
-			continue
-		}
-
-		switch action {
-		case "DELETE", "BEFORE_UPD":
+			var rowData map[string]interface{}
+			if err := json.Unmarshal(dataJSON, &rowData); err != nil {
+				continue
+			}
 			beforeData = append(beforeData, rowData)
-		case "INSERT", "AFTER_UPD":
+		}
+	}
+
+	// Read after data
+	queryAfter := `SELECT _qb_action, _qb_data FROM _qb_audit_after ORDER BY _qb_seq`
+	if sampleLimit > 0 {
+		queryAfter = fmt.Sprintf("%s LIMIT %d", queryAfter, sampleLimit)
+	}
+
+	rowsAfter, err := tx.Raw(queryAfter).Rows()
+	if err == nil {
+		defer rowsAfter.Close()
+		for rowsAfter.Next() {
+			var action string
+			var dataJSON []byte
+			if err := rowsAfter.Scan(&action, &dataJSON); err != nil {
+				continue
+			}
+
+			var rowData map[string]interface{}
+			if err := json.Unmarshal(dataJSON, &rowData); err != nil {
+				continue
+			}
 			afterData = append(afterData, rowData)
 		}
 	}
@@ -562,7 +600,8 @@ func (s *AuditService) cleanupMySQLTriggers(tx *gorm.DB, triggers ...string) {
 	for _, trigger := range triggers {
 		tx.Exec(fmt.Sprintf("DROP TRIGGER IF EXISTS %s", trigger))
 	}
-	tx.Exec("DROP TEMPORARY TABLE IF EXISTS _qb_audit_log")
+	tx.Exec("DROP TEMPORARY TABLE IF EXISTS _qb_audit_before")
+	tx.Exec("DROP TEMPORARY TABLE IF EXISTS _qb_audit_after")
 }
 
 // buildCountQuery converts a write query into a SELECT COUNT(*) for estimation
