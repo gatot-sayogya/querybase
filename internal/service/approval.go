@@ -421,6 +421,11 @@ func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, star
 	} else if result.Data != "" {
 		transaction.PreviewData = &result.Data
 	}
+
+	// NOTE: result.RowCount is always 1 for write queries because it reflects
+	// the number of metadata rows returned (e.g. [{operation, rows_affected, status}]).
+	// The true DB-level affected row count comes from auditResult.AffectedRows.
+	// We set a default here and override below.
 	transaction.AffectedRows = result.RowCount
 
 	// Store audit before/after row data if available
@@ -437,6 +442,8 @@ func (s *ApprovalService) StartTransaction(ctx context.Context, approvalID, star
 				transaction.AfterData = &afterStr
 			}
 		}
+		// Always prefer the DB-reported count over the metadata row count.
+		// auditResult.AffectedRows comes directly from execResult.RowsAffected.
 		if auditResult.AffectedRows > 0 {
 			transaction.AffectedRows = auditResult.AffectedRows
 		}

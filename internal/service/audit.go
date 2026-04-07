@@ -237,7 +237,8 @@ func (s *AuditService) executeWithPostgreSQLAudit(
 	tableName string,
 	sampleLimit int,
 ) (*AuditResult, error) {
-	// Step 1: Create temp audit table
+	// Step 1: Create temp audit table and clear any stale data from prior runs
+	// in the same session (IF NOT EXISTS means it may already exist and hold old rows).
 	err := tx.Exec(`
 		CREATE TEMP TABLE IF NOT EXISTS _qb_audit_log (
 			_qb_seq SERIAL,
@@ -249,6 +250,8 @@ func (s *AuditService) executeWithPostgreSQLAudit(
 		// Fallback to count-only
 		return s.executeCountOnly(ctx, tx, queryText)
 	}
+	// Always truncate to clear any rows from a prior run in this session.
+	tx.Exec(`DELETE FROM _qb_audit_log`)
 
 	// Step 2: Create the audit trigger function
 	fnName := "_qb_audit_fn_" + strings.ReplaceAll(tableName, ".", "_")
@@ -410,7 +413,9 @@ func (s *AuditService) executeWithMySQLAudit(
 	if err != nil {
 		return s.executeCountOnly(ctx, tx, queryText)
 	}
-	
+	// Clear any stale rows from a prior run in this MySQL session.
+	tx.Exec(`DELETE FROM _qb_audit_before`)
+
 	err = tx.Exec(`
 		CREATE TEMPORARY TABLE IF NOT EXISTS _qb_audit_after (
 			_qb_seq INT AUTO_INCREMENT PRIMARY KEY,
@@ -421,6 +426,7 @@ func (s *AuditService) executeWithMySQLAudit(
 	if err != nil {
 		return s.executeCountOnly(ctx, tx, queryText)
 	}
+	tx.Exec(`DELETE FROM _qb_audit_after`)
 
 	// Step 2: Get columns for the target table to build JSON_OBJECT
 	columnListSQL, err := s.getMySQLColumnList(tx, tableName)
