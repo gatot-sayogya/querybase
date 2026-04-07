@@ -281,6 +281,55 @@ WHERE id = 1`,
 			expectError: true,
 			errorMsg:    "SET clause",
 		},
+		// UPDATE SET clause validation - AND instead of comma
+		{
+			name:        "Invalid UPDATE with AND instead of comma",
+			sql:         "UPDATE users SET name = 'John' AND email = 'john@example.com' WHERE id = 1",
+			expectError: true,
+			errorMsg:    "use comma (,) not AND",
+		},
+		{
+			name:        "Invalid UPDATE with AND instead of comma - multiple columns",
+			sql:         "UPDATE products SET price = 10.99 AND stock = 100 AND updated_at = '2024-01-01' WHERE id = 5",
+			expectError: true,
+			errorMsg:    "use comma (,) not AND",
+		},
+		{
+			name: "Valid UPDATE with comma between columns",
+			sql:  "UPDATE users SET name = 'John', email = 'john@example.com' WHERE id = 1",
+			expectError: false,
+		},
+		{
+			name: "Valid UPDATE with multiple comma-separated columns",
+			sql:  "UPDATE products SET price = 10.99, stock = 100, updated_at = '2024-01-01' WHERE id = 5",
+			expectError: false,
+		},
+		{
+			name: "Valid UPDATE with AND in WHERE clause only",
+			sql:  "UPDATE users SET name = 'John' WHERE id = 1 AND status = 'active'",
+			expectError: false,
+		},
+		{
+			name: "Valid UPDATE with complex WHERE containing AND",
+			sql:  "UPDATE orders SET status = 'shipped' WHERE id = 1 AND customer_id = 5 AND created_at > '2024-01-01'",
+			expectError: false,
+		},
+		{
+			name: "Valid multi-line UPDATE with comma-separated columns",
+			sql: `UPDATE ecommerce_product_merchants 
+SET created_at='2026-04-05 12:12:12', 
+    updated_at='2026-04-05 12:12:12' 
+WHERE product_merchant_id=19266006`,
+			expectError: false,
+		},
+		{
+			name: "Invalid multi-line UPDATE with AND instead of comma",
+			sql: `UPDATE ecommerce_product_merchants 
+SET created_at='2026-04-05 12:12:12' AND updated_at='2026-04-05 12:12:12' 
+WHERE product_merchant_id=19266006`,
+			expectError: true,
+			errorMsg:    "use comma (,) not AND",
+		},
 	}
 
 	for _, tt := range tests {

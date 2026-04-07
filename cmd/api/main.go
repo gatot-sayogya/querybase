@@ -52,12 +52,12 @@ func main() {
 	defer sqlDB.Close()
 
 	// Run migrations
-	// Run migrations
 	// Note: We're using manual SQL migrations instead of GORM AutoMigrate
 	// To apply migrations, run: make migrate-up
-	if err := database.AutoMigrate(db); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
-	}
+	// Skipping AutoMigrate for E2E tests - SQL migrations already applied
+	// if err := database.AutoMigrate(db); err != nil {
+	// 	log.Fatalf("Failed to run migrations: %v", err)
+	// }
 
 	// Connect to Redis
 	redisClient, err := database.NewRedisConnection(&cfg.Redis)

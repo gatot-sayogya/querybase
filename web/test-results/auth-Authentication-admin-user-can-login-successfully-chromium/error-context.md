@@ -1,0 +1,154 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e3]:
+      - link "Q" [ref=e5] [cursor=pointer]:
+        - /url: /dashboard
+      - generic [ref=e6]:
+        - link "Query Editor" [ref=e8] [cursor=pointer]:
+          - /url: /dashboard/query
+          - img [ref=e9]
+          - text: Query Editor
+        - link "History" [ref=e13] [cursor=pointer]:
+          - /url: /dashboard/history
+          - img [ref=e14]
+          - text: History
+        - link "Approvals" [ref=e18] [cursor=pointer]:
+          - /url: /dashboard/approvals
+          - img [ref=e19]
+          - text: Approvals
+      - generic [ref=e22]:
+        - button [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+        - button "S" [ref=e29] [cursor=pointer]
+    - main [ref=e30]:
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - generic [ref=e33]:
+            - heading "Welcome back, admin" [level=1] [ref=e34]
+            - paragraph [ref=e35]: System status and telemetry is healthy.
+          - link "New Query" [ref=e36] [cursor=pointer]:
+            - /url: /dashboard/query
+            - button "New Query" [ref=e37]:
+              - img [ref=e38]
+              - text: New Query
+        - generic [ref=e40]:
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - img [ref=e44]
+              - generic [ref=e46]: Today
+            - generic [ref=e47]:
+              - generic [ref=e48]: "0"
+              - generic [ref=e49]: Executed Queries
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - img [ref=e53]
+              - generic [ref=e55]: Security
+            - generic [ref=e56]:
+              - generic [ref=e57]: "1"
+              - generic [ref=e58]: Authorized Bases
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - img [ref=e62]
+              - generic [ref=e64]: Pipeline
+            - generic [ref=e65]:
+              - generic [ref=e66]: "0"
+              - generic [ref=e67]: Pending Reviews
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - img [ref=e71]
+              - generic [ref=e73]: Status
+            - generic [ref=e74]:
+              - generic [ref=e75]: "0"
+              - generic [ref=e76]: Completed Cycles
+          - generic [ref=e78]:
+            - generic [ref=e79]:
+              - img [ref=e80]
+              - generic [ref=e82]: Health
+            - generic [ref=e83]:
+              - generic [ref=e84]: "1"
+              - generic [ref=e85]: Active Personnel
+        - generic [ref=e86]:
+          - generic [ref=e88]:
+            - generic [ref=e89]:
+              - heading "Query Streams" [level=2] [ref=e90]:
+                - img [ref=e91]
+                - text: Query Streams
+              - link "Full Logs" [ref=e93] [cursor=pointer]:
+                - /url: /dashboard/history
+                - button "Full Logs" [ref=e94]:
+                  - text: Full Logs
+                  - img [ref=e95]
+            - generic [ref=e98]:
+              - generic [ref=e99]:
+                - generic [ref=e100]:
+                  - generic [ref=e101]: SELECT 999 as magic_number, 'Cache Test' as message
+                  - generic [ref=e102]:
+                    - generic [ref=e103]: completed
+                    - generic [ref=e104]: Invalid Date
+                - link "Run Again" [ref=e105] [cursor=pointer]:
+                  - /url: /dashboard/query
+                  - button "Run Again" [ref=e106]
+              - generic [ref=e107]:
+                - generic [ref=e108]:
+                  - generic [ref=e109]: SELECT 1 as id, 'Cached Test' as name, 100 as value
+                  - generic [ref=e110]:
+                    - generic [ref=e111]: completed
+                    - generic [ref=e112]: Invalid Date
+                - link "Run Again" [ref=e113] [cursor=pointer]:
+                  - /url: /dashboard/query
+                  - button "Run Again" [ref=e114]
+              - generic [ref=e115]:
+                - generic [ref=e116]:
+                  - generic [ref=e117]: SELECT 1 as id, 'Cached Test' as name, 100 as value
+                  - generic [ref=e118]:
+                    - generic [ref=e119]: completed
+                    - generic [ref=e120]: Invalid Date
+                - link "Run Again" [ref=e121] [cursor=pointer]:
+                  - /url: /dashboard/query
+                  - button "Run Again" [ref=e122]
+              - generic [ref=e123]:
+                - generic [ref=e124]:
+                  - generic [ref=e125]: SELECT 2 as id, 'test2' as name
+                  - generic [ref=e126]:
+                    - generic [ref=e127]: completed
+                    - generic [ref=e128]: Invalid Date
+                - link "Run Again" [ref=e129] [cursor=pointer]:
+                  - /url: /dashboard/query
+                  - button "Run Again" [ref=e130]
+              - generic [ref=e131]:
+                - generic [ref=e132]:
+                  - generic [ref=e133]: SELECT 1 as id, 'test' as name
+                  - generic [ref=e134]:
+                    - generic [ref=e135]: completed
+                    - generic [ref=e136]: Invalid Date
+                - link "Run Again" [ref=e137] [cursor=pointer]:
+                  - /url: /dashboard/query
+                  - button "Run Again" [ref=e138]
+              - generic [ref=e139]:
+                - generic [ref=e140]:
+                  - generic [ref=e141]: SELECT 1 as id, 'test' as name
+                  - generic [ref=e142]:
+                    - generic [ref=e143]: completed
+                    - generic [ref=e144]: Invalid Date
+                - link "Run Again" [ref=e145] [cursor=pointer]:
+                  - /url: /dashboard/query
+                  - button "Run Again" [ref=e146]
+          - generic [ref=e147]:
+            - generic [ref=e148]:
+              - generic [ref=e149]:
+                - heading "Pipeline" [level=3] [ref=e150]
+                - link "View All" [ref=e151] [cursor=pointer]:
+                  - /url: /dashboard/history
+              - generic [ref=e153]: No active cycles.
+            - generic [ref=e154]:
+              - heading "Network Health" [level=3] [ref=e155]
+              - generic [ref=e159]:
+                - generic [ref=e160]: PostgreSQL Test
+                - generic [ref=e161]: postgresql
+  - button "Open Next.js Dev Tools" [ref=e168] [cursor=pointer]:
+    - img [ref=e169]
+  - alert [ref=e172]
+```

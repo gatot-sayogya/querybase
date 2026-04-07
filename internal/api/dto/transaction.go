@@ -24,6 +24,8 @@ type TransactionPreview struct {
 	EstimatedRows int                      `json:"estimated_rows"`
 	Columns       []ColumnInfo             `json:"columns"`
 	Data          []map[string]interface{} `json:"data"`
+	BeforeData    []map[string]interface{} `json:"before_data,omitempty"`
+	AfterData     []map[string]interface{} `json:"after_data,omitempty"`
 	Caution       bool                     `json:"caution"`
 	CautionMsg    string                   `json:"caution_message,omitempty"`
 	AuditMode     string                   `json:"audit_mode"`
@@ -85,7 +87,10 @@ type ValidateQueryRequest struct {
 
 // ValidateQueryResponse represents the response from query validation
 type ValidateQueryResponse struct {
-	Valid         bool   `json:"valid"`
-	Error         string `json:"error,omitempty"`
-	OperationType string `json:"operation_type"`
+	Valid         bool     `json:"valid"`
+	Error         string   `json:"error,omitempty"`
+	OperationType string   `json:"operation_type"`
+	QueryType     string   `json:"query_type,omitempty"` // SELECT, INSERT, UPDATE, DELETE, etc.
+	Tables        []string `json:"tables,omitempty"`     // tables referenced in the query
+	Dialect       string   `json:"dialect,omitempty"`    // postgresql or mysql
 }

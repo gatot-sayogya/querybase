@@ -63,6 +63,10 @@ docker/volumes/
 *.bak
 *.backup
 
+# Secret key backups
+.secret_keys
+.secret_backups/
+
 # Coverage reports
 coverage/
 coverage.xml

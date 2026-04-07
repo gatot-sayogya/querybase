@@ -211,8 +211,8 @@ func SetupRoutes(router *gin.Engine, authHandler *handlers.AuthHandler, queryHan
 				transactions.GET("/:id", approvalHandler.GetTransactionStatus)
 			}
 
-			// Query validation route
-			protected.POST("/queries/validate", approvalHandler.ValidateQuery)
+			// Query validation route (AST-based, dialect-aware)
+			protected.POST("/queries/validate", queryHandler.ValidateQuery)
 
 			// Schema routes
 			schemas := protected.Group("/datasources")

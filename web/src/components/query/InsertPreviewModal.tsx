@@ -89,13 +89,13 @@ export default function InsertPreviewModal({
 
             {/* Data table */}
             {preview.rows.length > 0 && (
-              <div className="border rounded-md overflow-hidden">
+              <div className="border rounded-md overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-100 dark:bg-gray-700">
                     <tr>
-                      <th className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300 w-12">#</th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300 w-12 whitespace-nowrap">#</th>
                       {preview.columns.map((col) => (
-                        <th key={col.name} className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300">
+                        <th key={col.name} className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                           <div className="flex flex-col">
                             <span>{col.name}</span>
                             <span className="text-xs text-gray-500 dark:text-gray-400">{col.type}</span>
@@ -107,9 +107,9 @@ export default function InsertPreviewModal({
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {preview.rows.map((row, idx) => (
                       <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <td className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">{idx + 1}</td>
+                        <td className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm whitespace-nowrap">{idx + 1}</td>
                         {preview.columns.map((col) => (
-                          <td key={col.name} className="px-4 py-2 font-mono text-xs text-gray-900 dark:text-gray-100">
+                          <td key={col.name} className="px-4 py-2 font-mono text-xs text-gray-900 dark:text-gray-100 whitespace-nowrap">
                             {formatCellValue(row[col.name])}
                           </td>
                         ))}

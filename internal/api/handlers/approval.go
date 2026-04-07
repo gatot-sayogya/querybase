@@ -162,10 +162,18 @@ func (h *ApprovalHandler) ReviewApproval(c *gin.Context) {
 		return
 	}
 
-	// Prevent self-approval at the handler layer (defense in depth — the service also checks this)
+	// Prevent self-approval for non-admins at the handler layer
+	// Admins can approve their own requests, non-admins cannot
 	if approval.RequestedBy.String() == userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "self-approval is not allowed: you cannot approve your own request"})
-		return
+		var user models.User
+		if err := h.db.First(&user, "id = ?", userID).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify user"})
+			return
+		}
+		if user.Role != models.RoleAdmin {
+			c.JSON(http.StatusForbidden, gin.H{"error": "self-approval is not allowed: you cannot approve your own request"})
+			return
+		}
 	}
 
 	// Create review
@@ -318,52 +326,6 @@ func (h *ApprovalHandler) formatApprovalResponse(approval models.ApprovalRequest
 	return response
 }
 
-// ValidateQuery validates a SQL query before submission
-func (h *ApprovalHandler) ValidateQuery(c *gin.Context) {
-	var req dto.ValidateQueryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Step 1: Validate SQL syntax
-	err := service.ValidateSQL(req.QueryText)
-	if err != nil {
-		c.JSON(http.StatusOK, dto.ValidateQueryResponse{
-			Valid:         false,
-			Error:         err.Error(),
-			OperationType: string(service.DetectOperationType(req.QueryText)),
-		})
-		return
-	}
-
-	// Step 2: Validate schema if data_source_id is provided
-	if req.DataSourceID != "" {
-		// Get data source
-		var dataSource models.DataSource
-		if err := h.db.First(&dataSource, "id = ?", req.DataSourceID).Error; err != nil {
-			c.JSON(http.StatusOK, dto.ValidateQueryResponse{
-				Valid:         false,
-				Error:         "Data source not found",
-				OperationType: string(service.DetectOperationType(req.QueryText)),
-			})
-			return
-		}
-
-		// Validate tables exist in data source
-		// We need to access query service, but approval handler doesn't have it
-		// For now, skip schema validation in this endpoint
-		// The schema validation will be done when creating the approval request
-	}
-
-	// Detect operation type
-	operationType := service.DetectOperationType(req.QueryText)
-
-	c.JSON(http.StatusOK, dto.ValidateQueryResponse{
-		Valid:         true,
-		OperationType: string(operationType),
-	})
-}
 
 // StartTransaction starts a transaction for an approval request
 func (h *ApprovalHandler) StartTransaction(c *gin.Context) {
@@ -421,6 +383,15 @@ func (h *ApprovalHandler) StartTransaction(c *gin.Context) {
 		}
 	}
 
+	// Parse before/after data for audit trail
+	var beforeData, afterData []map[string]interface{}
+	if transaction.BeforeData != nil && *transaction.BeforeData != "" {
+		json.Unmarshal([]byte(*transaction.BeforeData), &beforeData)
+	}
+	if transaction.AfterData != nil && *transaction.AfterData != "" {
+		json.Unmarshal([]byte(*transaction.AfterData), &afterData)
+	}
+
 	// Check caution based on estimated rows and threshold
 	var caution bool
 	var cautionMsg string
@@ -457,6 +428,8 @@ func (h *ApprovalHandler) StartTransaction(c *gin.Context) {
 			EstimatedRows: transaction.EstimatedRows,
 			Columns:       convertToColumnInfo(columns),
 			Data:          previewData,
+			BeforeData:    beforeData,
+			AfterData:     afterData,
 			Caution:       caution,
 			CautionMsg:    cautionMsg,
 			AuditMode:     string(transaction.AuditMode),

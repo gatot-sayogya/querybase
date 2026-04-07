@@ -136,6 +136,53 @@ func RequiresApproval(operationType models.OperationType) bool {
 	}
 }
 
+// validateUpdateSetClause checks for common syntax errors in UPDATE SET clause
+// specifically detecting when users use AND instead of comma between assignments
+func validateUpdateSetClause(sql string) error {
+	upperSQL := strings.ToUpper(sql)
+
+	// Find the SET clause
+	setIdx := strings.Index(upperSQL, " SET ")
+	if setIdx == -1 {
+		return nil // No SET clause, let other validations handle it
+	}
+
+	// Find WHERE clause (if exists) to limit the SET portion
+	whereIdx := strings.Index(upperSQL, " WHERE ")
+
+	// Extract the SET portion
+	setStart := setIdx + 5 // len(" SET ")
+	var setPortion string
+	if whereIdx == -1 {
+		setPortion = sql[setStart:]
+	} else {
+		setPortion = sql[setStart:whereIdx]
+	}
+
+	// Check for AND between assignments (indicating likely syntax error)
+	// We need to distinguish between:
+	// - SET col1 = 'val' AND col2 = 'val'  (incorrect - AND in SET)
+	// - SET col1 = 'val' WHERE col2 = 'val' AND col3 = 'val'  (correct - AND in WHERE)
+
+	// Simple heuristic: if there's an AND in the SET portion before any comparison
+	// that looks like an assignment pattern, it's likely a mistake
+	upperSetPortion := strings.ToUpper(setPortion)
+
+	// Look for pattern: = ... AND ... =
+	// This suggests: col1 = val AND col2 = val (should use comma)
+	andIdx := strings.Index(upperSetPortion, " AND ")
+	if andIdx != -1 {
+		// Check if there's an = after the AND
+		afterAnd := upperSetPortion[andIdx+5:]
+		if strings.Contains(afterAnd, "=") {
+			// This looks like: col1 = val AND col2 = val
+			return fmt.Errorf("invalid UPDATE syntax: use comma (,) not AND to separate column assignments in SET clause")
+		}
+	}
+
+	return nil
+}
+
 // ValidateSQL performs basic validation of SQL syntax before execution
 // Returns an error if the SQL has obvious syntax issues
 func ValidateSQL(sql string) error {
@@ -188,6 +235,13 @@ func ValidateSQL(sql string) error {
 	if strings.HasPrefix(upperSQL, "UPDATE") {
 		if !strings.Contains(upperSQL, " SET ") {
 			return fmt.Errorf("UPDATE statement must include SET clause")
+		}
+
+		// Check for common mistake: using AND instead of comma between column assignments
+		// Example: UPDATE table SET col1 = 'val' AND col2 = 'val' (incorrect)
+		// Should be: UPDATE table SET col1 = 'val', col2 = 'val' (correct)
+		if err := validateUpdateSetClause(normalizedSQL); err != nil {
+			return err
 		}
 	}
 

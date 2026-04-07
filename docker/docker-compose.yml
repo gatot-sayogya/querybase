@@ -82,9 +82,31 @@ services:
   #   volumes:
   #     - ./config:/app/config
 
+  # Test Target Database (for schema sync testing)
+  postgres-target:
+    image: postgres:15-alpine
+    container_name: querybase-postgres-target
+    environment:
+      POSTGRES_USER: targetuser
+      POSTGRES_PASSWORD: targetpass
+      POSTGRES_DB: targetdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_target_data:/var/lib/postgresql/data
+      - ./docker/postgres-target-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U targetuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - querybase-network
+
 volumes:
   postgres_data:
   redis_data:
+  postgres_target_data:
 
 networks:
   querybase-network:

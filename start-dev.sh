@@ -16,15 +16,94 @@ echo "==================================="
 echo "Clearing ports 8080 and 3000..."
 lsof -ti :8080 | xargs kill -9 2>/dev/null || true
 lsof -ti :3000 | xargs kill -9 2>/dev/null || true
-sleep 1  # Give OS time to release the ports
+sleep 1
 
 # Load .env then override hosts for local (non-Docker) run
 set -a
 source "$SCRIPT_DIR/.env"
 set +a
 
+# Validate JWT_SECRET and ENCRYPTION_KEY
+if [ -z "$JWT_SECRET" ] || [ ${#JWT_SECRET} -ne 32 ]; then
+    echo "❌ Error: JWT_SECRET must be exactly 32 characters"
+    echo "   Current length: ${#JWT_SECRET}"
+    echo "   Run: ./scripts/manage-secrets.sh to generate valid keys"
+    exit 1
+fi
+
+if [ -z "$ENCRYPTION_KEY" ] || [ ${#ENCRYPTION_KEY} -ne 32 ]; then
+    echo "❌ Error: ENCRYPTION_KEY must be exactly 32 characters"
+    echo "   Current length: ${#ENCRYPTION_KEY}"
+    echo "   Run: ./scripts/manage-secrets.sh to generate valid keys"
+    exit 1
+fi
+
+echo "🔐 JWT_SECRET: ${JWT_SECRET:0:8}...${JWT_SECRET: -8} (${#JWT_SECRET} chars)"
+echo "🔐 ENCRYPTION_KEY: ${ENCRYPTION_KEY:0:8}...${ENCRYPTION_KEY: -8} (${#ENCRYPTION_KEY} chars)"
+
 export DATABASE_HOST=localhost
 export REDIS_HOST=localhost
+
+# ── 0. Start Docker Infrastructure ───────────────────────────────────────────
+echo ""
+echo "Checking Docker infrastructure..."
+
+# Check if Docker is running
+if ! docker info > /dev/null 2>&1; then
+    echo "❌ Docker is not running. Please start Docker Desktop first."
+    exit 1
+fi
+
+# Check if containers are already running
+POSTGRES_RUNNING=$(docker ps -q -f name=querybase-postgres 2>/dev/null || true)
+REDIS_RUNNING=$(docker ps -q -f name=querybase-redis 2>/dev/null || true)
+
+if [ -z "$POSTGRES_RUNNING" ] || [ -z "$REDIS_RUNNING" ]; then
+    echo "Starting PostgreSQL and Redis containers..."
+    docker-compose -f "$SCRIPT_DIR/docker/docker-compose.yml" up -d postgres redis
+    
+    echo "Waiting for PostgreSQL to be healthy..."
+    for i in $(seq 1 30); do
+        if docker ps -f name=querybase-postgres --format "{{.Status}}" | grep -q "healthy"; then
+            echo "✅ PostgreSQL is healthy"
+            break
+        fi
+        sleep 1
+        if [ "$i" -eq 30 ]; then
+            echo "❌ PostgreSQL did not become healthy in time"
+            echo "Check logs: docker logs querybase-postgres"
+            exit 1
+        fi
+    done
+    
+    echo "Waiting for Redis to be healthy..."
+    for i in $(seq 1 30); do
+        if docker ps -f name=querybase-redis --format "{{.Status}}" | grep -q "healthy"; then
+            echo "✅ Redis is healthy"
+            break
+        fi
+        sleep 1
+        if [ "$i" -eq 30 ]; then
+            echo "❌ Redis did not become healthy in time"
+            echo "Check logs: docker logs querybase-redis"
+            exit 1
+        fi
+    done
+else
+    echo "✅ PostgreSQL and Redis are already running"
+fi
+
+# Run migrations
+echo ""
+echo "Running database migrations..."
+for migration in "$SCRIPT_DIR"/migrations/postgresql/*.up.sql; do
+    if [ -f "$migration" ]; then
+        filename=$(basename "$migration")
+        echo "  → Applying $filename..."
+        PGPASSWORD=querybase psql -h localhost -U querybase -d querybase -f "$migration" 2>/dev/null || true
+    fi
+done
+echo "✅ Migrations complete"
 
 # ── 1. Start Go API ──────────────────────────────────────────────────────────
 echo ""

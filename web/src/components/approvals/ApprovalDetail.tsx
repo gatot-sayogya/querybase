@@ -391,7 +391,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
       )}
 
       {/* Phase 2: Preview ready — show the dry-run data table */}
-      {isPending && phase === 'preview_ready' && writePreview && approval.can_approve && (
+      {phase === 'preview_ready' && writePreview && approval.can_approve && (
           <div className="mt-6 border-t border-orange-200 dark:border-orange-900 pt-6 bg-orange-50 dark:bg-orange-900/10 -mx-6 px-6 pb-6">
           <h3 className="text-lg font-medium text-orange-900 dark:text-orange-300 mb-4 flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -527,7 +527,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
       )}
 
       {/* INSERT Preview Panel */}
-      {isPending && phase === 'preview_ready' && insertPreview && approval.can_approve && (
+      {phase === 'preview_ready' && insertPreview && approval.can_approve && (
         <div className="mt-6 border-t border-green-200 dark:border-green-900 pt-6 bg-green-50 dark:bg-green-900/10 -mx-6 px-6 pb-6">
           <InsertPreviewPanel
             preview={insertPreview}
@@ -565,7 +565,7 @@ export default function ApprovalDetail({ approvalId, onRefresh }: ApprovalDetail
       )}
 
       {/* Phase 3: Transaction open — Commit/Rollback */}
-      {isPending && phase === 'tx_ready' && transaction && (
+      {phase === 'tx_ready' && transaction && (
           <div className="mt-6 border-t border-blue-200 dark:border-blue-900 pt-6 bg-blue-50 dark:bg-blue-900/10 -mx-6 px-6 pb-6">
           <h3 className="text-lg font-medium text-blue-900 dark:text-blue-300 mb-4 flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

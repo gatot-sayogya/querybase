@@ -132,20 +132,20 @@ export default function WritePreviewModal({
             <table className="data-table w-full">
               <thead className="sticky top-0 z-10">
                 <tr>
-                  <th className="w-12 text-center text-gray-400 bg-gray-50 dark:bg-gray-800">#</th>
+                  <th className="w-12 px-4 py-2 text-center text-gray-400 bg-gray-50 dark:bg-gray-800 whitespace-nowrap">#</th>
                   {(preview.columns || []).map((col, idx) => (
-                    <th key={idx} className="bg-gray-50 dark:bg-gray-800">{col}</th>
+                    <th key={idx} className="bg-gray-50 dark:bg-gray-800 whitespace-nowrap px-4 py-2 text-left font-medium">{col}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {(preview.preview_rows || []).map((row, rowIdx) => (
                   <tr key={rowIdx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <td className="text-center text-gray-400 font-mono text-xs" style={{ background: 'var(--bg-hover)' }}>{rowIdx + 1}</td>
+                    <td className="text-center text-gray-400 font-mono text-xs whitespace-nowrap px-4 py-2" style={{ background: 'var(--bg-hover)' }}>{rowIdx + 1}</td>
                     {(preview.columns || []).map((col, colIdx) => {
                       const val = row[col];
                       return (
-                        <td key={colIdx}>
+                        <td key={colIdx} className="whitespace-nowrap px-4 py-2">
                           {val === null ? (
                             <span className="text-gray-400 italic font-mono text-xs">null</span>
                           ) : typeof val === 'object' ? (

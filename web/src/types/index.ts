@@ -67,7 +67,7 @@ export interface Query {
   query_text: string;
   name?: string;
   description?: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'no_match';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'no_match' | 'pending_approval';
   created_at: string;
   executed_at?: string;
   row_count?: number;

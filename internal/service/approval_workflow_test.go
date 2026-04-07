@@ -50,13 +50,13 @@ func newApprovalServices(t *testing.T, db *gorm.DB) *ApprovalService {
 // Self-approval
 // ---------------------------------------------------------------------------
 
-// TestSelfApproval_Blocked verifies that a requester cannot approve their own request.
+// TestSelfApproval_Blocked verifies that a non-admin requester cannot approve their own request.
 func TestSelfApproval_Blocked(t *testing.T) {
 	db := setupWorkflowDB(t)
 	svc := newApprovalServices(t, db)
 	ctx := context.Background()
 
-	requester := createTestUser(t, db, models.RoleAdmin) // admin so CanApprove = true
+	requester := createTestUser(t, db, models.RoleUser) // non-admin user
 	ds := createTestDataSource(t, db)
 
 	approval := &models.ApprovalRequest{

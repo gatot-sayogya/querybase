@@ -297,6 +297,17 @@ export default function QueryExecutor() {
         setError(response.error_message || 'Query execution failed');
         queryStatus.setFailed(response.error_message);
         setLoading(false);
+      } else if (response.status === 'pending_approval' || (response as any).requires_approval) {
+        // Write query sent for approval — redirect to the audit/approval flow
+        const approvalId = (response as any).approval_id;
+        toast.success('Query submitted for approval');
+        setLoading(false);
+        queryStatus.reset();
+        if (approvalId) {
+          router.push(`/dashboard/approvals?id=${approvalId}`);
+        } else {
+          router.push('/dashboard/approvals');
+        }
       } else {
         setLoading(false);
         queryStatus.reset();
@@ -529,6 +540,16 @@ export default function QueryExecutor() {
 
       if (response.status === 'running' || response.status === 'pending') {
         pollForResult(qid, Date.now());
+      } else if (response.status === 'pending_approval' || (response as any).requires_approval) {
+        // Write query requires approval — redirect to the audit/approval flow
+        const approvalId = (response as any).approval_id;
+        toast.success('Query submitted for approval');
+        setLoading(false);
+        if (approvalId) {
+          router.push(`/dashboard/approvals?id=${approvalId}`);
+        } else {
+          router.push('/dashboard/approvals');
+        }
       } else {
         setLoading(false);
       }
@@ -572,6 +593,16 @@ export default function QueryExecutor() {
 
       if (response.status === 'running' || response.status === 'pending') {
         pollForResult(qid, Date.now());
+      } else if (response.status === 'pending_approval' || (response as any).requires_approval) {
+        // INSERT query requires approval — redirect to the audit/approval flow
+        const approvalId = (response as any).approval_id;
+        toast.success('Query submitted for approval');
+        setLoading(false);
+        if (approvalId) {
+          router.push(`/dashboard/approvals?id=${approvalId}`);
+        } else {
+          router.push('/dashboard/approvals');
+        }
       } else {
         setLoading(false);
       }

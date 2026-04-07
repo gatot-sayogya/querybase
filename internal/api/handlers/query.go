@@ -59,6 +59,15 @@ func (h *QueryHandler) ExecuteQuery(c *gin.Context) {
 		return
 	}
 
+	// Validate SQL syntax using dialect-specific AST parser before touching the DB
+	if err := service.ValidateSQLWithDialect(req.QueryText, dataSource.Type); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "SQL syntax error",
+			"details": err.Error(),
+		})
+		return
+	}
+
 	// Detect operation type
 	operationType := service.DetectOperationType(req.QueryText)
 
@@ -248,7 +257,7 @@ func (h *QueryHandler) GetQuery(c *gin.Context) {
 
 	// Get latest result
 	var result models.QueryResult
-	h.db.Where("query_id = ?", queryID).Order("cached_at DESC").First(&result)
+	h.db.Where("query_id = ?", queryID).Order("stored_at DESC").First(&result)
 
 	var data []map[string]interface{}
 	if result.Data != "" {
@@ -386,9 +395,10 @@ func (h *QueryHandler) PreviewWriteQuery(c *gin.Context) {
 		return
 	}
 
-	// Validate SQL
-	if err := service.ValidateSQL(req.QueryText); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SQL syntax", "details": err.Error()})
+	// Validate SQL using dialect-specific parser
+	validationErr := service.ValidateSQLWithDialect(req.QueryText, dataSource.Type)
+	if validationErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SQL syntax", "details": validationErr.Error()})
 		return
 	}
 
@@ -471,8 +481,8 @@ func (h *QueryHandler) createApprovalForQuery(c *gin.Context, req dto.ExecuteQue
 		return
 	}
 
-	// Step 1: Validate SQL syntax
-	if err := service.ValidateSQL(req.QueryText); err != nil {
+	// Step 1: Validate SQL syntax using dialect-specific AST parser
+	if err := service.ValidateSQLWithDialect(req.QueryText, dataSource.Type); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid SQL syntax",
 			"details": err.Error(),
@@ -848,4 +858,49 @@ func (h *QueryHandler) ExportQuery(c *gin.Context) {
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	c.Data(http.StatusOK, contentType, data)
+}
+
+// ValidateQuery validates SQL syntax using the dialect-specific AST parser for the given data source
+func (h *QueryHandler) ValidateQuery(c *gin.Context) {
+	var req dto.ValidateQueryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch data source to determine dialect
+	var dataSource models.DataSource
+	if err := h.db.First(&dataSource, "id = ?", req.DataSourceID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data source not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data source"})
+		}
+		return
+	}
+
+	// Parse and validate using AST parser for the correct dialect
+	parseResult, err := service.ParseAndValidateSQL(req.QueryText, dataSource.Type)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse SQL"})
+		return
+	}
+
+	if !parseResult.Valid {
+		c.JSON(http.StatusOK, dto.ValidateQueryResponse{
+			Valid:         false,
+			Error:         parseResult.Error,
+			OperationType: string(service.DetectOperationType(req.QueryText)),
+			Dialect:       string(dataSource.Type),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ValidateQueryResponse{
+		Valid:         true,
+		OperationType: string(parseResult.OperationType),
+		QueryType:     parseResult.QueryType,
+		Tables:        parseResult.Tables,
+		Dialect:       string(dataSource.Type),
+	})
 }

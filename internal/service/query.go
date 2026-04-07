@@ -75,6 +75,26 @@ func (s *QueryService) GetEffectivePermissions(ctx context.Context, userID, dsID
 		return perms, nil
 	}
 
+	// Viewers have read-only access - they cannot write or approve regardless of group membership
+	if user.Role == models.RoleViewer {
+		// Viewers get CanSelect from group CanRead, but cannot write or approve
+		var memberships []models.UserGroup
+		if err := s.db.Where("user_id = ?", userID).Find(&memberships).Error; err != nil {
+			return perms, err
+		}
+
+		for _, m := range memberships {
+			var dsPerm models.DataSourcePermission
+			if err := s.db.Where("group_id = ? AND data_source_id = ?", m.GroupID, dsID).First(&dsPerm).Error; err != nil {
+				continue
+			}
+			// Viewers get SELECT from CanRead, but never get write or approve permissions
+			perms.CanRead = perms.CanRead || dsPerm.CanRead
+			perms.CanSelect = perms.CanSelect || dsPerm.CanRead
+		}
+		return perms, nil
+	}
+
 	// 1. Load user's group memberships with roles
 	var memberships []models.UserGroup
 	if err := s.db.Where("user_id = ?", userID).Find(&memberships).Error; err != nil {
@@ -305,7 +325,7 @@ func (s *QueryService) ExecuteQuery(ctx context.Context, query *models.Query, da
 func (s *QueryService) GetPaginatedResults(ctx context.Context, queryID uuid.UUID, page, perPage int, sortColumn, sortDirection string) ([]map[string]interface{}, []string, *PaginationMeta, error) {
 	// Get the query result from database
 	var result models.QueryResult
-	err := s.db.Where("query_id = ?", queryID).Order("cached_at DESC").First(&result).Error
+	err := s.db.Where("query_id = ?", queryID).Order("stored_at DESC").First(&result).Error
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("query result not found: %w", err)
 	}
@@ -468,7 +488,7 @@ func (s *QueryService) toFloat64(v interface{}) (float64, bool) {
 func (s *QueryService) ExportQuery(ctx context.Context, queryID uuid.UUID, format string) ([]byte, string, error) {
 	// Get the query result from database
 	var result models.QueryResult
-	err := s.db.Where("query_id = ?", queryID).Order("cached_at DESC").First(&result).Error
+	err := s.db.Where("query_id = ?", queryID).Order("stored_at DESC").First(&result).Error
 	if err != nil {
 		return nil, "", fmt.Errorf("query result not found: %w", err)
 	}
@@ -828,7 +848,7 @@ type InsertValuesResult struct {
 func (p *InsertParser) parseInsertValues(queryText string) (*InsertValuesResult, error) {
 	// Normalize whitespace for easier parsing
 	normalized := regexp.MustCompile(`\s+`).ReplaceAllString(queryText, " ")
-	
+
 	// Regex pattern for INSERT INTO table [(cols)] VALUES (vals), (vals), ...
 	// Pattern breakdown:
 	// 1. INSERT INTO table_name - captures table name (group 1)
@@ -883,7 +903,7 @@ func (p *InsertParser) parseValueRows(valuesSection string) ([][]string, error) 
 
 	for i := 0; i < len(valuesSection); i++ {
 		ch := valuesSection[i]
-		
+
 		switch {
 		case !inQuotes && (ch == '\'' || ch == '"'):
 			// Start of quoted string
@@ -967,20 +987,20 @@ const (
 // detectInsertType determines if INSERT uses VALUES or SELECT
 func detectInsertType(queryText string) InsertPreviewType {
 	upperQuery := strings.ToUpper(queryText)
-	
+
 	// Check for SELECT keyword after VALUES section or at end
 	// VALUES clause ends with ), pattern: VALUES (...)
 	// SELECT clause: INSERT INTO ... SELECT ...
-	if strings.Contains(upperQuery, "SELECT") && 
-	   !strings.Contains(upperQuery, "VALUES") {
+	if strings.Contains(upperQuery, "SELECT") &&
+		!strings.Contains(upperQuery, "VALUES") {
 		return InsertPreviewTypeSelect
 	}
-	
+
 	// Check if SELECT comes after a closing paren (end of VALUES)
 	// This is a VALUES with a subquery, not INSERT...SELECT
 	selectIndex := strings.Index(upperQuery, "SELECT")
 	valuesIndex := strings.Index(upperQuery, "VALUES")
-	
+
 	if selectIndex > valuesIndex && valuesIndex != -1 {
 		// SELECT after VALUES - might be subquery in VALUES
 		// Check if there's a closing paren before SELECT
@@ -990,11 +1010,11 @@ func detectInsertType(queryText string) InsertPreviewType {
 			return InsertPreviewTypeValues
 		}
 	}
-	
+
 	if selectIndex != -1 && (valuesIndex == -1 || selectIndex < valuesIndex) {
 		return InsertPreviewTypeSelect
 	}
-	
+
 	return InsertPreviewTypeValues
 }
 
@@ -1003,11 +1023,11 @@ func extractSelectFromInsert(queryText string) (string, error) {
 	// Pattern: INSERT INTO ... [optional columns] SELECT ...
 	upperQuery := strings.ToUpper(queryText)
 	selectIndex := strings.Index(upperQuery, "SELECT")
-	
+
 	if selectIndex == -1 {
 		return "", fmt.Errorf("no SELECT clause found in INSERT statement")
 	}
-	
+
 	selectQuery := queryText[selectIndex:]
 	return strings.TrimSpace(selectQuery), nil
 }
@@ -1017,11 +1037,11 @@ func extractInsertTableName(queryText string) string {
 	// Pattern: INSERT INTO table_name [...]
 	re := regexp.MustCompile(`(?i)INSERT\s+INTO\s+(?:"?([^"\s]+)"?|\w+)`)
 	matches := re.FindStringSubmatch(queryText)
-	
+
 	if len(matches) > 1 && matches[1] != "" {
 		return matches[1]
 	}
-	
+
 	return ""
 }
 
@@ -1061,7 +1081,7 @@ func (s *QueryService) getTableSchema(
 		WHERE table_name = ?
 		ORDER BY ordinal_position
 	`
-	
+
 	rows, err := dataSourceDB.Raw(query, tableName).Rows()
 	if err != nil {
 		return nil, err
@@ -1084,32 +1104,32 @@ func (s *QueryService) getTableSchema(
 // parseValue attempts to parse a SQL value string into appropriate Go type
 func parseValue(value string) interface{} {
 	value = strings.TrimSpace(value)
-	
+
 	// Handle NULL
 	if strings.ToUpper(value) == "NULL" {
 		return nil
 	}
-	
+
 	// Handle quoted strings
 	if (strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'")) ||
-	   (strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"")) {
+		(strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"")) {
 		// Remove quotes and handle escaped quotes
 		unquoted := value[1 : len(value)-1]
 		unquoted = strings.ReplaceAll(unquoted, "''", "'")
 		unquoted = strings.ReplaceAll(unquoted, "\"\"", "\"")
 		return unquoted
 	}
-	
+
 	// Try integer
 	if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
 		return intVal
 	}
-	
+
 	// Try float
 	if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
 		return floatVal
 	}
-	
+
 	// Try boolean
 	lowerVal := strings.ToLower(value)
 	if lowerVal == "true" {
@@ -1118,7 +1138,7 @@ func parseValue(value string) interface{} {
 	if lowerVal == "false" {
 		return false
 	}
-	
+
 	// Return as string
 	return value
 }
@@ -1172,7 +1192,7 @@ func (s *QueryService) previewInsertValues(
 	schema *TableSchema,
 ) (*InsertPreviewResult, error) {
 	parser := &InsertParser{}
-	
+
 	parsed, err := parser.parseInsertValues(queryText)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse VALUES: %w", err)
@@ -1199,7 +1219,7 @@ func (s *QueryService) previewInsertValues(
 	if rowCount > MaxInsertPreviewRows {
 		rowCount = MaxInsertPreviewRows
 	}
-	
+
 	for i := 0; i < rowCount; i++ {
 		row := make(map[string]interface{})
 		for j, colName := range columns {

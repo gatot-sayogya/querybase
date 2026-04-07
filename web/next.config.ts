@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // output: 'export' is only for production static builds
+  // Disabled for E2E testing with dev server
+  output: process.env.NODE_ENV === 'production' ? 'export' : undefined,
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
   },

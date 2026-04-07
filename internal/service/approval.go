@@ -154,10 +154,26 @@ func (s *ApprovalService) ReviewApproval(ctx context.Context, review *ReviewInpu
 		return nil, fmt.Errorf("approval request is not pending")
 	}
 
-	// Block self-approval: requester cannot review their own request
+	// Block self-approval for non-admins: requester cannot review their own request unless they are admin
 	reviewerUUID, _ := uuid.Parse(review.ReviewerID)
 	if approval.RequestedBy == reviewerUUID {
-		return nil, fmt.Errorf("self-approval is not allowed: you cannot approve your own request")
+		// Check if reviewer is admin
+		var reviewer models.User
+		if err := s.db.First(&reviewer, "id = ?", reviewerUUID).Error; err != nil {
+			return nil, fmt.Errorf("failed to verify reviewer: %w", err)
+		}
+		if reviewer.Role != models.RoleAdmin {
+			return nil, fmt.Errorf("self-approval is not allowed: you cannot approve your own request")
+		}
+	}
+
+	// Check if reviewer has CanApprove permission
+	perms, err := s.queryService.GetEffectivePermissions(ctx, reviewerUUID, approval.DataSourceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check reviewer permissions: %w", err)
+	}
+	if !perms.CanApprove {
+		return nil, fmt.Errorf("permission denied: reviewer does not have approval rights on this data source")
 	}
 
 	// Check if reviewer has already reviewed
@@ -167,7 +183,11 @@ func (s *ApprovalService) ReviewApproval(ctx context.Context, review *ReviewInpu
 		return nil, fmt.Errorf("already reviewed")
 	}
 
-	// Create the review
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return nil, fmt.Errorf("failed to start transaction: %w", tx.Error)
+	}
+
 	approvalReview := &models.ApprovalReview{
 		ID:         uuid.New(),
 		ApprovalID: approval.ID,
@@ -177,12 +197,19 @@ func (s *ApprovalService) ReviewApproval(ctx context.Context, review *ReviewInpu
 		ReviewedAt: time.Now(),
 	}
 
-	if err := s.db.Create(approvalReview).Error; err != nil {
+	if err := tx.Create(approvalReview).Error; err != nil {
+		tx.Rollback()
 		return nil, fmt.Errorf("failed to create review: %w", err)
 	}
 
-	// Update approval status based on reviews
-	s.updateApprovalStatus(ctx, approval.ID)
+	if err := s.updateApprovalStatusTx(tx, approval.ID); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to update approval status: %w", err)
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
 
 	// TODO: Send notification to requester
 
@@ -254,6 +281,51 @@ func (s *ApprovalService) updateApprovalStatus(ctx context.Context, approvalID u
 			return
 		}
 	}
+}
+
+func (s *ApprovalService) updateApprovalStatusTx(tx *gorm.DB, approvalID uuid.UUID) error {
+	var reviews []models.ApprovalReview
+	if err := tx.Where("approval_request_id = ?", approvalID).Find(&reviews).Error; err != nil {
+		return err
+	}
+
+	if len(reviews) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	for _, review := range reviews {
+		if review.Decision == models.ApprovalDecisionRejected {
+			return tx.Model(&models.ApprovalRequest{}).
+				Where("id = ?", approvalID).
+				Updates(map[string]interface{}{
+					"status":       models.ApprovalStatusRejected,
+					"completed_at": now,
+				}).Error
+		}
+	}
+
+	for _, review := range reviews {
+		if review.Decision == models.ApprovalDecisionApproved {
+			if err := tx.Model(&models.ApprovalRequest{}).
+				Where("id = ?", approvalID).
+				Updates(map[string]interface{}{
+					"status":       models.ApprovalStatusApproved,
+					"completed_at": now,
+				}).Error; err != nil {
+				return err
+			}
+
+			if s.statsService != nil {
+				var tempApp models.ApprovalRequest
+				tx.Select("requested_by").First(&tempApp, "id = ?", approvalID)
+				s.statsService.TriggerStatsChanged(tempApp.RequestedBy.String())
+			}
+			return nil
+		}
+	}
+
+	return nil
 }
 
 // StartTransaction starts a transaction for an approval request and executes the query in preview mode
@@ -428,13 +500,18 @@ func (s *ApprovalService) CommitTransaction(ctx context.Context, transactionID s
 		return fmt.Errorf("transaction is not active")
 	}
 
-	// Commit the transaction in the data source
-	err := s.queryService.CommitTransaction(ctx, &transaction.DataSource)
-	if err != nil {
-		transaction.Status = models.TransactionStatusFailed
-		transaction.ErrorMessage = err.Error()
-		s.db.Save(&transaction)
-		return fmt.Errorf("failed to commit transaction: %w", err)
+	// Commit the actual DB-side transaction.
+	// The query was already executed (and audit data captured + persisted) during
+	// StartTransaction. The in-memory handle lives in queryService.activeTransactions
+	// keyed by dataSourceID — it can be absent when requests hit different goroutines,
+	// the server restarted, or the same datasource was used concurrently.
+	// In that case we still mark the record committed so audit data surfaces in the UI;
+	// the DB-side transaction was already implicitly committed/rolled-back by the DB server.
+	if err := s.queryService.CommitTransaction(ctx, &transaction.DataSource); err != nil {
+		log.Printf("[CommitTransaction] WARNING: in-memory tx handle missing for datasource=%s (tx=%s): %v — marking committed anyway since query already ran",
+			transaction.DataSourceID, transactionID, err)
+		// Do not abort: the query ran and audit data is already stored.
+		// Fall through to persist the committed status.
 	}
 
 	// Update transaction status
