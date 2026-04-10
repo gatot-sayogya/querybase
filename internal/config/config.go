@@ -10,11 +10,12 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
-	CORS     CORSConfig     `mapstructure:"cors"`
+	Server     ServerConfig     `mapstructure:"server"`
+	Database   DatabaseConfig   `mapstructure:"database"`
+	Redis      RedisConfig      `mapstructure:"redis"`
+	JWT        JWTConfig        `mapstructure:"jwt"`
+	CORS       CORSConfig       `mapstructure:"cors"`
+	GoogleChat GoogleChatConfig `mapstructure:"googlechat"`
 }
 
 // ServerConfig represents the server configuration
@@ -64,6 +65,15 @@ type CORSConfig struct {
 	MaxAge int `mapstructure:"max_age"`
 }
 
+// GoogleChatConfig represents the Google Chat integration configuration
+type GoogleChatConfig struct {
+	// Enabled indicates whether Google Chat notifications are enabled
+	Enabled bool `mapstructure:"enabled"`
+
+	// BaseURL is the base URL for generating approval links in notifications
+	BaseURL string `mapstructure:"base_url"`
+}
+
 // Load loads the configuration from file and environment variables
 func Load(path string) (*Config, error) {
 	viper.SetConfigFile(path)
@@ -82,6 +92,8 @@ func Load(path string) (*Config, error) {
 	viper.SetDefault("cors.allowed_origins", "http://localhost:3000,http://localhost:3001,http://localhost:8080")
 	viper.SetDefault("cors.allow_credentials", true)
 	viper.SetDefault("cors.max_age", 86400) // 24 hours
+	viper.SetDefault("googlechat.enabled", false)
+	viper.SetDefault("googlechat.base_url", "")
 
 	// Allow environment variables to override config
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
