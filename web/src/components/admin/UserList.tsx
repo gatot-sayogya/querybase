@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import Pagination from '@/components/ui/Pagination';
+import Card from '@/components/ui/Card';
 import type { User } from '@/types';
 
 interface UserListProps {
@@ -17,10 +19,19 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'user' | 'viewer'>('all');
   const [search, setSearch] = useState('');
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, roleFilter, search]);
 
   const fetchUsers = async () => {
     try {
@@ -97,12 +108,14 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
     return true;
   });
 
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   if (loading) {
     return (
       <div className="p-8 space-y-4">
         {[1, 2, 3].map((i) => (
           <div key={i} className="animate-pulse">
-            <div className="h-16 bg-slate-100 rounded-lg"></div>
+            <div className="h-16 bg-[var(--input-bg)] rounded-lg"></div>
           </div>
         ))}
       </div>
@@ -111,11 +124,11 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 m-4">
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+      <div className="bg-[var(--red-bg)] border border-[var(--red-border)] rounded-lg p-4 m-4">
+        <p className="text-sm text-[var(--red-text)]">{error}</p>
         <button
           onClick={fetchUsers}
-          className="mt-2 text-sm text-red-600 dark:text-red-400 underline"
+          className="mt-2 text-sm text-[var(--red-text)] underline"
         >
           Retry
         </button>
@@ -124,11 +137,11 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 flex flex-col h-full">
       {/* Search and Filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between shrink-0">
         <div className="relative flex-1 max-w-md w-full">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -138,7 +151,7 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search users..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all sleek-shadow placeholder-slate-400 text-sm font-medium"
+            className="w-full pl-10 pr-4 py-2.5 bg-[var(--input-bg)] border border-[var(--border)] rounded-2xl focus:ring-2 focus:ring-[var(--accent-blue)] outline-none transition-all sleek-shadow placeholder-[var(--text-faint)] text-sm font-medium"
           />
         </div>
 
@@ -149,8 +162,8 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
               onClick={() => setFilter(f)}
               className={`px-6 py-2 text-xs font-bold rounded-xl transition-all duration-300 ${
                 filter === f 
-                  ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  ? 'bg-[var(--card-bg)] text-[var(--accent-blue)] shadow-sm' 
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
             >
               {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -159,76 +172,97 @@ export default function UserList({ onEditUser, selectedId }: UserListProps) {
         </div>
       </div>
 
-      <div className="space-y-3">
+      <Card variant="default" padding="none" className="border-none sleek-shadow flex flex-col flex-1 min-h-0 overflow-hidden">
         {filteredUsers.length === 0 ? (
-          <div className="p-20 text-center glass rounded-3xl border border-slate-100 dark:border-slate-800/50">
-            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
+          <div className="p-20 text-center flex-1 flex items-center justify-center">
+            <div>
+              <div className="w-16 h-16 bg-[var(--input-bg)] rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--text-faint)]">
+                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">No Users Found</h3>
+              <p className="text-[var(--text-muted)] text-sm mt-1">Adjust your search/filters or create new users to get started.</p>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Users Found</h3>
-            <p className="text-slate-500 text-sm mt-1">Adjust your search/filters or create new users to get started.</p>
           </div>
         ) : (
-          <div className="grid gap-3">
-            {filteredUsers.map((user) => (
-              <div 
-                key={user.id}
-                className="group p-5 glass rounded-3xl border border-white/50 dark:border-slate-800/50 hover:border-blue-500/30 hover:bg-white dark:hover:bg-slate-800/50 transition-all duration-300 sleek-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-4">
-                  <div 
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black text-white shadow-lg"
-                    style={{ background: `linear-gradient(135deg, ${getAvatarColor(user.full_name || user.email)}, #2563EB)` }}
-                  >
-                    {getUserInitials(user.full_name, user.email)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-900 dark:text-white text-lg">
-                        {user.full_name || user.username}
-                      </span>
-                      <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${getRoleBadgeColor(user.role)}`}>
-                        {user.role}
-                      </span>
-                      <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${getStatusBadgeColor(user.is_active)}`}>
-                        {user.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2 mt-0.5">
-                      <span>{user.email}</span>
-                      {user.username !== user.email && (
-                        <>
-                          <span className="text-slate-300">•</span>
-                          <span className="opacity-60 italic">@{user.username}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                  {onEditUser && (
-                    <button
-                      onClick={() => onEditUser(user)}
-                      className="h-10 px-6 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+          <>
+            {/* Scrollable Container for items */}
+            <div className="flex-1 overflow-y-auto sleek-scrollbar divide-y divide-slate-100 dark:divide-slate-800/50">
+              {paginatedUsers.map((user) => (
+                <div 
+                  key={user.id}
+                  className={`group p-5 transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 ${
+                    selectedId === user.id ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div 
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black text-white shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${getAvatarColor(user.full_name || user.email)}, #2563EB)` }}
                     >
-                      Edit
+                      {getUserInitials(user.full_name, user.email)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-[var(--text-primary)] text-lg">
+                          {user.full_name || user.username}
+                        </span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${getRoleBadgeColor(user.role)}`}>
+                          {user.role}
+                        </span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${getStatusBadgeColor(user.is_active)}`}>
+                          {user.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <div className="text-sm text-[var(--text-muted)] font-medium flex items-center gap-2 mt-0.5">
+                        <span>{user.email}</span>
+                        {user.username !== user.email && (
+                          <>
+                            <span className="text-[var(--border)]">•</span>
+                            <span className="opacity-60 italic">@{user.username}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                    {onEditUser && (
+                      <button
+                        onClick={() => onEditUser(user)}
+                        className="h-10 px-6 rounded-xl bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] font-bold text-xs hover:bg-[var(--accent-blue)] hover:text-white transition-all shadow-sm uppercase tracking-wider"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(user.id, user.username)}
+                      className="h-10 px-6 rounded-xl bg-[var(--red-bg)] text-[var(--red-text)] font-bold text-xs hover:bg-[var(--red-bg)] hover:brightness-95 hover:text-[var(--red-text)] transition-all shadow-sm uppercase tracking-wider border border-[var(--red-border)]"
+                    >
+                      Delete
                     </button>
-                  )}
-                  <button
-                    onClick={() => handleDelete(user.id, user.username)}
-                    className="h-10 px-6 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                  >
-                    Delete
-                  </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            
+            {/* Fixed Pagination Controls at bottom */}
+            <div className="shrink-0 border-t border-slate-100 dark:border-slate-800/50 px-4">
+              <Pagination
+                currentPage={currentPage}
+                totalItems={filteredUsers.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+          </>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

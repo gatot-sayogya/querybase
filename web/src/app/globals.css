@@ -114,6 +114,42 @@ body {
   background-clip: content-box;
 }
 
+.sleek-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.sleek-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.sleek-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sleek-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 10px;
+  transition: background-color 0.2s;
+}
+
+.sleek-scrollbar:hover {
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+.sleek-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.4);
+}
+
+.dark .sleek-scrollbar:hover {
+  scrollbar-color: rgba(71, 85, 105, 0.4) transparent;
+}
+
+.dark .sleek-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.4);
+}
+
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background-color: #94a3b8; /* slate-400 */
 }

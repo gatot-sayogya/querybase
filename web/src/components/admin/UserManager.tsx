@@ -76,7 +76,7 @@ export default function UserManager() {
   const activeTabIndex = tabs.indexOf(activeTab);
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-8 pb-12 px-4 md:px-6">
+    <div className="space-y-6 pb-6 px-4 md:px-8 lg:px-16 xl:px-32 2xl:px-48 h-full flex flex-col">
       <motion.div
         className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4"
         initial={{ opacity: 0, y: 20 }}
@@ -111,7 +111,7 @@ export default function UserManager() {
       </motion.div>
 
       <motion.div
-        className="space-y-6"
+        className="flex-1 min-h-0 flex flex-col space-y-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: duration.slow, delay: 0.2 }}

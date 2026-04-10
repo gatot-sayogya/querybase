@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { apiClient } from '@/lib/api-client';
+import Pagination from '@/components/ui/Pagination';
+import Card from '@/components/ui/Card';
 import type { DataSource } from '@/types';
 import { staggerContainer, staggerItem, springConfig } from '@/lib/animations';
 
@@ -24,9 +26,18 @@ export default function DataSourceList({
   const [testingId, setTestingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   useEffect(() => {
     fetchDataSources();
   }, []);
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const fetchDataSources = async () => {
     try {
@@ -66,17 +77,6 @@ export default function DataSourceList({
     }
   };
 
-  const getTypeBadgeColor = (type: string) => {
-    return 'badge-slate';
-  };
-
-  const getHealthStatusColor = (ds: DataSource) => {
-    if (!ds.is_active) {
-      return 'badge-red text-red-700 bg-red-50';
-    }
-    return 'badge-green';
-  };
-
   const filteredDataSources = dataSources.filter((ds) => {
     if (search) {
       const qs = search.toLowerCase();
@@ -89,20 +89,22 @@ export default function DataSourceList({
     return true;
   });
 
+  const paginatedDataSources = filteredDataSources.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   if (loading) {
     return (
       <div className="p-8 grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="animate-pulse bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-6 h-[200px]">
+          <div key={i} className="animate-pulse bg-[var(--card-bg)] rounded-xl border border-[var(--border-light)] p-6 h-[200px]">
             <div className="flex gap-4">
-              <div className="w-11 h-11 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+              <div className="w-11 h-11 bg-[var(--input-bg)] rounded-xl"></div>
               <div className="flex-1 space-y-2 py-1">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                <div className="h-4 bg-[var(--input-bg)] rounded w-3/4"></div>
+                <div className="h-3 bg-[var(--input-bg)] rounded w-1/2"></div>
               </div>
             </div>
-            <div className="mt-6 h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-            <div className="mt-4 h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+            <div className="mt-6 h-3 bg-[var(--input-bg)] rounded w-full"></div>
+            <div className="mt-4 h-3 bg-[var(--input-bg)] rounded w-1/3"></div>
           </div>
         ))}
       </div>
@@ -111,11 +113,11 @@ export default function DataSourceList({
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 m-4">
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+      <div className="bg-[var(--red-bg)] border border-[var(--red-border)] rounded-lg p-4 m-4">
+        <p className="text-sm text-[var(--red-text)]">{error}</p>
         <button
           onClick={fetchDataSources}
-          className="mt-2 text-sm text-red-600 dark:text-red-400 underline"
+          className="mt-2 text-sm text-[var(--red-text)] underline"
         >
           Retry
         </button>
@@ -125,14 +127,14 @@ export default function DataSourceList({
 
   return (
     <motion.div 
-      className="space-y-6"
+      className="space-y-6 flex flex-col h-full"
       initial="hidden"
       animate="visible"
       variants={staggerContainer}
     >
       {/* Search Bar */}
-      <div className="relative max-w-md w-full">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+      <div className="relative max-w-md w-full shrink-0">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -142,107 +144,127 @@ export default function DataSourceList({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search data sources..."
-          className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all sleek-shadow placeholder-slate-400 text-sm font-medium"
+          className="w-full pl-10 pr-4 py-2.5 bg-[var(--input-bg)] border border-[var(--border)] rounded-2xl focus:ring-2 focus:ring-[var(--accent-blue)] outline-none transition-all sleek-shadow placeholder-[var(--text-faint)] text-sm font-medium"
         />
       </div>
 
-      <div className="space-y-3">
+      <Card variant="default" padding="none" className="border-none sleek-shadow flex flex-col flex-1 min-h-0 overflow-hidden">
         {filteredDataSources.length === 0 ? (
           <motion.div 
-            className="p-20 text-center glass rounded-3xl border border-slate-100 dark:border-slate-800/50"
+            className="p-20 text-center flex-1 flex items-center justify-center"
             variants={staggerItem}
           >
-            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4M0 12h18M0 12h18" />
-              </svg>
+            <div>
+              <div className="w-16 h-16 bg-[var(--input-bg)] rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--text-faint)]">
+                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4M0 12h18M0 12h18" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">No Data Sources Found</h3>
+              <p className="text-[var(--text-muted)] text-sm mt-1">Adjust your search or connect a new database.</p>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Data Sources Found</h3>
-            <p className="text-slate-500 text-sm mt-1">Adjust your search or connect a new database.</p>
           </motion.div>
         ) : (
-          <div className="grid gap-3">
-            {filteredDataSources.map((dataSource, index) => {
-              const isPg = dataSource.type === 'postgresql';
-              const isMysql = dataSource.type === 'mysql';
-              
-              let iconClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
-              if (isPg) iconClass = 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
-              if (isMysql) iconClass = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+          <>
+            {/* Scrollable Container for items */}
+            <div className="flex-1 overflow-y-auto sleek-scrollbar divide-y divide-slate-100 dark:divide-slate-800/50">
+              {paginatedDataSources.map((dataSource, index) => {
+                const isPg = dataSource.type === 'postgresql';
+                const isMysql = dataSource.type === 'mysql';
+                
+                let iconClass = 'bg-[var(--input-bg)] text-[var(--text-muted)]';
+                if (isPg) iconClass = 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] border-[var(--accent-blue)]/20';
+                if (isMysql) iconClass = 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
 
-              return (
-                <motion.div 
-                  key={dataSource.id} 
-                  className="group p-5 glass rounded-3xl border border-white/50 dark:border-slate-800/50 hover:border-blue-500/30 hover:bg-white dark:hover:bg-slate-800/50 transition-all duration-300 sleek-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
-                  variants={staggerItem}
-                  custom={index}
-                  whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                >
-                  <div className="flex items-center gap-4">
-                    <motion.div 
-                      className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl border shadow-sm ${iconClass}`}
-                      whileHover={{ scale: 1.05, rotate: 2 }}
-                      transition={springConfig.micro}
-                    >
-                      {isPg ? <PgIcon /> : isMysql ? <MysqlIcon /> : <DbIcon />}
-                    </motion.div>
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-slate-900 dark:text-white text-lg">
-                          {dataSource.name}
-                        </span>
-                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${iconClass}`}>
-                          {dataSource.type}
-                        </span>
-                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${dataSource.is_active ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-slate-500/10 text-slate-500'}`}>
-                          {dataSource.is_active ? 'Online' : 'Offline'}
-                        </span>
-                      </div>
-                      <div className="text-sm text-slate-500 dark:text-slate-400 font-mono mt-0.5 opacity-80">
-                         {dataSource.host}:{dataSource.port}
+                return (
+                  <motion.div 
+                    key={dataSource.id} 
+                    className={`group p-5 transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 ${
+                      selectedId === dataSource.id ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+                    }`}
+                    variants={staggerItem}
+                    custom={index}
+                  >
+                    <div className="flex items-center gap-4">
+                      <motion.div 
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl border shadow-sm ${iconClass}`}
+                        whileHover={{ scale: 1.05, rotate: 2 }}
+                        transition={springConfig.micro}
+                      >
+                        {isPg ? <PgIcon /> : isMysql ? <MysqlIcon /> : <DbIcon />}
+                      </motion.div>
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-[var(--text-primary)] text-lg">
+                            {dataSource.name}
+                          </span>
+                          <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${iconClass}`}>
+                            {dataSource.type}
+                          </span>
+                          <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${dataSource.is_active ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-slate-500/10 text-slate-500'}`}>
+                            {dataSource.is_active ? 'Online' : 'Offline'}
+                          </span>
+                        </div>
+                        <div className="text-sm text-[var(--text-muted)] font-mono mt-0.5 opacity-80">
+                           {dataSource.host}:{dataSource.port}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                    <motion.button
-                      onClick={() => handleTestConnection(dataSource.id)}
-                      disabled={testingId === dataSource.id}
-                      className="h-10 px-6 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs hover:bg-emerald-500 hover:text-white transition-all shadow-sm disabled:opacity-50"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      transition={springConfig.micro}
-                    >
-                      {testingId === dataSource.id ? 'Testing...' : 'Test Connection'}
-                    </motion.button>
-                    {onEditDataSource && (
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
                       <motion.button
-                        onClick={() => onEditDataSource(dataSource)}
-                        className="h-10 px-6 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                        onClick={() => handleTestConnection(dataSource.id)}
+                        disabled={testingId === dataSource.id}
+                        className="h-10 px-6 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs hover:bg-emerald-500 hover:text-white transition-all shadow-sm disabled:opacity-50"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         transition={springConfig.micro}
                       >
-                        Edit
+                        {testingId === dataSource.id ? 'Testing...' : 'Test Connection'}
                       </motion.button>
-                    )}
-                    <motion.button
-                      onClick={() => handleDelete(dataSource.id, dataSource.name)}
-                      className="h-10 px-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500 hover:text-white transition-all shadow-sm ml-2"
-                      title="Delete Data Source"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      transition={springConfig.micro}
-                    >
-                         Delete
-                    </motion.button>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+                      {onEditDataSource && (
+                        <motion.button
+                          onClick={() => onEditDataSource(dataSource)}
+                          className="h-10 px-6 rounded-xl bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] font-bold text-xs hover:bg-[var(--accent-blue)] hover:text-white transition-all shadow-sm uppercase tracking-wider"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          transition={springConfig.micro}
+                        >
+                          Edit
+                        </motion.button>
+                      )}
+                      <motion.button
+                        onClick={() => handleDelete(dataSource.id, dataSource.name)}
+                        className="h-10 px-10 rounded-xl bg-[var(--red-bg)] text-[var(--red-text)] font-bold text-xs hover:bg-[var(--red-bg)] hover:brightness-95 hover:text-[var(--red-text)] transition-all shadow-sm ml-2 uppercase tracking-wider border border-[var(--red-border)]"
+                        title="Delete Data Source"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={springConfig.micro}
+                      >
+                           Delete
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Fixed Pagination Controls at bottom */}
+            <div className="shrink-0 border-t border-slate-100 dark:border-slate-800/50 px-4">
+              <Pagination
+                currentPage={currentPage}
+                totalItems={filteredDataSources.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+          </>
         )}
-      </div>
+      </Card>
     </motion.div>
   );
 }

@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api-client';
 import type { Query, ApprovalRequest } from '@/types';
 import { formatDate } from '@/lib/utils';
 import Card from '@/components/ui/Card';
+import Pagination from '@/components/ui/Pagination';
 import Button from '@/components/ui/Button';
 import Loading from '@/components/ui/Loading';
 import { StaggerContainer, StaggerItem } from '@/components/layout/PageTransition';
@@ -42,6 +43,7 @@ export default function QueryHistory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   const shouldReduceMotion = useReducedMotion();
@@ -92,17 +94,25 @@ export default function QueryHistory() {
         let fetchedQueries: Query[] = [];
         let fetchedApprovals: ApprovalRequest[] = [];
         let newTotal = 0;
+        let readsTotal = 0;
+        let writesTotal = 0;
 
         if (activeTab === 'all' || activeTab === 'reads') {
-          const data = await apiClient.getQueryHistory(page, 20, debouncedSearch);
+          const data = await apiClient.getQueryHistory(page, pageSize, debouncedSearch);
           fetchedQueries = data.queries;
+          readsTotal = data.total;
           if (activeTab === 'reads') newTotal = data.total;
         }
 
         if (activeTab === 'all' || activeTab === 'writes') {
-          const data = await apiClient.getApprovalHistory(page, 20, debouncedSearch);
+          const data = await apiClient.getApprovalHistory(page, pageSize, debouncedSearch);
           fetchedApprovals = data.approvals;
+          writesTotal = data.total;
           if (activeTab === 'writes') newTotal = data.total;
+        }
+
+        if (activeTab === 'all') {
+          newTotal = readsTotal + writesTotal;
         }
 
         const items: HistoryItem[] = [];
@@ -136,9 +146,7 @@ export default function QueryHistory() {
 
         items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-        if (activeTab === 'all') {
-          newTotal = items.length;
-        }
+
 
         setHistoryItems(items);
         setTotal(newTotal);
@@ -150,7 +158,7 @@ export default function QueryHistory() {
     };
 
     fetchHistory();
-  }, [isAuthenticated, page, debouncedSearch, activeTab]);
+  }, [isAuthenticated, page, pageSize, debouncedSearch, activeTab]);
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -289,7 +297,7 @@ export default function QueryHistory() {
             ) : (
               <motion.div
                 key="list"
-                className="flex-1 overflow-y-auto scrollbar-minimal divide-y divide-slate-50 dark:divide-slate-800/50"
+                className="flex-1 overflow-y-auto sleek-scrollbar divide-y divide-slate-50 dark:divide-slate-800/50"
                 variants={containerVariants}
                 initial="initial"
                 animate="animate"
@@ -352,21 +360,24 @@ export default function QueryHistory() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Fixed Pagination Controls at bottom, rendered inside Card when items exist */}
+          {historyItems.length > 0 && (
+            <div className="shrink-0 border-t border-slate-100 dark:border-slate-800/50 px-4">
+              <Pagination
+                currentPage={page}
+                totalItems={total}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+              />
+            </div>
+          )}
         </Card>
       </motion.div>
-
-      {total > historyItems.length && (
-        <motion.div
-          className="flex justify-center pt-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Button variant="outline" className="rounded-full px-12" onClick={() => setPage(p => p + 1)} loading={loading}>
-            Load More Streams
-          </Button>
-        </motion.div>
-      )}
     </div>
   );
 }

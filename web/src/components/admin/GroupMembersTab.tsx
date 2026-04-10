@@ -172,7 +172,7 @@ export default function GroupMembersTab({ group }: GroupMembersTabProps) {
                       </div>
                     ) : (
                       <div className="px-4 py-6 text-center text-sm text-[var(--text-muted)]">
-                        No users found matching "{searchQuery}"
+                        No users found matching &quot;{searchQuery}&quot;
                       </div>
                     )}
                   </motion.div>

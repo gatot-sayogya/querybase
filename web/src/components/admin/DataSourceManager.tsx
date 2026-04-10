@@ -38,7 +38,7 @@ export default function DataSourceManager() {
 
   return (
     <motion.div 
-      className="max-w-[1600px] mx-auto space-y-8 pb-12 px-4 md:px-6"
+      className="space-y-6 pb-6 px-4 md:px-8 lg:px-16 xl:px-32 2xl:px-48 h-full flex flex-col"
       initial="hidden"
       animate="visible"
       variants={staggerContainer}
@@ -76,7 +76,7 @@ export default function DataSourceManager() {
 
       {/* Content */}
       <motion.div 
-        className="space-y-6"
+        className="flex-1 min-h-0 flex flex-col space-y-6"
         variants={staggerItem}
       >
         <DataSourceList key={refreshKey} onEditDataSource={handleEditDataSource} selectedId={null} />
