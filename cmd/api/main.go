@@ -81,8 +81,9 @@ func main() {
 	statsService := service.NewStatsService(db, redisClient)
 	blacklistService := service.NewTokenBlacklistService(redisClient)
 	auditService := service.NewAuditService(db)
+	notificationService := service.NewNotificationService(db)
 	queryService := service.NewQueryService(db, cfg.JWT.Secret, statsService, auditService)
-	approvalService := service.NewApprovalService(db, queryService, statsService)
+	approvalService := service.NewApprovalService(db, queryService, statsService, notificationService)
 	dataSourceService := service.NewDataSourceService(db, cfg.JWT.Secret)
 	schemaService := service.NewSchemaService(db, cfg.JWT.Secret)
 

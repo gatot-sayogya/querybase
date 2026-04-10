@@ -14,19 +14,21 @@ import (
 
 // ApprovalService handles approval workflow logic
 type ApprovalService struct {
-	db           *gorm.DB
-	queryService *QueryService
-	statsService *StatsService
-	auditService *AuditService
+	db                  *gorm.DB
+	queryService        *QueryService
+	statsService        *StatsService
+	auditService        *AuditService
+	notificationService *NotificationService
 }
 
 // NewApprovalService creates a new approval service
-func NewApprovalService(db *gorm.DB, queryService *QueryService, statsService *StatsService) *ApprovalService {
+func NewApprovalService(db *gorm.DB, queryService *QueryService, statsService *StatsService, notificationService *NotificationService) *ApprovalService {
 	return &ApprovalService{
-		db:           db,
-		queryService: queryService,
-		statsService: statsService,
-		auditService: NewAuditService(db),
+		db:                  db,
+		queryService:        queryService,
+		statsService:        statsService,
+		auditService:        NewAuditService(db),
+		notificationService: notificationService,
 	}
 }
 
@@ -49,7 +51,15 @@ func (s *ApprovalService) CreateApprovalRequest(ctx context.Context, req *Approv
 		return nil, fmt.Errorf("failed to create approval request: %w", err)
 	}
 
-	// TODO: Send notifications to eligible approvers
+	// Send notification to approvers
+	if s.notificationService != nil {
+		go func() {
+			ctx := context.Background()
+			if err := s.notificationService.SendApprovalNotification(ctx, approval); err != nil {
+				log.Printf("[CreateApprovalRequest] Failed to send notification: %v", err)
+			}
+		}()
+	}
 
 	// Trigger stats update
 	if s.statsService != nil {
@@ -211,7 +221,15 @@ func (s *ApprovalService) ReviewApproval(ctx context.Context, review *ReviewInpu
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// TODO: Send notification to requester
+	// Send notification to requester
+	if s.notificationService != nil {
+		go func() {
+			ctx := context.Background()
+			if err := s.notificationService.SendReviewNotification(ctx, &approval, approvalReview); err != nil {
+				log.Printf("[ReviewApproval] Failed to send notification: %v", err)
+			}
+		}()
+	}
 
 	return approvalReview, nil
 }
